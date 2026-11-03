@@ -21,6 +21,8 @@ jobs:
   build-and-test:
     name: Corstone-300 / Ethos-U55-256 (GCC)
     runs-on: ubuntu-latest
+    env:
+      CMSIS_PACK_ROOT: ${{ runner.temp }}/cmsis-packs
 
     steps:
       - uses: actions/checkout@v7
@@ -40,10 +42,12 @@ jobs:
         uses: actions/cache@v6
         with:
           key: cmsis-packs-zephyr-u55-${{ hashFiles('zephyr-u55/*.csolution.yml', 'Pack/*.pack') }}
-          path: /home/runner/.cache/arm/packs
+          path: ${{ env.CMSIS_PACK_ROOT }}
 
-      - name: Install ExecuTorch Zephyr preview pack
-        run: cpackget add Pack/PyTorch.ExecuTorch.1.6.0-zephyrpreview1.pack
+      - name: Install repository packs
+        run: |
+          cpackget add --agree-embedded-license Pack/*.pack
+          test -f "${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/PyTorch.ExecuTorch.pdsc"
 
       - name: Cache Zephyr workspace
         uses: actions/cache@v6
