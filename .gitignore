@@ -4,6 +4,9 @@ __pycache__/
 *.pyc
 *.bak
 
+# Temporary reference files used while adapting the Zephyr template
+Chris/
+
 # The exported ExecuTorch program. create_ai_layer.py writes it next to the
 # generated AI layer; the C array in ai_layer/model_pte.c is what gets built.
 *.pte
