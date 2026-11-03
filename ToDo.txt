@@ -1,0 +1,15 @@
+TODO
+====
+
+- Expand support to both Zephyr-based and CMSIS-based workflows.
+
+- Add Cortex-M-only targets alongside the existing Cortex-M/Ethos-U targets.
+
+- Support multiple models declared in the `mlops.model.inputs` list of the
+  `*.csolution.yml` in each workflow directory. `multi-model-example` can
+  be a reference for flexible per-model paths, parameters, and options.
+
+  Requirement: `create_ai_layer.py` shall process every entry in
+  `mlops.model.inputs` and resolve its model path relative to the solution
+  directory instead of assuming a fixed `model/model.py` location.
+
