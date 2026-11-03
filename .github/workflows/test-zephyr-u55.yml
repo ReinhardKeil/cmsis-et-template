@@ -28,8 +28,8 @@ jobs:
       - name: Activate vcpkg environment
         uses: ARM-software/cmsis-actions/vcpkg@v1.3.1
         with:
-          config: vcpkg-configuration.json
-          cache: cmsis-executorch
+          config: .github/vcpkg-zephyr.json
+          cache: cmsis-executorch-zephyr
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -48,20 +48,23 @@ jobs:
       - name: Cache Zephyr workspace
         uses: actions/cache@v6
         with:
-          key: zephyr-4.5-u55-${{ runner.os }}
+          key: zephyr-4.5-u55-minimal-v1-${{ runner.os }}
           path: ../zephyr-workspace
 
       - name: Prepare Zephyr 4.5
         run: |
           python -m pip install west
           if [ ! -d ../zephyr-workspace/.west ]; then
-            west init ../zephyr-workspace --mr v4.5.0
+            mkdir -p ../zephyr-workspace
+            git clone --depth 1 --branch v4.5.0 \
+              https://github.com/zephyrproject-rtos/zephyr \
+              ../zephyr-workspace/zephyr
+            west init -l ../zephyr-workspace/zephyr
           fi
           cd ../zephyr-workspace
-          west config manifest.project-filter -- +zephyr,+cmsis,+cmsis_6,+hal_ethos_u
-          west update
-          west zephyr-export
           python -m pip install -r zephyr/scripts/requirements.txt
+          west update --narrow -o=--depth=1 cmsis cmsis_6 hal_ethos_u
+          west zephyr-export
 
       - name: Cache model-export environment
         uses: actions/cache@v6
