@@ -21,7 +21,9 @@ concurrency:
 jobs:
   build-and-test:
     name: Corstone-320 / Ethos-U85-256 (${{ matrix.toolchain }})
-    runs-on: ubuntu-latest
+    # vcpkg artifact activation currently fails on ubuntu-26.04 with EACCES
+    # while writing telemetry below /tmp/vcpkg. Keep the CMSIS build on 24.04.
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
