@@ -1,33 +1,27 @@
 solution:
 
-  # List the packs that define the device and/or board.
   packs:
     - pack: ARM::SSE_320_BSP@^2.0.0
     - pack: AlifSemiconductor::Ensemble@^2.2.0-0
     # ExecuTorch is an external Zephyr module. The Ethos-U driver itself is
-    # supplied by Zephyr 4.5 and its hal_ethos_u module.
+    # supplied by upstream Zephyr 4.5 and its hal_ethos_u module.
     - pack: PyTorch::Executorch@^1.6.0-0
 
-  # List different hardware targets that are used to deploy the solution.
   target-types:
-    - type: DevKit-E8
-      board: DevKit-E8
-      device: AE822FA0E5597LS0:M55_HP
+    - type: AppKit-E8
+      board: AppKit-E8-AIML
+      device: AE822FA0E5597BS0:M55_HP
       variables:
-        # west board selection
-        - west-board: ensemble_e8_dk/ae822fa0e5597ls0/rtss_hp
+        - west-board: ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp
       west-defs:
         - DTC_OVERLAY_FILE: app.overlay
       target-set:
         - set:
           debugger:
-            name: ULINKplus@pyOCD
-            port: 3333
+            name: J-Link Server
             protocol: swd
-            clock: 10000000
-            load-setup:
-              # Avoid resuming the flash algorithm before a debugger pin reset.
-              post-reset: system
+            clock: 4000000
+            start-pname: M55_HP
           images:
             - project-context: Zephyr_app.Debug
 
@@ -64,7 +58,6 @@ solution:
       west-defs:
         - CONFIG_SPEED_OPTIMIZATIONS: y
 
-  # List related projects.
   projects:
     - west:
         project-id: Zephyr_app
@@ -74,13 +67,18 @@ solution:
           - EXTRA_ZEPHYR_MODULES: ${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1
 
   mlops:
-    description: Ethos-U85 network demos and benchmarks for Alif DevKit-E8
+    description: TinyCNN for an Ethos-U85-256 target
     npu:
       type: Ethos-U85
       macs: 256
     vela:
       system: RTSS_HP_SRAM_MRAM
       memory: Shared_Sram
+    model:
+      clayer: ai_layer/ai_layer.clayer.yml
+      name: TinyCNN
+      input-shape: 1x16x16x3
+      calibration-samples: 2
 
   compiler: GCC
   created-for: CMSIS-Toolbox@2.15.0

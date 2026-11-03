@@ -4,6 +4,10 @@ This template application runs an ExecuTorch model on the 256-MAC Ethos-U55
 integrated in the Alif Ensemble E8 AI/ML AppKit. It also provides a matching
 Corstone-300 FVP target for simulation.
 
+> [!NOTE]
+> The Alif E8 hardware target is included temporarily for development and
+> validation. It will be removed from the final template.
+
 > [!IMPORTANT]
 > This Zephyr template does not use the `ARM::CMSIS-Ethos-U` pack. The Ethos-U
 > driver is part of upstream Zephyr 4.5 and uses Zephyr's `hal_ethos_u` module.
@@ -56,6 +60,36 @@ Start the generated Arm FVP configuration for `Corstone-300-FVP`. For
 `AppKit-E8`, connect the board's supported debug probe and start the generated
 pyOCD configuration. The application prints the detected NPU configuration,
 performs inference, and ends with `Test_result: PASS` when validation succeeds.
+
+### Alif E8 validation output
+
+The application produces the following output when it runs successfully on the
+Alif Ensemble E8 AI/ML AppKit:
+
+```text
+Hello World! ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp
+Ethos-U55 driver communication check
+Device: ethosu55@400e1000, base: 0x400e1000, IRQ: 55
+Driver version: 2.0.0
+Hardware architecture: 1.1.0
+Hardware revision: 2.0 (status 1)
+Product revision: 4
+Command stream version: 0
+Custom DMA: 0
+MACs per cycle: 256
+Ethos-U55 driver communication OK (ID/configuration read; no inference).
+ExecuTorch Ethos-U55-256 application: 9136 byte model
+Input shape: [1, 16, 16, 3]
+I: Optimizer release nbr: 0 patch: 1
+I: Optimizer config. product=0, cmd_stream_version=0, macs_per_cc=8, shram_size=48, custom_dma=0
+I: Optimizer config. arch version: 1.0.6
+I: Ethos-U config. product=0, cmd_stream_version=0, macs_per_cc=8, shram_size=48, custom_dma=0
+I: Ethos-U. arch version=1.1.0
+I: handle_command_stream: cmd_stream=0x80231480, cms_length 351 words (1404 bytes)
+I: Soft reset ethos-u55
+Output: 10 element(s): -0.0142 0.0206 0.0601 -0.0886 0.0791 0.0522 -0.0301 -0.0775 -0.2800 -0.0095
+Test_result: PASS
+```
 
 ## Configuring the Ethos-U target
 
