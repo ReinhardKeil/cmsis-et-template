@@ -1,0 +1,32 @@
+# Parameters:
+# instance.parameter=value
+# -----------------------------------------------------------------------------
+# Match the Ethos-U85-256 target used by the solution's mlops configuration.
+mps4_board.subsystem.ethosu.num_macs=256
+# Run the Ethos-U functional model without cycle-accurate timing. This makes
+# inference substantially faster, but its reported NPU timing is not realistic.
+mps4_board.subsystem.ethosu.extra_args=--fast
+
+# Zephyr places its secure reset vector in ITCM at 0x10000000. Point both FVP
+# reset-vector controls there so initial boot and debugger resets enter Zephyr.
+mps4_board.subsystem.cpu0.INITSVTOR=0x10000000
+mps4_board.subsystem.iotss3_systemcontrol.INITSVTOR_RST=0x10000000
+mps4_board.subsystem.cpu0.MPU_S=16
+
+# Zephyr uses UART0 as its console on the Corstone-320 FVP.
+mps4_board.uart0.out_file=-
+mps4_board.uart0.unbuffered_output=1
+mps4_board.uart0.shutdown_on_eot=1
+
+# Keep non-console terminals and the visualisation windows out of automated runs.
+mps4_board.telnetterminal0.quiet=1
+mps4_board.telnetterminal0.start_telnet=0
+mps4_board.telnetterminal1.quiet=1
+mps4_board.telnetterminal1.start_telnet=0
+mps4_board.telnetterminal2.quiet=1
+mps4_board.telnetterminal2.start_telnet=0
+mps4_board.telnetterminal5.quiet=1
+mps4_board.telnetterminal5.start_telnet=0
+mps4_board.visualisation.disable-visualisation=1
+vis_hdlcd.disable_visualisation=1
+# -----------------------------------------------------------------------------

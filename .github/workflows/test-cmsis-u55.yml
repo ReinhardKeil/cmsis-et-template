@@ -21,9 +21,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Corstone-300 / Ethos-U55-128 (${{ matrix.toolchain }})
-    # vcpkg artifact activation currently fails on ubuntu-26.04 with EACCES
-    # while writing telemetry below /tmp/vcpkg. Keep the CMSIS build on 24.04.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
@@ -34,7 +32,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Activate vcpkg environment
-        uses: ARM-software/cmsis-actions/vcpkg@v1
+        uses: ARM-software/cmsis-actions/vcpkg@v1.3.1
         with:
           config: vcpkg-configuration.json
           cache: cmsis-executorch

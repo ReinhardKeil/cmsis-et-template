@@ -61,6 +61,9 @@ python model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlo
 cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85
 ```
 
+The `--active SSE-320-U85` option enables that CMSIS-Toolbox target-set for
+both setup and build.
+
 `create_ai_layer.py` automatically restarts itself with the `.venv` interpreter
 when necessary. It resolves `.venv` from the workspace directory. The
 directory containing the supplied `*.cbuild-mlops.yml` is the solution

@@ -1,39 +1,97 @@
-# ExecuTorch on Ethos-U
+# ExecuTorch on Cortex-M and Ethos-U
 
-[![Build and test Ethos-U85-256](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
-[![Build and test Ethos-U55-128](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml)
+[![Build and test CMSIS-U85](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
+[![Build and test CMSIS-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml)
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
 [![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
-This repository is a template for creating embedded applications that deploy
-and run an [ExecuTorch](https://github.com/pytorch/executorch) ML model on an Arm
-Ethos-U NPU.
+This repository provides six template applications for deploying and running
+[ExecuTorch](https://github.com/pytorch/executorch) ML models on Cortex-M
+systems. The templates cover CMSIS and Zephyr software workflows, with a choice
+of Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
+
+Each template is a starting point that can be adopted for a specific hardware
+platform by supplying its device, memory, and execution configuration through
+the CMSIS project and software packs.
 
 - The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
   pack provides the ExecuTorch runtime, required operators, and Ethos-U backend.
-- The [`ARM::CMSIS-Ethos-U`](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
-  pack provides Ethos-U drivers, configuration support, Corstone reference
-  integrations and examples, and documentation for deploying ML models on
-  Ethos-U.
+- In the CMSIS templates, the
+  [`ARM::CMSIS-Ethos-U`](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
+  pack provides the Ethos-U driver and reference-platform integration.
+- The Zephyr templates do not use `ARM::CMSIS-Ethos-U`. They use the Ethos-U
+  driver included in upstream Zephyr 4.5 and Zephyr's `hal_ethos_u` module.
 - The build process uses [CMSIS-Toolbox 2.15.0](https://open-cmsis-pack.github.io/cmsis-toolbox/)
   or higher.
 
-The template can be used for applications targeting any Ethos-U configuration;
-the default solution targets the Arm Corstone-320 reference platform with an
-Ethos-U85 NPU. The same workflow applies to other ML models, targets, and
-applications: export and quantize an ML model developed in PyTorch, delegate it
-to Ethos-U, select only the required runtime components, and build it into an
-embedded application.
+Every template uses the
+[CMSIS-Toolbox MLOps flow](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
+to connect the selected embedded target with the model-conversion tools. The
+generated `*.cbuild-mlops.yml` describes the processor, optional NPU, model,
+conversion settings, and build/run configuration. This allows the resulting
+application and ML model to run and be validated on target hardware or an FVP
+simulation model, following the development loop described in
+[Making Edge AI development more productive](https://developer.arm.com/community/arm-community-blogs/b/tools-software-ides-blog/posts/making-edge-ai-development-more-productive).
 
-## What the template provides
+For the complete path from selecting a template through FVP validation,
+hardware deployment, repeatable real-world data tests, and optimization, see
+[Create ExecuTorch applications for real devices](documentation/executorch-on-real-devices.md).
 
-- Exporting an ExecuTorch ML model for Ethos-U from a Python virtual environment.
+## Template workflows
+
+Each template lives in its own directory and contains its application,
+target-specific configuration, generated AI layer, and Quick Start guide.
+Model sources and model-conversion tools are shared at workspace level.
+
+Each solution defines one or more CMSIS-Toolbox target-sets. Select the
+target-set for setup and build with `--active <target-set>`; this repository
+does not use the older context terminology for that selection.
+
+| Directory | Software workflow | ML execution | Availability |
+| --- | --- | --- | --- |
+| [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
+| [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS | Cortex-M with Ethos-U85 | Available |
+| `cmsis-m/` | CMSIS | Cortex-M only | Planned |
+| `zephyr-u55/` | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Planned |
+| [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 | Available |
+| `zephyr-m/` | Zephyr | Cortex-M only | Planned |
+
+The U55 directories also cover Ethos-U65 targets. Their integration flows are
+close enough that separate `cmsis-u65/` and `zephyr-u65/` templates would only
+duplicate the same structure; the selected hardware configuration supplies the
+specific NPU parameters.
+
+## What the templates provide
+
+- Exporting an ExecuTorch ML model for Cortex-M or Ethos-U from a shared Python virtual environment.
 - The pack [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/) links only the required and operator components that the ML model needs.
-- Managing the NPU and Vela configuration in the CMSIS solution project rather than duplicating it in the Python exporter.
+- Managing the target and optional NPU/Vela configuration in the CMSIS project rather than duplicating it in the Python exporter.
 - A three-step flow with a clean hand-over from the CMSIS-Toolbox to an MLOps system: the toolbox describes the target in a `*.cbuild-mlops.yml` file, a script turns that into the AI layer, and the toolbox builds the application.
-- Running the finished application on a Corstone-320 FVP simulation model.
+- Running and validating the finished application on hardware or an FVP simulation model.
+
+## Configuring an Ethos-U template
+
+Use the
+[CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
+when adapting an Ethos-U template to hardware. The NPU type, MAC count, memory
+regions, and Vela configuration must describe the same hardware in every part
+of the flow: the solution's `mlops:` settings, the generated model, the driver
+and board configuration, the linker and memory attributes, and the FVP or
+physical target.
+
+For an FVP, keep its `ethosu.num_macs` parameter consistent with the target
+configuration. The integration guide includes a concrete
+[256-MAC FVP configuration example](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation).
+After changing the NPU or its MAC count, run `cbuild setup`, regenerate the AI
+layer so that Vela recompiles the model for that accelerator, and rebuild the
+application.
+
+The CMSIS templates express the driver configuration through the
+`ARM::CMSIS-Ethos-U` Board layer. Zephyr templates apply the same configuration
+consistency to their Kconfig and devicetree settings, but use Zephyr's upstream
+Ethos-U driver rather than the `ARM::CMSIS-Ethos-U` pack.
 
 ## Prerequisites
 
@@ -51,158 +109,14 @@ can be used for evaluation.
 > [!NOTE]
 > On Windows, enable [long-path support](https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
 
-## Quick start
+## Quick starts
 
-The steps below build the default Corstone-320 / Ethos-U85-256 application
-using `cmsis-u85/cmsis-executorch.csolution.yml`. The alternative
-`cmsis-u55/cmsis-executorch.csolution.yml` targets Corstone-300 / Ethos-U55-128.
-Both can be built and run entirely in Keil Studio for VS Code.
+Start with the guide in the selected template directory. The currently
+available guides are:
 
-### 1. Create the application
-
-On [GitHub](https://github.com/Arm-Examples/CMSIS-Executorch), select **Use this
-template** to create your application repository, then clone it and open its
-folder in VS Code. In the CMSIS view, select **... > Select Active Solution
-from Workspace**, then choose `cmsis-u85/cmsis-executorch.csolution.yml` for this Quick
-start.
-
-### 2. Set up the project tools
-
-When the folder opens, Arm Environment Manager installs the tools listed in
-`vcpkg-configuration.json`.
-
-To set up ML model export, select **Terminal > Run Task > Create Python environment
-(uv)**. This task uses [Astral's uv](https://docs.astral.sh/uv/) from `PATH` and can
-download a supported Python (`>=3.10,<3.14`) before installing the dependencies.
-Alternatively, **Create Python environment (pip)** uses a compatible Python
-already installed on the host. Python 3.14 is not supported because
-tosa-tools 2026.5.0 has no 3.14 wheels.
-
-The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
-pack is resolved through the Arm pack service. To install it manually instead:
-
-```bash
-cpackget add PyTorch::ExecuTorch@1.5.1
-```
-
-> [!IMPORTANT]
-> The pack and [ExecuTorch Python exporter](https://docs.pytorch.org/executorch/stable/getting-started.html)
-> versions must match, as the generated `.pte` is consumed by the runtime in
-> `PyTorch::ExecuTorch@1.5.1`. The matching `executorch==1.5.1` wheel is pinned
-> in `requirements.txt`.
-
-### 3. Build and run
-
-The repository contains the generated U85 AI layer, so the default solution
-builds immediately. After changing the ML model or target, select **Terminal > Run
-Task > Create AI layer**. The task exports the ML model for the active solution's
-NPU from its `*.cbuild-mlops.yml` file and rewrites that solution's `ai_layer/`.
-
-To use Ethos-U55-128 instead, select
-`cmsis-u55/cmsis-executorch.csolution.yml` as the active solution and run **Create AI
-layer** before building.
-
-Use the CMSIS action buttons to build the application, then select **Run** or
-**Debug**. Keil Studio starts the selected FVP simulation model automatically.
-On macOS, where Arm ships no native FVP, set `model:` in the active csolution's
-target-set to `${workspaceFolder}/.vscode/fvp.sh` and copy
-`.vscode/launch.json.mac` to
-`.vscode/launch.json`. Docker Desktop must be running; the first Run or Debug
-builds the container image (about 100 MB download).
-
-A successful run prints the Ethos-U configuration, output logits, and a pass
-result:
-
-```text
-Ethos-U version info:
-    Arch:       v2.0.0
-    MACs/cc:    256
-    Cmd stream: v1
-ExecuTorch Ethos-U85-256 application: 8720 byte model
-Output: 10 element(s): -0.0142 0.0206 0.0601 -0.0886 0.0791 0.0522 -0.0301 -0.0775 -0.2800 -0.0095
-Test_result: PASS
-```
-
-### Command-line build
-
-The same workflow from the VS Code Terminal (or any shell with the tools from
-`vcpkg-configuration.json` on the path) is three commands plus the one-time
-venv setup.
-
-#### 0. Create the Python environment (once)
-
-On Linux or macOS:
-
-```bash
-./model_conversion/setup_venv.sh
-```
-
-On Windows:
-
-```powershell
-.\model_conversion\setup_venv.bat
-```
-
-The setup script creates `.venv/` in `${workspaceFolder}` and installs the packages required to
-quantize and export the ML model. It is safe to run again; use `--recreate` when
-you want a completely new environment. The wrappers use `python3` (`python` on
-Windows); point them at another interpreter with `PYTHON=python3.12 ./model_conversion/setup_venv.sh`.
-
-With [Astral's uv](https://docs.astral.sh/uv/getting-started/installation/) on `PATH`,
-`./model_conversion/setup_venv.sh --uv --python 3.12` (or `.\model_conversion\setup_venv.bat ...`) creates the
-environment with `uv venv` for that Python version, downloading the interpreter
-if needed, and installs with `uv pip`. Add `--recreate` to change the Python
-version of an existing environment.
-
-#### 1. Generate the MLOps information
-
-```bash
-cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs
-```
-
-This resolves the packs and the active target and writes
-`cmsis-u85/cmsis-executorch.cbuild-mlops.yml`: the processor, NPU and Vela
-settings of the target, and the location of the AI layer. (`--packs`
-installs missing packs and is only needed on a fresh checkout; the layers'
-RTE configuration is committed, so no `--update-rte` is required.)
-
-#### 2. Create the AI layer
-
-```bash
-python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml
-```
-
-This is the MLOps step. The script uses `.venv` from `${workspaceFolder}`. It
-treats the directory containing the MLOps file as the solution directory,
-reads `model/model.py` and every MLOps-relative path from there, and writes the
-complete AI layer into that solution's `ai_layer/`. It therefore supports
-multiple solutions in workspace subdirectories while sharing one conversion
-environment. The script restarts itself in `.venv` when necessary (use
-`python` on Windows).
-
-#### 3. Build the application
-
-```bash
-cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85
-```
-
-A plain CMSIS build; no Python is involved. The resulting image is:
-
-```text
-cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf
-```
-
-#### 4. Run on the FVP
-
-```bash
-FVP_Corstone_SSE-320 \
-    -f cmsis-u85/board/fvp_config.txt --simlimit 60 \
-    -a cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf
-```
-
-This is the FVP command the Run and Debug buttons use too. On macOS, call
-`.vscode/fvp.sh` with the same arguments; it runs the FVP simulation model in
-Docker.
+- [CMSIS Cortex-M with Ethos-U55](cmsis-u55/README.md) — Corstone-300 / Ethos-U55-128.
+- [CMSIS Cortex-M with Ethos-U85](cmsis-u85/README.md) — Corstone-320 / Ethos-U85-256.
+- [Zephyr Cortex-M with Ethos-U85](zephyr-u85/README.md) — Alif Ensemble E8 hardware or Corstone-320 FVP.
 
 ## How ML model generation works
 
@@ -223,7 +137,8 @@ mlops:
     calibration-samples: 2
 ```
 
-`cbuild setup --active SSE-320-U85` resolves it into
+`cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target-set and
+resolves it into
 `cmsis-u85/cmsis-executorch.cbuild-mlops.yml`, which contains the processor, NPU
 and Vela options, and the FVP simulation target-set as the `simulator:` to test
 on.
@@ -270,7 +185,10 @@ settings in the CMSIS solution and re-run all three steps. The generated Vela
 options then follow that configuration automatically; `vela: misc:` takes any
 further Vela option, for example `--optimise Size`. Moving to a different
 board or reference platform also requires the corresponding device pack, board
-support, memory layout, and FVP configuration.
+support, memory layout, and FVP configuration. Follow the
+[CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
+and, when changing the simulated MAC count, its
+[FVP configuration example](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation).
 
 When updating ExecuTorch, update the pack and Python package versions
 together. More information is available in
@@ -293,6 +211,7 @@ the current status of all three workflows.
 | ------ | --------- |
 | `cmsis-u85/` | Corstone-320 / Ethos-U85 solution, project, sources, layers, RTE configuration, and board support |
 | `cmsis-u55/` | Corstone-300 / Ethos-U55-128 solution, project, sources, layers, RTE configuration, and board support |
+| `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
 | `model/model.py` | Starter TinyCNN ML model |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
 | `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |
@@ -303,6 +222,7 @@ the current status of all three workflows.
 | `cmsis-u*/src/app_main.cpp` | Loads the ML model, runs inference, and prints the result; pool sizes overridable with `APP_METHOD_POOL_SIZE`, `APP_TEMP_POOL_SIZE`, `APP_POOL_SECTION` |
 | `cmsis-u*/src/arm_embedded_module.*` | `EmbeddedModule`: ExecuTorch's `Module` class without the POSIX file loading (BSD-3-Clause, `src/LICENSE-ExecuTorch`) |
 | `documentation/mlops-flow.md` | The MLOps flow in detail |
+| `documentation/executorch-on-real-devices.md` | Adapting a template, validating it on an FVP, and deploying it to hardware |
 | `documentation/executorch-pack-maintenance.md` | Where the ExecuTorch pack comes from, how to update it |
 
 ## Usage notes
@@ -316,8 +236,9 @@ Each solution's generated `ai_layer/` is target-specific. After switching target
 ## License
 
 The template code is licensed under Apache-2.0; see `LICENSE`. ExecuTorch and
-`cmsis-u*/src/arm_embedded_module.*`, which is derived from it, use a BSD-3-Clause
-license; see `cmsis-u*/src/LICENSE-ExecuTorch`.
+the `arm_embedded_module.*` files under `cmsis-u*/src/` and `zephyr-u85/src/`,
+which are derived from it, use a BSD-3-Clause license; see the adjacent
+`LICENSE-ExecuTorch` file.
 
 ## References
 
@@ -325,6 +246,8 @@ license; see `cmsis-u*/src/LICENSE-ExecuTorch`.
 - [ExecuTorch](https://github.com/pytorch/executorch)
 - [ExecuTorch Arm Ethos-U backend](https://docs.pytorch.org/executorch/main/backends-arm-ethos-u.html)
 - [CMSIS-Ethos-U documentation](https://arm-software.github.io/CMSIS-Ethos-U/)
+- [CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
+- [Configure 256 MACs for FVP simulation](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation)
 - [CMSIS-Ethos-U pack](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
 - [CMSIS-Toolbox MLOps information](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
 - [Arm CMSIS documentation](https://arm-software.github.io/CMSIS_6/latest/index.html)
