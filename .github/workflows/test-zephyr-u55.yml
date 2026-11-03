@@ -1,0 +1,110 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Build and test Zephyr-U55
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Corstone-300 / Ethos-U55-256 (GCC)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Activate vcpkg environment
+        uses: ARM-software/cmsis-actions/vcpkg@v1.3.1
+        with:
+          config: vcpkg-configuration.json
+          cache: cmsis-executorch
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache CMSIS packs
+        uses: actions/cache@v6
+        with:
+          key: cmsis-packs-zephyr-u55-${{ hashFiles('zephyr-u55/*.csolution.yml', 'Pack/*.pack') }}
+          path: /home/runner/.cache/arm/packs
+
+      - name: Install ExecuTorch Zephyr preview pack
+        run: cpackget add Pack/PyTorch.ExecuTorch.1.6.0-zephyrpreview1.pack
+
+      - name: Cache Zephyr workspace
+        uses: actions/cache@v6
+        with:
+          key: zephyr-4.5-u55-${{ runner.os }}
+          path: ../zephyr-workspace
+
+      - name: Prepare Zephyr 4.5
+        run: |
+          python -m pip install west
+          if [ ! -d ../zephyr-workspace/.west ]; then
+            west init ../zephyr-workspace --mr v4.5.0
+          fi
+          cd ../zephyr-workspace
+          west config manifest.project-filter -- +zephyr,+cmsis,+cmsis_6,+hal_ethos_u
+          west update
+          west zephyr-export
+          python -m pip install -r zephyr/scripts/requirements.txt
+
+      - name: Cache model-export environment
+        uses: actions/cache@v6
+        with:
+          key: model-export-${{ runner.os }}-${{ hashFiles('model_conversion/requirements*.txt', 'model_conversion/setup_venv.py') }}
+          path: .venv
+
+      - name: Create model-export environment
+        run: ./model_conversion/setup_venv.sh
+
+      - name: Generate U55 MLOps information
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
+        run: cbuild setup zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP --packs
+
+      - name: Create U55 AI layer
+        run: .venv/bin/python model_conversion/create_ai_layer.py zephyr-u55/zephyr-u55.cbuild-mlops.yml
+
+      - name: Build Corstone-300-FVP
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
+        run: cbuild zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP --packs
+
+      - name: Run Corstone-300-FVP
+        working-directory: zephyr-u55
+        run: |
+          rm -f fvp_stdout.log
+          FVP_Corstone_SSE-300_Ethos-U55 \
+            -f fvp_config.txt \
+            -a out/Zephyr_app/Corstone-300-FVP/Debug/zephyr/zephyr.elf \
+            --simlimit 60
+          cat fvp_stdout.log | tee ../fvp.log
+
+      - name: Check application result
+        run: 'grep -Fq "Test_result: PASS" fvp.log'
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zephyr-u55-Corstone-300-FVP-GCC
+          path: |
+            zephyr-u55/out
+            zephyr-u55/ai_layer
+            fvp.log
+          if-no-files-found: warn

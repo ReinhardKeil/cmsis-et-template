@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Generated with AI and adapted from the create-csolution-github-action skill.
 
-name: Build and test CMSIS Ethos-U55-128
+name: Build and test CMSIS-U55
 
 on:
   workflow_dispatch:

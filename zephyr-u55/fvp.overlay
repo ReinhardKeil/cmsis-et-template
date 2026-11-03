@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Use ISRAM for writable data because the Ethos-U DMA cannot access DTCM. */
+/ {
+	chosen {
+		zephyr,sram = &isram;
+	};
+};

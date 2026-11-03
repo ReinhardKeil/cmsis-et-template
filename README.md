@@ -2,6 +2,7 @@
 
 [![Build and test CMSIS-U85](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
 [![Build and test CMSIS-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml)
+[![Build and test Zephyr-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-u55.yml)
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
@@ -54,7 +55,7 @@ does not use the older context terminology for that selection.
 | [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
 | [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS | Cortex-M with Ethos-U85 | Available |
 | `cmsis-m/` | CMSIS | Cortex-M only | Planned |
-| `zephyr-u55/` | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Planned |
+| [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
 | [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 | Available |
 | `zephyr-m/` | Zephyr | Cortex-M only | Planned |
 
@@ -117,6 +118,7 @@ available guides are:
 - [CMSIS Cortex-M with Ethos-U55](cmsis-u55/README.md) — Corstone-300 / Ethos-U55-128.
 - [CMSIS Cortex-M with Ethos-U85](cmsis-u85/README.md) — Corstone-320 / Ethos-U85-256.
 - [Zephyr Cortex-M with Ethos-U85](zephyr-u85/README.md) — Alif Ensemble E8 hardware or Corstone-320 FVP.
+- [Zephyr Cortex-M with Ethos-U55](zephyr-u55/README.md) — Alif Ensemble E8 AppKit or Corstone-300 FVP.
 
 ## How ML model generation works
 
@@ -196,14 +198,12 @@ together. More information is available in
 
 ## Continuous integration
 
-Two GitHub Actions workflows validate the supplied Ethos-U configurations on
-every push and pull request to `main`. They create the Python environment,
-generate the target-specific AI layer, build the Corstone-320/Ethos-U85-256 and
-Corstone-300/Ethos-U55-128 solutions with AC6, GCC, and Clang, run each
-application on its FVP simulation model, verify the reported test result, and
-upload the build artifacts. A separate workflow verifies the Python environment
-setup on Linux, macOS, and Windows. The badges at the top of this README show
-the current status of all three workflows.
+Dedicated GitHub Actions workflows validate each available template on every
+push and pull request to `main`. The CMSIS workflows build with AC6, GCC, and
+Clang; the Zephyr workflows use GCC. Each workflow generates the target-specific
+AI layer, builds the application, runs it on the matching FVP, checks
+`Test_result: PASS`, and uploads its artifacts. A separate workflow verifies
+the Python environment setup on Linux, macOS, and Windows.
 
 ## Project layout
 
@@ -212,6 +212,7 @@ the current status of all three workflows.
 | `cmsis-u85/` | Corstone-320 / Ethos-U85 solution, project, sources, layers, RTE configuration, and board support |
 | `cmsis-u55/` | Corstone-300 / Ethos-U55-128 solution, project, sources, layers, RTE configuration, and board support |
 | `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
+| `zephyr-u55/` | Zephyr 4.5 application for the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
 | `model/model.py` | Starter TinyCNN ML model |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
 | `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |
@@ -236,7 +237,7 @@ Each solution's generated `ai_layer/` is target-specific. After switching target
 ## License
 
 The template code is licensed under Apache-2.0; see `LICENSE`. ExecuTorch and
-the `arm_embedded_module.*` files under `cmsis-u*/src/` and `zephyr-u85/src/`,
+the `arm_embedded_module.*` files under `cmsis-u*/src/` and `zephyr-u*/src/`,
 which are derived from it, use a BSD-3-Clause license; see the adjacent
 `LICENSE-ExecuTorch` file.
 
