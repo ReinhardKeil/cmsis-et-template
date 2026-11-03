@@ -22,7 +22,7 @@ jobs:
     name: Corstone-300 / Ethos-U55-256 (GCC)
     runs-on: ubuntu-latest
     env:
-      CMSIS_PACK_ROOT: ${{ runner.temp }}/cmsis-packs
+      CMSIS_PACK_ROOT: /home/runner/.cache/arm/packs
 
     steps:
       - uses: actions/checkout@v7
