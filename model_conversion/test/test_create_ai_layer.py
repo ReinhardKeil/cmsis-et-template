@@ -26,6 +26,17 @@ SPEC.loader.exec_module(generator)
 
 
 class CreateAiLayerTests(unittest.TestCase):
+    @staticmethod
+    def compile_spec() -> mock.Mock:
+        return mock.Mock(
+            target="ethos-u55-256",
+            compiler_flags=[
+                "--accelerator-config=ethos-u55-256",
+                "--system-config=Test_System",
+                "--memory-mode=Shared_Sram",
+            ],
+        )
+
     def test_workspace_is_parent_of_model_conversion_directory(self) -> None:
         self.assertEqual(generator.WORKSPACE_DIR, ROOT)
 
@@ -146,6 +157,28 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertIn("component: Machine Learning:ExecuTorch Operators:Portable add", layer)
         self.assertIn("file: ./model_pte.c", layer)
 
+    def test_vela_summary_records_effective_configuration_and_report(self) -> None:
+        summary = generator.vela_summary(
+            "TinyCNN", self.compile_spec(), "Network summary\r\nTotal SRAM used 6 KiB\r\n"
+        )
+        self.assertIn("# Vela report: TinyCNN", summary)
+        self.assertIn("accelerator: `ethos-u55-256`", summary)
+        self.assertIn("system config: `Test_System`", summary)
+        self.assertIn("memory mode: `Shared_Sram`", summary)
+        self.assertIn("```text\nNetwork summary\nTotal SRAM used 6 KiB\n```", summary)
+        self.assertNotIn("\r", summary)
+
+    def test_replace_outputs_preserves_destinations_when_staging_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            layer = Path(temporary) / "ai_layer"
+            layer.mkdir()
+            existing = layer / "model.pte"
+            existing.write_bytes(b"old")
+            with self.assertRaisesRegex(TypeError, "unsupported generated output type"):
+                generator.replace_outputs(layer, {"model.pte": b"new", "bad": object()})
+            self.assertEqual(existing.read_bytes(), b"old")
+            self.assertFalse((layer / "bad").exists())
+
     def test_zephyr_metadata_owns_model_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             pack = Path(temporary)
@@ -213,7 +246,7 @@ class CreateAiLayerTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ) as run_in_venv, mock.patch.object(
-                generator, "compile_spec", return_value=object()
+                generator, "compile_spec", return_value=self.compile_spec()
             ), mock.patch.object(
                 generator, "export_model", return_value=b"PTE"
             ) as export_model, mock.patch.object(
@@ -233,8 +266,9 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "model_pte.c").is_file())
             self.assertTrue((output / "model_pte.h").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
+            self.assertTrue((output / "VELA_SUMMARY.md").is_file())
 
-    def test_main_writes_zephyr_module_outputs(self) -> None:
+    def test_main_accepts_empty_zephyr_and_writes_module_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             solution_dir = Path(temporary) / "solutions" / "demo"
             solution_dir.mkdir(parents=True)
@@ -247,7 +281,8 @@ class CreateAiLayerTests(unittest.TestCase):
                             "npu": {"type": "Ethos-U55"},
                             "model": {
                                 "clayer": "generated/ai_layer.clayer.yml",
-                                "zephyr": {},
+                                # Equivalent to a plain ``zephyr:`` YAML node.
+                                "zephyr": None,
                             },
                         }
                     }
@@ -257,7 +292,7 @@ class CreateAiLayerTests(unittest.TestCase):
             argv = [str(SCRIPT), str(mlops_file)]
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
-            ), mock.patch.object(generator, "compile_spec", return_value=object()), mock.patch.object(
+            ), mock.patch.object(generator, "compile_spec", return_value=self.compile_spec()), mock.patch.object(
                 generator, "export_model", return_value=b"PTE"
             ), mock.patch.object(generator, "executorch_version", return_value="1.6.0"), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
@@ -300,7 +335,7 @@ class CreateAiLayerTests(unittest.TestCase):
             argv = [str(SCRIPT), str(mlops_file)]
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
-            ), self.assertRaisesRegex(SystemExit, "model.zephyr must be a mapping"):
+            ), self.assertRaisesRegex(SystemExit, "model.zephyr must be empty or a mapping"):
                 generator.main()
 
 

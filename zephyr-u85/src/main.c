@@ -17,6 +17,16 @@
 
 #define NPU_NODE DT_NODELABEL(ethosu0)
 
+static int finish(int result)
+{
+#ifdef FVP_SHUTDOWN_ON_EOT
+	/* fvp_config.txt has shutdown_on_eot=1, so this ends an FVP run promptly. */
+	putchar('\x04');
+	fflush(stdout);
+#endif
+	return result;
+}
+
 int main(void)
 {
 	const struct device *npu = DEVICE_DT_GET(NPU_NODE);
@@ -37,13 +47,13 @@ int main(void)
 	if (!device_is_ready(npu)) {
 		printf("ERROR: Ethos-U85 device initialization failed. Check the driver logs "
 		       "and the board's NPU power, clock and security configuration.\n");
-		return -ENODEV;
+		return finish(-ENODEV);
 	}
 
 	drv = ethosu_reserve_driver();
 	if (drv == NULL) {
 		printf("ERROR: Could not reserve the Ethos-U85 driver.\n");
-		return -ENODEV;
+		return finish(-ENODEV);
 	}
 
 	/* This API reads the NPU's ID and CONFIG registers through the core driver. */
@@ -74,8 +84,8 @@ int main(void)
 	ethosu_release_driver(drv);
 	if (ret == 0) {
 		printf("Ethos-U85 driver communication OK (ID/configuration read; no inference).\n");
-		return executorch_run_test();
+		return finish(executorch_run_test());
 	}
 
-	return ret;
+	return finish(ret);
 }

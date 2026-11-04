@@ -25,6 +25,7 @@ CMSIS-Toolbox passes through to this script:
     *.conf                optional Zephyr module metadata
     model_pte.c / .h      the ExecuTorch program as a C array
     model.pte             the program itself, for inspection
+    VELA_SUMMARY.md       effective Vela settings and textual report
 
 The script runs itself in the workspace's .venv (see setup_venv.py). Paths in
 the MLOps file are resolved from the solution directory containing that file.
@@ -32,11 +33,14 @@ the MLOps file are resolved from the solution directory containing that file.
 
 from __future__ import annotations
 
+import io
 import os
 import re
 import shlex
 import subprocess
 import sys
+import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 
 PACK = "PyTorch::ExecuTorch"
@@ -220,6 +224,62 @@ def export_model(spec, params: dict, solution_dir: Path) -> bytes:
     return bytes(program.buffer)
 
 
+class Tee(io.TextIOBase):
+    """Copy text to the terminal while retaining it for VELA_SUMMARY.md."""
+
+    def __init__(self, terminal, capture: io.StringIO):
+        self.terminal = terminal
+        self.capture = capture
+
+    def write(self, text: str) -> int:
+        self.terminal.write(text)
+        self.capture.write(text)
+        return len(text)
+
+    def flush(self) -> None:
+        self.terminal.flush()
+
+
+def compiler_flag_value(flags: list[str], option: str) -> str:
+    """Return an effective Vela option from EthosUCompileSpec.compiler_flags."""
+    prefix = f"--{option}="
+    return next((flag[len(prefix) :] for flag in flags if flag.startswith(prefix)), "not specified")
+
+
+def vela_summary(model_name: str, spec, report: str) -> str:
+    """Markdown record of the effective Vela configuration and textual report."""
+    report = report.replace("\r\n", "\n").replace("\r", "\n").strip()
+    return (
+        f"# Vela report: {model_name}\n\n"
+        f"- accelerator: `{spec.target}`\n"
+        f"- system config: `{compiler_flag_value(spec.compiler_flags, 'system-config')}`\n"
+        f"- memory mode: `{compiler_flag_value(spec.compiler_flags, 'memory-mode')}`\n\n"
+        f"```text\n{report}\n```\n"
+    )
+
+
+def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
+    """Stage a complete AI layer, then atomically replace destination files."""
+    layer_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=f".{layer_dir.name}-", dir=layer_dir.parent) as temporary:
+        stage = Path(temporary)
+        for name, contents in outputs.items():
+            path = stage / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(contents, bytes):
+                path.write_bytes(contents)
+            elif isinstance(contents, str):
+                path.write_text(contents, encoding="utf-8", newline="\n")
+            else:
+                raise TypeError(f"unsupported generated output type for {name}")
+
+        layer_dir.mkdir(parents=True, exist_ok=True)
+        for name in outputs:
+            destination = layer_dir / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(stage / name, destination)
+
+
 def components(pte: bytes, pack: Path) -> tuple[list[str], list[str]]:
     """Runtime, kernel utils and registration, backend, plus one operator component per operator the .pte uses.
 
@@ -358,26 +418,38 @@ def main() -> None:
 
     mlops = yaml.safe_load(mlops_file.read_text())["cbuild-mlops"]
     model = mlops["model"]
-    if "zephyr" in model and not isinstance(model["zephyr"], dict):
-        sys.exit("model.zephyr must be a mapping, for example: zephyr: {}")
+    if "zephyr" in model:
+        # YAML loads an empty ``zephyr:`` node as None. Treat it as the empty
+        # mapping so the concise form and ``zephyr: {}`` have identical meaning.
+        if model["zephyr"] is None:
+            model["zephyr"] = {}
+        elif not isinstance(model["zephyr"], dict):
+            sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
     layer_file = solution_dir / model["clayer"]
     layer_dir = layer_file.parent
 
-    pte = export_model(compile_spec(mlops, solution_dir), model_params(mlops), solution_dir)
+    spec = compile_spec(mlops, solution_dir)
+    params = model_params(mlops)
+    vela_report = io.StringIO()
+    with redirect_stdout(Tee(sys.stdout, vela_report)):
+        pte = export_model(spec, params, solution_dir)
     version = executorch_version(mlops_file)
     runtime, operators = components(pte, executorch_pack(version))
 
-    layer_dir.mkdir(parents=True, exist_ok=True)
-    (layer_dir / "model.pte").write_bytes(pte)
-    (layer_dir / f"{SYMBOL}.c").write_text(c_array(pte), newline="\n")
-    (layer_dir / f"{SYMBOL}.h").write_text(HEADER, newline="\n")
-    layer_file.write_text(clayer(mlops, runtime, operators, mlops_file, version), newline="\n")
+    outputs: dict[str, bytes | str] = {
+        "model.pte": pte,
+        f"{SYMBOL}.c": c_array(pte),
+        f"{SYMBOL}.h": HEADER,
+        layer_file.name: clayer(mlops, runtime, operators, mlops_file, version),
+        "VELA_SUMMARY.md": vela_summary(model.get("name", "Model"), spec, vela_report.getvalue()),
+    }
     if "zephyr" in model:
-        for name, contents in zephyr_metadata(operators, executorch_pack(version)).items():
-            (layer_dir / name).write_text(contents, newline="\n")
+        outputs.update(zephyr_metadata(operators, executorch_pack(version)))
+    replace_outputs(layer_dir, outputs)
 
     print(f"[ai_layer] {len(pte)} byte program, operators: {operators}")
     print(f"[ai_layer] wrote {layer_file}")
+    print(f"[ai_layer] wrote {layer_dir / 'VELA_SUMMARY.md'}")
     if "zephyr" in model:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")
 

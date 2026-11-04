@@ -1,0 +1,726 @@
++------------------------------------------------------------
+(1/1) Cleaning context: "Zephyr_app.Release+Corstone-300-FVP"
++------------------------------------------------------------
+(1/1) Building context: "Zephyr_app.Release+Corstone-300-FVP"
+The no-dev option is deprecated.  Use -Wno-author instead.
+[1/10] Creating directories for 'Zephyr_app.Release+Corstone-300-FVP'
+[2/10] No download step for 'Zephyr_app.Release+Corstone-300-FVP'
+[3/10] No update step for 'Zephyr_app.Release+Corstone-300-FVP'
+[4/10] No patch step for 'Zephyr_app.Release+Corstone-300-FVP'
+[5/10] Performing configure step for 'Zephyr_app.Release+Corstone-300-FVP'
+[5/10] Performing build step for 'Zephyr_app.Release+Corstone-300-FVP'
+Building CMake target 'Zephyr_app.Release+Corstone-300-FVP'
+Using compiler: AC6 V6.24.0
+[0/2] C:\WINDOWS\system32\cmd.exe /C "cd /D C:\w\CMSIS-et-template\zephyr-u55\tmp\1 && "C:\Program Files\CMake\bin\cmake.exe" -E cmake_echo_color --blue " Setup west build directory" && cmake -E env ARMCLANG_TOOLCHAIN_PATH="C:/Users/reikei01/.vcpkg/artifacts/fd3d78d7/compilers.arm.armclang/6.24.0/" ZEPHYR_TOOLCHAIN_VARIANT="armclang" west build -b mps3/corstone300/fvp -d C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release -p auto --cmake-only C:/w/CMSIS-et-template/zephyr-u55/. -- -DEXTRA_ZEPHYR_MODULES=C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/ -DCONFIG_BUILD_OUTPUT_HEX=y -DDTC_OVERLAY_FILE=fvp.overlay -DCMAKE_CXX_FLAGS=-includestddef.h -DCONFIG_SPEED_OPTIMIZATIONS=y"
+ Setup west build directory
+-- west build: generating a build system
+Loading Zephyr default modules (Zephyr base).
+-- Application: C:/w/CMSIS-et-template/zephyr-u55
+-- CMake version: 4.4.2
+-- Found Python3: C:/w/zephyrproject/.venv/Scripts/python.exe (found suitable version "3.13.1", minimum required is "3.12") found components: Interpreter
+-- Cache files will be written to: C:/w/zephyrproject/zephyr/.cache
+-- Zephyr version: 4.5.0-rc3 (C:/w/zephyrproject/zephyr)
+-- Found west (found suitable version "1.5.0", minimum required is "0.14.0")
+-- Board: mps3, qualifiers: corstone300/fvp
+-- Found armclang: C:/Users/reikei01/.vcpkg/artifacts/fd3d78d7/compilers.arm.armclang/6.24.0/bin/armclang.exe (found suitable version "6.24", minimum required is "6.17")
+-- Found Dtc: C:/Users/reikei01/.mcuxpressotools/dtc-msys2/tools/usr/bin/dtc.exe (found suitable version "1.6.1", minimum required is "1.4.6")
+-- Found BOARD.dts: C:/w/zephyrproject/zephyr/boards/arm/mps3/mps3_corstone300_fvp.dts
+-- Found devicetree overlay: fvp.overlay
+-- Generated zephyr.dts: C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/zephyr.dts
+-- Generated pickled edt: C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/edt.pickle
+-- Generated devicetree_generated.h: C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/include/generated/zephyr/devicetree_generated.h
+
+warning: UART_NS16550_ACCESS_WORD_ONLY (defined at
+C:/w/zephyrproject/zephyr/soc/snps/hsdk4xd/Kconfig.defconfig:40,
+C:/w/zephyrproject/zephyr/soc/snps/hsdk/Kconfig.defconfig:39,
+C:/w/zephyrproject/zephyr/soc/rockchip/rk35/rk3588s/Kconfig.defconfig.rk3588s:15,
+C:/w/zephyrproject/zephyr/soc/rockchip/rv1106/Kconfig.defconfig:15,
+C:/w/zephyrproject/zephyr/soc/allwinner/sun8i_h3/Kconfig.defconfig:12,
+C:/w/zephyrproject/zephyr/soc/allwinner/sun50i_h618/Kconfig.defconfig:15,
+drivers/serial/Kconfig.ns16550:75) was assigned the value 'y' but got the value 'n'. Check these
+unsatisfied dependencies: UART_NS16550 (=n). See
+http://docs.zephyrproject.org/latest/kconfig.html#CONFIG_UART_NS16550_ACCESS_WORD_ONLY and/or look
+up UART_NS16550_ACCESS_WORD_ONLY in the menuconfig/guiconfig interface. The Application Development
+Primer, Setting Configuration Values, and Kconfig - Tips and Best Practices sections of the manual
+might be helpful too.
+
+Parsing C:/w/zephyrproject/zephyr/Kconfig
+Loaded configuration 'C:/w/zephyrproject/zephyr/boards/arm/mps3/mps3_corstone300_fvp_defconfig'
+Merged configuration 'C:/w/CMSIS-et-template/zephyr-u55/prj.conf'
+Merged configuration 'C:/w/CMSIS-et-template/zephyr-u55/ai_layer/components.conf'
+Merged configuration 'C:/w/CMSIS-et-template/zephyr-u55/ai_layer/operators.conf'
+Merged configuration 'C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/misc/generated/extra_kconfig_options.conf'
+Configuration saved to 'C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/.config'
+Kconfig header saved to 'C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/include/generated/zephyr/autoconf.h'
+-- Could NOT find Ccache (missing: CCACHE) (Required is at least version "4.12")
+Hint: The project() command has not yet been called.  It sets up system-specific search paths.
+-- The C compiler identification is ARMClang 6.24.0
+-- The CXX compiler identification is ARMClang 6.24.0
+-- The ASM compiler identification is ARMClang
+-- Found assembler: C:/Users/reikei01/.vcpkg/artifacts/fd3d78d7/compilers.arm.armclang/6.24.0/bin/armclang.exe
+-- *******************************************************
+-- PROJECT_NAME                           : ethosu_core_driver
+-- ETHOSU_MULTI_VARIANT                   : OFF
+-- ETHOSU_TARGET_NPU_CONFIG               : ethos-u55-256
+-- CMAKE_SYSTEM_PROCESSOR                 : cortex-m55
+-- CMSIS_PATH                             : C:/w/zephyrproject/modules/hal/ethos_u/../cmsis_6
+-- ETHOSU_LOG_ENABLE                      : ON
+-- ETHOSU_LOG_SEVERITY                    : info
+-- ETHOSU_INFERENCE_TIMEOUT               : Default (no timeout)
+-- *******************************************************
+-- Found gen_kobject_list: C:/w/zephyrproject/zephyr/scripts/build/gen_kobject_list.py
+-- Configuring done (23.8s)
+-- Generating done (2.6s)
+-- Build files have been written to: C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release
+[1/2] C:\WINDOWS\system32\cmd.exe /C "cd /D C:\w\CMSIS-et-template\zephyr-u55\tmp\1 && "C:\Program Files\CMake\bin\cmake.exe" -E cmake_echo_color --blue " Run west build" && west build -d C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release"
+ Run west build
+[1/216] Generating include/generated/zephyr/version.h
+-- Zephyr version: 4.5.0-rc3 (C:/w/zephyrproject/zephyr), build: v4.5.0-rc3-11-gc4aa9324508f
+[2/216] Generating misc/generated/syscalls.json, misc/generated/struct_tags.json
+[3/216] Generating include/generated/device-api-sections.ld, include/generated/device-api-sections.cmake
+[4/216] Generating include/generated/zephyr/syscall_dispatch.c, include/generated/zephyr/syscall_exports_llext.c, syscall_weakdefs_llext.c, include/generated/zephyr/syscall_list.h
+[5/216] Generating include/generated/zephyr/driver-validation.h
+[6/216] Generating include/generated/zephyr/kobj-types-enum.h, include/generated/zephyr/otype-to-str.h, include/generated/zephyr/otype-to-size.h
+[7/216] Building C object modules/hal_ethos_u/ethos-u-core-driver/CMakeFiles/ethosu_core_driver.dir/src/ethosu_pmu.o
+[8/216] Building C object zephyr/lib/heap/CMakeFiles/heap_constants.dir/heap_constants.o
+[9/216] Building C object modules/hal_ethos_u/ethos-u-core-driver/CMakeFiles/ethosu_core_driver.dir/src/ethosu_backend_u55.o
+[10/216] Building C object modules/hal_ethos_u/ethos-u-core-driver/CMakeFiles/ethosu_core_driver.dir/src/ethosu_driver.o
+[11/216] Building C object modules/hal_ethos_u/ethos-u-core-driver/CMakeFiles/ethosu_core_driver.dir/src/ethosu_pmu_u55.o
+[12/216] Linking C static library modules\hal_ethos_u\ethos-u-core-driver\libethosu_core_driver.a
+[13/216] Generating ../../include/generated/zephyr/heap_constants.h
+[14/216] Building C object zephyr/CMakeFiles/offsets.dir/arch/arm/core/offsets/offsets.o
+[15/216] Generating include/generated/zephyr/offsets.h
+[16/216] Building C object CMakeFiles/app.dir/C_/w/zephyrproject/zephyr/lib/cpp/abi/cpp_dtors.o
+[17/216] Building C object CMakeFiles/app.dir/ai_layer/model_pte.o
+[18/216] Building C object CMakeFiles/app.dir/src/main.o
+[19/216] Building C object CMakeFiles/app.dir/src/zephyr_ac6_init.o
+[20/216] Building C object zephyr/arch/common/CMakeFiles/isr_tables.dir/isr_tables.o
+[21/216] Generating linker_zephyr_pre0.cmd
+loading initial cache file C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/include/generated/ld_script_settings_LINKER_ZEPHYR_PREBUILT.cmake
+Loading Zephyr module(s) (Zephyr base): extensions
+-- Found Python3: C:/w/zephyrproject/.venv/Scripts/python.exe (found suitable version "3.13.1", minimum required is "3.12") found components: Interpreter
+-- Cache files will be written to: C:/w/zephyrproject/zephyr/.cache
+[22/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/libc/validate_libc.o
+[23/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/boot_banner.o
+[24/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/heap/heap.o
+[25/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/printk.o
+[26/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/clock.o
+[27/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/cbprintf_packaged.o
+[28/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/cbprintf.o
+[29/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/cbprintf_complete.o
+[30/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/dec.o
+[31/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/hex.o
+[32/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/os/reboot.o
+[33/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/set.o
+[34/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/timeutil.o
+[35/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/rb.o
+[36/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/last_section_id.o
+[37/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/bitmask.o
+[38/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/bitarray.o
+[39/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/getopt/getopt_common.o
+[40/216] Building C object zephyr/CMakeFiles/zephyr.dir/misc/generated/configs.o
+[41/216] Building C object zephyr/CMakeFiles/zephyr.dir/lib/utils/getopt/getopt.o
+[42/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/log_cache.o
+[43/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/log_mgmt.o
+[44/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/log_core.o
+[45/216] Building CXX object CMakeFiles/app.dir/src/executorch_test.o
+[46/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/log_msg.o
+[47/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/log_output.o
+[48/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/logging/backends/log_backend_uart.o
+[49/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/tracing/tracing_none.o
+[50/216] Building C object zephyr/CMakeFiles/zephyr.dir/subsys/mem_mgmt/mem_attr.o
+[51/216] Building CXX object CMakeFiles/app.dir/src/arm_embedded_module.o
+[52/216] Building C object zephyr/CMakeFiles/zephyr.dir/kernel/sys/sem.o
+[53/216] Building C object zephyr/CMakeFiles/zephyr.dir/kernel/sys/thread_entry.o
+[54/216] Building C object zephyr/arch/common/CMakeFiles/arch__common.dir/sw_isr_common.o
+[55/216] Building C object zephyr/arch/common/CMakeFiles/arch__common.dir/init.o
+[56/216] Building C object zephyr/arch/common/CMakeFiles/arch__common.dir/instr_mem.o
+[57/216] Linking C static library zephyr\arch\common\libisr_tables.a
+[58/216] Building C object zephyr/arch/common/CMakeFiles/arch__common.dir/xip.o
+[59/216] Building C object zephyr/arch/arch/arm/core/CMakeFiles/arch__arm__core.dir/fatal.o
+[60/216] Building C object zephyr/arch/arch/arm/core/CMakeFiles/arch__arm__core.dir/__aeabi_atexit.o
+[61/216] Building C object zephyr/arch/arch/arm/core/CMakeFiles/arch__arm__core.dir/nmi.o
+[62/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/fpu.o
+[63/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/fault.o
+[64/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/scb.o
+[65/216] Building ASM object zephyr/arch/arch/arm/core/CMakeFiles/arch__arm__core.dir/nmi_on_reset.o
+[66/216] Building ASM object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/fault_s.o
+[67/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/irq_manage.o
+[68/216] Building ASM object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/reset.o
+[69/216] Building ASM object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/vector_table.o
+[70/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/prep_c.o
+[71/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/cpu_idle.o
+[72/216] Building ASM object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/svc.o
+[73/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/thread.o
+[74/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/arm-m-switch.o
+[75/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/irq_init.o
+[76/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/isr_wrapper.o
+[77/216] Building C object zephyr/arch/arch/arm/core/cortex_m/CMakeFiles/arch__arm__core__cortex_m.dir/cache.o
+[78/216] Building C object zephyr/lib/libc/armstdc/CMakeFiles/lib__libc__armstdc.dir/src/errno.o
+[79/216] Building C object zephyr/arch/arch/arm/core/mpu/CMakeFiles/arch__arm__core__mpu.dir/arm_core_mpu.o
+[80/216] Building C object zephyr/arch/arch/arm/core/mpu/CMakeFiles/arch__arm__core__mpu.dir/arm_mpu_regions.o
+[81/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/time/gmtime_r.o
+[82/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/time/localtime_r_utc.o
+[83/216] Building C object zephyr/arch/arch/arm/core/cortex_m/cmse/CMakeFiles/arch__arm__core__cortex_m__cmse.dir/arm_core_cmse.o
+[84/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/time/asctime.o
+[85/216] Building C object zephyr/lib/libc/armstdc/CMakeFiles/lib__libc__armstdc.dir/src/libc-hooks.o
+[86/216] Building C object zephyr/arch/arch/arm/core/mpu/CMakeFiles/arch__arm__core__mpu.dir/arm_mpu.o
+[87/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/time/ctime.o
+[88/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/time/time.o
+[89/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/stdlib/calloc.o
+[90/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/stdlib/reallocarray.o
+[91/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/string/strnlen.o
+[92/216] Building C object zephyr/subsys/portability/posix/c_lib_ext/CMakeFiles/subsys__portability__posix__c_lib_ext.dir/fnmatch.o
+C:/w/zephyrproject/zephyr/subsys/portability/posix/c_lib_ext/fnmatch.c:113:10: warning: converting the result of '<<' to a boolean; did you mean '((__aeabi_ctype_table_ + 1)[(ch)] << 30) != 0'? [-Wint-in-bool-context]
+  113 |                 ret = !isalnum(ch);
+      |                        ^
+C:\Users\reikei01\.vcpkg\artifacts\fd3d78d7\compilers.arm.armclang\6.24.0\bin\..\include\ctype.h:122:60: note: expanded from macro 'isalnum'
+  122 | #define isalnum(x)  ((__CLIBNS __aeabi_ctype_table+1)[(x)] << 30) /* test for _ABI_A and _ABI_X */
+      |                                                            ^
+C:/w/zephyrproject/zephyr/subsys/portability/posix/c_lib_ext/fnmatch.c:128:10: warning: converting the result of '<<' to a boolean; did you mean '((__aeabi_ctype_table_ + 1)[(ch)] << 29) != 0'? [-Wint-in-bool-context]
+  128 |                 ret = !isgraph(ch);
+      |                        ^
+C:\Users\reikei01\.vcpkg\artifacts\fd3d78d7\compilers.arm.armclang\6.24.0\bin\..\include\ctype.h:127:60: note: expanded from macro 'isgraph'
+  127 | #define isgraph(x)  ((__CLIBNS __aeabi_ctype_table+1)[(x)] << 29) /* test for _ABI_A, _ABI_X and _ABI_P */
+      |                                                            ^
+C:/w/zephyrproject/zephyr/subsys/portability/posix/c_lib_ext/fnmatch.c:134:10: warning: converting the result of '<<' to a boolean; did you mean '((__aeabi_ctype_table_ + 1)[(ch)] << 28) != 0'? [-Wint-in-bool-context]
+  134 |                 ret = !isprint(ch);
+      |                        ^
+C:\Users\reikei01\.vcpkg\artifacts\fd3d78d7\compilers.arm.armclang\6.24.0\bin\..\include\ctype.h:123:60: note: expanded from macro 'isprint'
+  123 | #define isprint(x)  ((__CLIBNS __aeabi_ctype_table+1)[(x)] << 28) /* test for _ABI_A, _ABI_X, _ABI_P and _ABI_B */
+      |                                                            ^
+3 warnings generated.
+[93/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/stdlib/malloc.o
+[94/216] Generating linker.cmd, armlink_symbol_steering.steer, armlink_symbol_steering.c
+loading initial cache file C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/include/generated/ld_script_settings_LINKER_ZEPHYR_FINAL.cmake
+Loading Zephyr module(s) (Zephyr base): extensions
+-- Found Python3: C:/w/zephyrproject/.venv/Scripts/python.exe (found suitable version "3.13.1", minimum required is "3.12") found components: Interpreter
+-- Cache files will be written to: C:/w/zephyrproject/zephyr/.cache
+[95/216] Building C object zephyr/lib/libc/common/CMakeFiles/lib__libc__common.dir/source/errno/errno.o
+[96/216] Building C object zephyr/subsys/portability/posix/c_lib_ext/CMakeFiles/subsys__portability__posix__c_lib_ext.dir/getentropy.o
+[97/216] Building C object zephyr/subsys/portability/posix/c_lib_ext/CMakeFiles/subsys__portability__posix__c_lib_ext.dir/getopt_shim.o
+[98/216] Building C object zephyr/drivers/misc/ethos_u/CMakeFiles/drivers__misc__ethos_u.dir/ethos_u_common.o
+[99/216] Building C object zephyr/drivers/console/CMakeFiles/drivers__console.dir/uart_console.o
+[100/216] Building C object zephyr/drivers/pinctrl/CMakeFiles/drivers__pinctrl.dir/common.o
+[101/216] Building C object zephyr/drivers/misc/ethos_u/CMakeFiles/drivers__misc__ethos_u.dir/ethos_u_arm.o
+[102/216] Building C object zephyr/drivers/gpio/CMakeFiles/drivers__gpio.dir/gpio_cmsdk_ahb.o
+[103/216] Building C object zephyr/drivers/gpio/CMakeFiles/drivers__gpio.dir/gpio_mmio32.o
+[104/216] Building C object zephyr/drivers/pinctrl/CMakeFiles/drivers__pinctrl.dir/pinctrl_arm_mps3.o
+[105/216] Building C object zephyr/drivers/serial/CMakeFiles/drivers__serial.dir/uart_cmsdk_apb.o
+[106/216] Building C object zephyr/drivers/timer/CMakeFiles/drivers__timer.dir/sys_clock_init.o
+[107/216] Building C object zephyr/drivers/timer/CMakeFiles/drivers__timer.dir/cortex_m_systick.o
+[108/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/device_allocator.o
+[109/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/device_memory_buffer.o
+[110/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/tag.o
+[111/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/cc66acc211725028d4149ccef631ec7e/1.6.0-zephyrpreview1/src/runtime/core/exec_aten/util/tensor_shape_to_c_string.o
+[112/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/backend/interface.o
+[113/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/evalue.o
+[114/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/portable_type/tensor_impl.o
+[115/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/cc66acc211725028d4149ccef631ec7e/1.6.0-zephyrpreview1/src/runtime/core/exec_aten/util/tensor_util_portable.o
+[116/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/core/tensor_layout.o
+[117/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/abort.o
+[118/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/b87e1f8958e203416c8ca0185c368b65/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/default/minimal.o
+[119/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/log.o
+[120/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/platform.o
+[121/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/program_validation.o
+[122/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/profiler.o
+[123/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/platform/runtime.o
+[124/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/schema/extended_header.o
+[125/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/pte_data_map.o
+[126/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/method_meta.o
+[127/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/method.o
+[128/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/b87e1f8958e203416c8ca0185c368b65/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/kernel/operator_registry.o
+[129/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/C_/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/program.o
+[130/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/tensor_parser_exec_aten.o
+[131/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/runtime/executor/tensor_parser_portable.o
+[132/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/activation_ops_util.o
+[133/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/arange_util.o
+[134/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/broadcast_util.o
+[135/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/embeddingxb.o
+[136/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/advanced_index_util.o
+[137/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/delinearize_index.o
+[138/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/distance_util.o
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/distance_util.cpp:9:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/distance_util.h:119:39: warning: use of infinity via a macro is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  119 |   } else if (p == static_cast<double>(INFINITY)) {
+      |                                       ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/distance_util.h:119:39: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  119 |   } else if (p == static_cast<double>(INFINITY)) {
+      |                                       ^~~~~~~~
+C:\Users\reikei01\.vcpkg\artifacts\fd3d78d7\compilers.arm.armclang\6.24.0\bin\..\include\math.h:271:21: note: expanded from macro 'INFINITY'
+  271 | #   define INFINITY __builtin_inff()
+      |                     ^~~~~~~~~~~~~~~~
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/distance_util.cpp:9:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/distance_util.h:130:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+  130 |     optional<int64_t> compute_mode,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/distance_util.cpp:35:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+   35 |     optional<int64_t> compute_mode,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+4 warnings generated.
+[139/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/copy_ops_util.o
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/copy_ops_util.cpp:14:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/copy_ops_util.h:61:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+   61 |     optional<int64_t> storage_offset,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/copy_ops_util.cpp:47:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+   47 |     optional<int64_t> storage_offset,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+2 warnings generated.
+[140/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/dtype_util.o
+[141/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/grid_sampler_2d_util.o
+[142/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/index_util.o
+[143/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/matmul_ops_util.o
+[144/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/padding_util.o
+[145/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/cc66acc211725028d4149ccef631ec7e/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/normalization_ops_util.o
+[146/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/kernel_ops_util.o
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/kernel_ops_util.cpp:14:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/kernel_ops_util.h:448:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+  448 |     optional<ScalarType> enforced_dtype,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/kernel_ops_util.cpp:517:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+  517 |     optional<ScalarType> dtype,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+2 warnings generated.
+[147/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/repeat_util.o
+[148/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/select_copy_util.o
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/select_copy_util.cpp:11:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/copy_ops_util.h:61:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+   61 |     optional<int64_t> storage_offset,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+1 warning generated.
+[149/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/reduce_util.o
+[150/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/slice_util.o
+[151/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/upsample_util.o
+[152/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/backends/arm/runtime/EthosUBackend_IoMemcpy.o
+[153/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e87bd8abbdd7da51bfbddad963e76a0a/src/kernels/portable/cpu/pattern/unary_ufunc_realhbbf16_to_bool.o
+[154/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/b87e1f8958e203416c8ca0185c368b65/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/registration/RegisterAllKernels.o
+[155/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/main_weak.o
+[156/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/cc66acc211725028d4149ccef631ec7e/1.6.0-zephyrpreview1/src/kernels/portable/cpu/pattern/unary_ufunc_realhbf16.o
+[157/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/stack_util.o
+In file included from C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/portable/cpu/util/stack_util.cpp:13:
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/kernels/portable/cpu/util/copy_ops_util.h:61:5: warning: 'optional' is deprecated [-Wdeprecated-declarations]
+   61 |     optional<int64_t> storage_offset,
+      |     ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/portable_type/optional.h:33:16: note: 'optional' has been explicitly marked deprecated here
+   33 | using optional ET_DEPRECATED = std::optional<T>;
+      |                ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/platform/compiler.h:120:25: note: expanded from macro 'ET_DEPRECATED'
+  120 | #define ET_DEPRECATED [[deprecated]]
+      |                         ^
+1 warning generated.
+[158/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/busy_wait.o
+[159/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/backends/arm/runtime/EthosUBackend.o
+[160/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/device.o
+[161/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e87bd8abbdd7da51bfbddad963e76a0a/src/kernels/portable/cpu/pattern/unary_ufunc_realhbbf16_to_floathbf16.o
+[162/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/fatal.o
+[163/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/init.o
+[164/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/e5340de90153a09b681d20573bd1c0d0/ExecuTorch/1.6.0-zephyrpreview1/src/backends/arm/runtime/EthosUBackend_CoreDriver.o
+[165/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/backends/arm/runtime/VelaBinStream.o
+[166/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/kheap.o
+[167/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/float.o
+[168/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.o
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned char, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned char, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<signed char, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<signed char, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<short, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<short, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<int, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<int, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<long long, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<long long, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned short, float>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned short, float>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned char, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned char, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<signed char, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<signed char, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<short, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<short, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<int, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<int, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<long long, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<long long, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:102:49: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  102 |   const float scaled_value = static_cast<float>(inv_scale * value);
+      |                                                 ^~~~~~~~~ ~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned short, double>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned short, double>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned char, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned char, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<signed char, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<signed char, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<short, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<short, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<int, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<int, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<long long, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<long long, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:107:43: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  107 |       : static_cast<double>(zero_point) + std::nearbyint(scaled_value);
+      |                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:121:10: note: in instantiation of function template specialization 'torch::executor::native::quantize_val_with_inv_scale<unsigned short, c10::Half>' requested here
+  121 |   return quantize_val_with_inv_scale<T>(
+      |          ^
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_quantize.cpp:344:28: note: in instantiation of function template specialization 'torch::executor::native::quantize_val<unsigned short, c10::Half>' requested here
+  344 |     ET_FORALL_FLOATH_TYPES(CALCULATE_FLOAT_TYPE);
+      |                            ^
+25 warnings generated.
+[169/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/mem_slab.o
+[170/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/version.o
+[171/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/mailbox.o
+[172/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/idle.o
+[173/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/msg_q.o
+[174/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/sem.o
+[175/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/mutex.o
+[176/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/system_work_q.o
+[177/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/queue.o
+[178/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/stack.o
+[179/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/work.o
+[180/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/condvar.o
+[181/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/thread.o
+[182/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/sleep.o
+[183/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/timeslicing.o
+[184/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/scheduler.o
+[185/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/sched.o
+[186/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/timeout.o
+[187/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/pipe.o
+[188/216] Linking CXX static library app\libapp.a
+[189/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/timer.o
+[190/216] Linking C static library zephyr\arch\arch\arm\core\libarch__arm__core.a
+[191/216] Linking C static library zephyr\arch\common\libarch__common.a
+[192/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/dynamic_disabled.o
+[193/216] Building C object zephyr/kernel/CMakeFiles/kernel.dir/mempool.o
+[194/216] Building C object zephyr/CMakeFiles/armlink_steering.dir/armlink_symbol_steering.o
+[195/216] Linking C static library zephyr\libzephyr.a
+[196/216] Building C object zephyr/CMakeFiles/zephyr_pre0.dir/misc/empty_file.o
+[197/216] Linking C static library zephyr\arch\arch\arm\core\cortex_m\libarch__arm__core__cortex_m.a
+[198/216] Linking C static library zephyr\arch\arch\arm\core\mpu\libarch__arm__core__mpu.a
+[199/216] Linking C static library zephyr\lib\libc\common\liblib__libc__common.a
+[200/216] Linking C static library zephyr\lib\libc\armstdc\liblib__libc__armstdc.a
+[201/216] Linking C static library zephyr\arch\arch\arm\core\cortex_m\cmse\libarch__arm__core__cortex_m__cmse.a
+[202/216] Linking C static library zephyr\subsys\portability\posix\c_lib_ext\libsubsys__portability__posix__c_lib_ext.a
+[203/216] Linking C static library zephyr\drivers\console\libdrivers__console.a
+[204/216] Linking C static library zephyr\drivers\misc\ethos_u\libdrivers__misc__ethos_u.a
+[205/216] Linking C static library zephyr\drivers\pinctrl\libdrivers__pinctrl.a
+[206/216] Linking C static library zephyr\drivers\timer\libdrivers__timer.a
+[207/216] Linking C static library zephyr\drivers\gpio\libdrivers__gpio.a
+[208/216] Linking C static library zephyr\drivers\serial\libdrivers__serial.a
+[209/216] Building CXX object modules/cmsis-executorch/CMakeFiles/cmsis_executorch.dir/260106e161009f911e1475fd70039e86/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.o
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:246:30: warning: implicit conversion increases floating-point precision: 'float' to 'const double' [-Wdouble-promotion]
+  246 |         const double scale = get_scale(scales, unpacked_dim_idx);
+      |                      ~~~~~   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:517:25: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  517 |     ET_FORALL_INT_TYPES(CALCULATE_FLOAT_TYPE);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:138:3: note: expanded from macro 'ET_FORALL_INT_TYPES'
+  138 |   _(uint8_t, Byte)             \
+      |   ^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:507:45: note: expanded from macro 'CALCULATE_FLOAT_TYPE'
+  507 |       ET_FORALL_FLOATH_TYPES_WITH(CTYPE_IN, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:517:25: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  517 |     ET_FORALL_INT_TYPES(CALCULATE_FLOAT_TYPE);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:139:3: note: expanded from macro 'ET_FORALL_INT_TYPES'
+  139 |   _(int8_t, Char)              \
+      |   ^~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:507:45: note: expanded from macro 'CALCULATE_FLOAT_TYPE'
+  507 |       ET_FORALL_FLOATH_TYPES_WITH(CTYPE_IN, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:517:25: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  517 |     ET_FORALL_INT_TYPES(CALCULATE_FLOAT_TYPE);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:140:3: note: expanded from macro 'ET_FORALL_INT_TYPES'
+  140 |   _(int16_t, Short)            \
+      |   ^~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:507:45: note: expanded from macro 'CALCULATE_FLOAT_TYPE'
+  507 |       ET_FORALL_FLOATH_TYPES_WITH(CTYPE_IN, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:517:25: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  517 |     ET_FORALL_INT_TYPES(CALCULATE_FLOAT_TYPE);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:141:3: note: expanded from macro 'ET_FORALL_INT_TYPES'
+  141 |   _(int32_t, Int)              \
+      |   ^~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:507:45: note: expanded from macro 'CALCULATE_FLOAT_TYPE'
+  507 |       ET_FORALL_FLOATH_TYPES_WITH(CTYPE_IN, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:517:25: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  517 |     ET_FORALL_INT_TYPES(CALCULATE_FLOAT_TYPE);
+      |     ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:142:3: note: expanded from macro 'ET_FORALL_INT_TYPES'
+  142 |   _(int64_t, Long)
+      |   ^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:507:45: note: expanded from macro 'CALCULATE_FLOAT_TYPE'
+  507 |       ET_FORALL_FLOATH_TYPES_WITH(CTYPE_IN, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:518:5: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  518 |     CALCULATE_INT_TYPE(uint16_t, Bits16);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:311:45: note: expanded from macro 'CALCULATE_INT_TYPE'
+  311 |       ET_FORALL_FLOATH_TYPES_WITH(IN_CTYPE, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:519:5: warning: implicit conversion increases floating-point precision: 'float' to 'double' [-Wdouble-promotion]
+  519 |     CALCULATE_INT_TYPE(uint16_t, UInt16);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:311:45: note: expanded from macro 'CALCULATE_INT_TYPE'
+  311 |       ET_FORALL_FLOATH_TYPES_WITH(IN_CTYPE, DEQUANTIZE_IMPL); \
+      |       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/include\executorch/runtime/core/exec_aten/util/scalar_type_util.h:207:3: note: expanded from macro 'ET_FORALL_FLOATH_TYPES_WITH'
+  207 |   _(ANOTHER_INPUT, double, Double)                    \
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:/Users/reikei01/AppData/Local/Arm/Packs/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/src/kernels/quantized/cpu/op_dequantize.cpp:478:19: note: expanded from macro 'DEQUANTIZE_IMPL'
+  477 |                       static_cast<int32_t>(zero_point)) *                      \
+      |                                                         ~
+  478 |                   _scale;                                                      \
+      |                   ^~~~~~
+8 warnings generated.
+[210/216] Linking C static library zephyr\kernel\libkernel.a
+[211/216] Linking CXX static library modules\cmsis-executorch\libcmsis_executorch.a
+[212/216] Linking C executable zephyr\zephyr_pre0.elf; Logical command for additional byproducts on target: zephyr_pre0
+FAILED: zephyr/zephyr_pre0.elf zephyr/zephyr_pre0.map C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/zephyr_pre0.map 
+C:\WINDOWS\system32\cmd.exe /C "cd . && C:\Users\reikei01\.vcpkg\artifacts\fd3d78d7\compilers.arm.armclang\6.24.0\bin\armlink.exe   --via=CMakeFiles\zephyr_pre0.rsp    -o zephyr\zephyr_pre0.elf && C:\WINDOWS\system32\cmd.exe /C "cd /D C:\w\CMSIS-et-template\zephyr-u55\out\Zephyr_app\Corstone-300-FVP\Release\zephyr && "C:\Program Files\CMake\bin\cmake.exe" -E true""
+Warning: L6304W: Duplicate input file modules/hal_ethos_u/ethos-u-core-driver/libethosu_core_driver.a ignored.
+"C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/linker_zephyr_pre0.cmd", line 24 (column 29): Error: L6225E: Number 0xffffffffffe80000... is too long.
+Not enough information to list the image map.
+Finished: 1 information, 1 warning and 1 error messages.
+ninja: build stopped: subcommand failed.
+FATAL ERROR: command exited with status 1: 'C:\Program Files\CMake\bin\cmake.EXE' --build 'C:\w\CMSIS-et-template\zephyr-u55\out\Zephyr_app\Corstone-300-FVP\Release'
+FAILED: CMakeFiles/west C:/w/CMSIS-et-template/zephyr-u55/tmp/1/CMakeFiles/west 
+C:\WINDOWS\system32\cmd.exe /C "cd /D C:\w\CMSIS-et-template\zephyr-u55\tmp\1 && "C:\Program Files\CMake\bin\cmake.exe" -E cmake_echo_color --blue " Run west build" && west build -d C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release"
+ninja: build stopped: subcommand failed.
+FAILED: Zephyr_app.Release+Corstone-300-FVP/src/Zephyr_app.Release+Corstone-300-FVP-stamp/Zephyr_app.Release+Corstone-300-FVP-build C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/zephyr.elf C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/zephyr/zephyr.hex C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/compile_commands.json C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/compile_macros_c.h C:/w/CMSIS-et-template/zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Release/compile_macros_cxx.h C:/w/CMSIS-et-template/zephyr-u55/tmp/Zephyr_app.Release+Corstone-300-FVP/src/Zephyr_app.Release+Corstone-300-FVP-stamp/Zephyr_app.Release+Corstone-300-FVP-build 
+C:\WINDOWS\system32\cmd.exe /C "cd /D C:\w\CMSIS-et-template\zephyr-u55\tmp\1 && "C:\Program Files\CMake\bin\cmake.exe" -E cmake_echo_color --blue --bold "Building CMake target 'Zephyr_app.Release+Corstone-300-FVP'" && "C:\Program Files\CMake\bin\cmake.exe" -E echo "Using compiler: AC6 V6.24.0" && "C:\Program Files\CMake\bin\cmake.exe" --build C:/w/CMSIS-et-template/zephyr-u55/tmp/1 "--target west""
+ninja: build stopped: subcommand failed.
++------------------------------------------------------------
+Build summary: 0 succeeded, 1 failed - Time Elapsed: 00:01:49
++============================================================

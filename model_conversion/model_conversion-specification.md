@@ -41,8 +41,8 @@ The YAML root shall contain `cbuild-mlops`. The converter uses:
 - `vela.ini`: optional path relative to the solution directory;
 - `vela.options`: generated command-line options;
 - `model.clayer`: required output path relative to the solution directory;
-- `model.zephyr`: optional mapping whose presence enables additional Zephyr
-  integration output;
+- `model.zephyr`: optional empty node or mapping whose presence enables
+  additional Zephyr integration output;
 - `model.name`: optional layer group and description fallback;
 - `model.input-shape`: optional `x`- or comma-separated dimensions; and
 - `model.calibration-samples`: optional integer sample count.
@@ -51,6 +51,13 @@ It shall load `get_model` and `get_calibration_inputs` from the solution's
 `model/model.py`. It shall quantize the exported graph, calibrate it with all
 returned samples, delegate supported operations to Ethos-U, invoke Vela, and
 serialize the resulting ExecuTorch program.
+
+Every Vela invocation shall capture the complete textual report while still
+showing it in the terminal. The generator shall write `VELA_SUMMARY.md` in the
+directory containing `model.clayer`. The report shall contain the model name,
+effective accelerator configuration, system configuration, memory mode, and
+the Vela textual report in a fenced code block. It shall use UTF-8 and LF line
+endings.
 
 `--accelerator-config`, `--system-config`, and `--memory-mode` shall initialize
 `EthosUCompileSpec`. Other Vela options shall be forwarded as extra flags.
@@ -64,8 +71,9 @@ to map serialized CPU operators to CMSIS components.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
-directly under `mlops`. Its value shall be a mapping, initially empty, so that
-future Zephyr-specific parameters can be added without changing the node type.
+directly under `mlops`. A plain empty `zephyr:` node is equivalent to an empty
+mapping. A non-empty value shall be a mapping so that future Zephyr-specific
+parameters can be added without changing the node type.
 
 The directory containing `model.clayer` shall be created as needed and shall
 receive:
@@ -74,6 +82,7 @@ receive:
 model.pte
 model_pte.c
 model_pte.h
+VELA_SUMMARY.md
 ```
 
 The directory shall also receive the `*.clayer.yml` file named by
@@ -95,6 +104,12 @@ not defer source ownership or expose the model through interface sources.
 The C array shall be aligned to 16 bytes. An operator with no matching pack
 component shall produce a warning; a selected Zephyr operator without a
 matching Kconfig option shall be an error.
+
+All generated artifacts shall first be prepared in temporary storage. Only
+after model export, Vela compilation, component discovery, and output
+generation succeed shall the script atomically replace destination files. A
+failure shall preserve the previous complete AI layer and shall not leave
+partial destination files. The generated MLOps file shall never be modified.
 
 ### `setup_venv.py`
 
@@ -166,7 +181,7 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - The resolved pack version follows the exact selector when available.
 - Model parameters are converted to the types expected by `model/model.py`.
 - Generated C, header, and layer text are deterministic for identical input.
-- A present `model.zephyr` mapping generates complete Zephyr metadata without
+- A present `model.zephyr` node generates complete Zephyr metadata without
   invoking `west ailayer`; without it, no Zephyr metadata is generated.
 - The complete unit-test suite passes without target hardware.
 

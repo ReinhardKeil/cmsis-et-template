@@ -91,7 +91,7 @@ It also provides the following `model:` settings used by
 | `model:` | | Content |
 |---|---|---|
 | `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated model files. |
-| `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. |
+| `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
 | `name:` | Optional | Model name used for the CMSIS layer group and as the layer-description fallback. |
 | `input-shape:` | Optional | Model input dimensions separated by `x` or commas, for example `1x16x16x3`. Passed to `get_model` and `get_calibration_inputs` as `input_shape`. |
 | `calibration-samples:` | Optional | Number of calibration inputs. Converted to an integer and passed to `get_calibration_inputs`. |
@@ -109,13 +109,15 @@ The script uses the parent folder of the `*.clayer.yml` path specified by
 The script creates:
 
 - `model_pte.c` and `model_pte.h`, which embed the program as a C array; and
-- `model.pte` for inspection.
+- `model.pte` for inspection; and
+- `VELA_SUMMARY.md`, containing the model name, effective accelerator, system
+  configuration, memory mode, and complete Vela textual report.
 
 The script also creates the `*.clayer.yml` file specified by `model.clayer`.
 This file selects the required ExecuTorch runtime, backend, and operator
 components.
 
-When the `zephyr:` mapping is present, the script additionally creates
+When the `zephyr:` node is present, the script additionally creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
 application. No separate `west ailayer` step is required.
 
@@ -123,6 +125,12 @@ The application root must append the two generated `.conf` files to
 `EXTRA_CONF_FILE` before `find_package(Zephyr)`, then call
 `add_subdirectory(ai_layer)` afterward. This lets the generated layer attach
 `model_pte.c` directly and exactly once to Zephyr's `app` target.
+
+All output files use LF line endings where applicable. The script stages the
+complete generated layer in temporary storage and atomically replaces the
+destination files only after export and output generation succeed. If Vela or
+later generation fails, the previous AI layer remains intact. The generated
+`*.cbuild-mlops.yml` input is never modified.
 
 ## Tests
 

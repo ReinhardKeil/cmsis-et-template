@@ -1,11 +1,12 @@
 solution:
-  description: Zephyr ExecuTorch application template targeting an Ethos-U55 on the Corstone-300 (SSE-300) FVP.
-# Usage:
-#   cbuild setup zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP              # generate *.cbuild-mlops.yml
-#   python model_conversion/create_ai_layer.py zephyr-u55/zephyr-u55.cbuild-mlops.yml       # generate ai_layer
-#   cbuild zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP                    # build application
-#
-# See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
+  description: Zephyr ExecuTorch application template targeting an Ethos-U55 on
+    the Corstone-300 (SSE-300) FVP.
+  # Usage:
+  #   cbuild setup zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP              # generate *.cbuild-mlops.yml
+  #   python model_conversion/create_ai_layer.py zephyr-u55/zephyr-u55.cbuild-mlops.yml       # generate ai_layer
+  #   cbuild zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP                    # build application
+  #
+  # See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
 
   packs:
     - pack: ARM::V2M_MPS3_SSE_300_BSP@^1.5.0
@@ -22,6 +23,7 @@ solution:
         - west-board: ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp
       west-defs:
         - DTC_OVERLAY_FILE: app.overlay
+        - EXTRA_CONF_FILE: app.conf
       target-set:
         - set:
           debugger:
@@ -39,6 +41,7 @@ solution:
         - west-board: mps3/corstone300/fvp
       west-defs:
         - DTC_OVERLAY_FILE: fvp.overlay
+        - FVP_SHUTDOWN_ON_EOT: ON
         - CMAKE_CXX_FLAGS: -includestddef.h
       target-set:
         - set:

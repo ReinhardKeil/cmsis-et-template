@@ -23,14 +23,20 @@ add_subdirectory(ai_layer)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
   # AC6 6.24's register coalescer crashes on this pack's quantization code
   # with hard-float at -Og/-O1; -O2 avoids it and keeps the kernel optimized.
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "6.24.0" AND CONFIG_FP_HARDABI)
+  if(CONFIG_FP_HARDABI)
     get_target_property(_et_sources cmsis_executorch SOURCES)
+    set(_et_quantize_workaround_applied FALSE)
     foreach(_source IN LISTS _et_sources)
       if(_source MATCHES "[/\\\\]op_quantize\\.cpp$")
         set_property(SOURCE "${_source}" TARGET_DIRECTORY cmsis_executorch
           APPEND PROPERTY COMPILE_OPTIONS -O2)
+        set(_et_quantize_workaround_applied TRUE)
       endif()
     endforeach()
+    if(NOT _et_quantize_workaround_applied)
+      message(FATAL_ERROR
+        "AC6 workaround could not find ExecuTorch op_quantize.cpp")
+    endif()
   endif()
 
   # Zephyr explicitly adds AC6's C resource headers as system includes.
@@ -71,6 +77,12 @@ target_sources(app PRIVATE
   src/arm_embedded_module.cpp
   src/executorch_test.cpp
 )
+
+# The Corstone FVP watches UART output for EOT (0x04). Physical targets must
+# not receive this control character, so enable it only from the FVP context.
+if(FVP_SHUTDOWN_ON_EOT)
+  target_compile_definitions(app PRIVATE FVP_SHUTDOWN_ON_EOT=1)
+endif()
 
 # Keep runtime logging consistent with the existing AI layer configuration.
 zephyr_compile_definitions(ET_LOG_ENABLED=0)

@@ -62,6 +62,9 @@ Start the generated Arm FVP configuration for `Corstone-300-FVP`. For
 `AppKit-E8`, connect the board's supported debug probe and start the generated
 pyOCD configuration. The application prints the detected NPU configuration,
 performs inference, and ends with `Test_result: PASS` when validation succeeds.
+FVP builds then write EOT (`0x04`) to UART0; together with
+`shutdown_on_eot=1` in `fvp_config.txt`, this terminates the simulation without
+waiting for `--simlimit`. AppKit builds do not emit the control character.
 
 ### Configure with menuconfig
 
@@ -126,3 +129,71 @@ and `ethosu.num_macs=256` in `fvp_config.txt`. The guide's
 explains why these settings and the Vela accelerator selection must agree.
 
 After any NPU change, regenerate the AI layer and rebuild the application.
+
+## How it works
+
+The CMSIS solution does not build the application directly. `cbuild` translates
+the selected solution context into a `west build` invocation. The selected
+target type, build type, compiler, packs, and `west-defs` become Zephyr board,
+CMake, and Kconfig arguments. Zephyr then combines those arguments with the
+application files described below.
+
+### Solution-to-west configuration
+
+[`zephyr-u55.csolution.yml`](zephyr-u55.csolution.yml) supplies these values to
+west:
+
+| Solution setting | Purpose |
+|---|---|
+| `west-board` | Selects `mps3/corstone300/fvp` for the FVP or `ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp` for the AppKit. The project-level `board: $west-board$` passes the selected value to west. |
+| `DTC_OVERLAY_FILE` | Selects the target-specific devicetree overlay: `fvp.overlay` or `app.overlay`. |
+| `EXTRA_CONF_FILE: app.conf` | Adds the AppKit-only Kconfig fragment. It is intentionally absent from the FVP target. |
+| `CMAKE_CXX_FLAGS: -includestddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. The option has no space because cbuild otherwise splits `-include stddef.h`. |
+| Debug `CONFIG_*` definitions | Enable Zephyr debug information, thread information, and debug optimization for the `Debug` build type. |
+| Release `CONFIG_SPEED_OPTIMIZATIONS` | Selects Zephyr's speed optimization for the `Release` build type. |
+| `EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$` | Resolves the installed ExecuTorch pack and makes its root an external Zephyr module. This exposes the pack's Kconfig symbols, CMake sources, runtime, operators, and Ethos-U backend. |
+
+The `mlops:` node is consumed before the application build. Solution setup
+generates `zephyr-u55.cbuild-mlops.yml`; `create_ai_layer.py` reads that file,
+exports and lowers the model for Ethos-U55-256, and writes `ai_layer/`. Changing
+the model, accelerator, MAC count, Vela system, or Vela memory mode therefore
+requires regenerating the AI layer before rebuilding.
+
+### Configuration files
+
+| File | Scope and function |
+|---|---|
+| [`prj.conf`](prj.conf) | Common persistent Kconfig configuration for both targets. It enables the Zephyr Ethos-U55-256 driver, C++17, hard-float ABI, cache maintenance, logging, heaps, stack size, and floating-point `printf`. |
+| [`app.conf`](app.conf) | AppKit-only Kconfig configuration, selected through `EXTRA_CONF_FILE`. `CONFIG_FLASH_LOAD_OFFSET=0x200000` places the application after the platform firmware in MRAM. Applying this fragment to Corstone-300 would exceed its 512-KiB ITCM flash region and produce AC6 linker error `L6225E`. |
+| [`app.overlay`](app.overlay) | AppKit devicetree changes. It declares and enables the Ethos-U55, combines the two SRAM banks into an 8-MiB NPU-accessible region, and selects that region as `zephyr,sram`; the NPU cannot DMA to the board's default Cortex-M55 DTCM. |
+| [`fvp.overlay`](fvp.overlay) | Corstone-300 devicetree changes. It keeps the board's existing Ethos-U device and selects ISRAM as writable application memory because the simulated NPU also cannot DMA to DTCM. |
+| [`fvp_config.txt`](fvp_config.txt) | Parameters for the FVP executable, not Zephyr. It selects 256 MACs, enables fast functional simulation, sends unbuffered UART0 output directly to the console, shuts down on EOT, and disables unused terminals and visualization. CI captures the same console stream with `tee`. |
+| `ai_layer/components.conf` | Generated Kconfig fragment enabling only the ExecuTorch runtime, support libraries, kernel registration, and Ethos-U backend required by the generated layer. |
+| `ai_layer/operators.conf` | Generated Kconfig fragment enabling only the operators detected in the lowered model. |
+| `ai_layer/CMakeLists.txt` | Generated CMake fragment that attaches `model_pte.c` and its include directory directly to Zephyr's `app` target. Direct ownership prevents the model from being compiled twice during AC6 pre-link. |
+| `ai_layer/ai_layer.clayer.yml` | Generated CMSIS layer metadata recording the pack, components, operators, definitions, and embedded model sources. |
+| `ai_layer/VELA_SUMMARY.md` | Generated record of the effective Vela configuration and Vela's textual compilation report. |
+
+The two generated `ai_layer/*.conf` files must be appended to
+`EXTRA_CONF_FILE` before `find_package(Zephyr)`, because Zephyr resolves Kconfig
+while that call runs. Afterward, `add_subdirectory(ai_layer)` attaches the
+generated model source to the `app` target. This ordering in
+[`CMakeLists.txt`](CMakeLists.txt) is significant.
+
+### AC6 compatibility configuration
+
+The application CMake file applies the following adjustments only when CMake
+detects ArmClang:
+
+- Compile `op_quantize.cpp` with `-O2` for AC6 6.24 hard-float builds to avoid
+  its register-coalescer failure at lower optimization levels.
+- Put AC6's libc++ wrapper headers before its C resource headers and force the
+  application compatibility header into C++ translation units.
+- Add the constructor section, constructor runner, and destructor support that
+  are otherwise omitted by Zephyr's generated AC6 scatter configuration.
+- Remove Zephyr's `--library_type=microlib` selection so ExecuTorch links with
+  the standard Arm C runtime required by libc++.
+
+These settings complement `CONFIG_COMMON_LIBC_MALLOC`, C++17, hard-float, and
+the Zephyr-managed heaps in `prj.conf`. They are build integration requirements,
+not model-generation settings.

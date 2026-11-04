@@ -95,12 +95,11 @@ jobs:
       - name: Run Corstone-300-FVP
         working-directory: zephyr-u55
         run: |
-          rm -f fvp_stdout.log
+          set -o pipefail
           FVP_Corstone_SSE-300_Ethos-U55 \
             -f fvp_config.txt \
             -a out/Zephyr_app/Corstone-300-FVP/Debug/zephyr/zephyr.elf \
-            --simlimit 60
-          cat fvp_stdout.log | tee ../fvp.log
+            --simlimit 60 2>&1 | tee ../fvp.log
 
       - name: Check application result
         run: 'grep -Fq "Test_result: PASS" fvp.log'
