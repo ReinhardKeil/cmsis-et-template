@@ -2,7 +2,7 @@
 
 This workflow builds the template application for the Corstone-320 FVP with an
 Ethos-U85-256 NPU. Its CMSIS solution is
-`cmsis-u85/cmsis-executorch.csolution.yml`.
+`cmsis-u85/cmsis-u85.csolution.yml`.
 
 Complete the workspace-level [prerequisites](../README.md#prerequisites) first.
 Commands below run from the workspace root.
@@ -12,7 +12,7 @@ Commands below run from the workspace root.
 1. Create a repository from the GitHub template, clone it, and open its root
    directory in VS Code.
 2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
-   then select `cmsis-u85/cmsis-executorch.csolution.yml`.
+   then select `cmsis-u85/cmsis-u85.csolution.yml`.
 3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
    variant can be used when a compatible Python `>=3.10,<3.14` is installed.
 4. Use the CMSIS action buttons to build the application, then select **Run** or
@@ -65,10 +65,10 @@ The script creates `.venv/` at workspace level. With
 Enable the `SSE-320-U85` target-set with `--active`:
 
 ```bash
-cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs
+cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
 ```
 
-This writes `cmsis-u85/cmsis-executorch.cbuild-mlops.yml` with the processor,
+This writes `cmsis-u85/cmsis-u85.cbuild-mlops.yml` with the processor,
 Ethos-U85, Vela, simulator, and AI-layer settings.
 
 ## Configuring the Ethos-U target
@@ -90,7 +90,7 @@ for the matching accelerator, then rebuild the application.
 ### 3. Create the AI layer
 
 ```bash
-python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml
+python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
 ```
 
 On Windows, use `python`. The conversion tool uses the shared `.venv/` and
@@ -101,18 +101,18 @@ On Windows, use `python`. The conversion tool uses the shared `.venv/` and
 Keep the same target-set active for the build:
 
 ```bash
-cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85
+cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85
 ```
 
 The resulting image is
-`cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf`.
+`cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf`.
 
 ### 5. Run on the FVP
 
 ```bash
 FVP_Corstone_SSE-320 \
     -f cmsis-u85/board/fvp_config.txt --simlimit 60 \
-    -a cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf
+    -a cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf
 ```
 
 On macOS, call `.vscode/fvp.sh` with the same arguments to run the FVP in

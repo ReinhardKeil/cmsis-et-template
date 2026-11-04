@@ -146,6 +146,36 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertIn("component: Machine Learning:ExecuTorch Operators:Portable add", layer)
         self.assertIn("file: ./model_pte.c", layer)
 
+    def test_zephyr_metadata_owns_model_once(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            pack = Path(temporary)
+            (pack / "zephyr").mkdir()
+            (pack / "zephyr" / "Kconfig").write_text(
+                "config CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE\n", encoding="utf-8"
+            )
+            metadata = generator.zephyr_metadata(["Quantized dequantize"], pack)
+
+        self.assertIn("target_sources(app PRIVATE", metadata["CMakeLists.txt"])
+        self.assertIn("target_include_directories(app PRIVATE", metadata["CMakeLists.txt"])
+        self.assertNotIn("INTERFACE_SOURCES", metadata["CMakeLists.txt"])
+        self.assertNotIn("cmake_language(DEFER", metadata["CMakeLists.txt"])
+        self.assertNotIn("EXTRA_CONF_FILE", metadata["CMakeLists.txt"])
+        self.assertEqual(metadata["CMakeLists.txt"].count("model_pte.c"), 1)
+        self.assertIn(
+            "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y",
+            metadata["operators.conf"],
+        )
+
+    def test_zephyr_templates_configure_layer_before_adding_sources(self) -> None:
+        for template in ("zephyr-u55", "zephyr-u85"):
+            with self.subTest(template=template):
+                cmake = (ROOT / template / "CMakeLists.txt").read_text(encoding="utf-8")
+                configure = cmake.index("list(APPEND EXTRA_CONF_FILE")
+                find_zephyr = cmake.index("find_package(Zephyr")
+                add_layer = cmake.index("add_subdirectory(ai_layer)")
+                self.assertLess(configure, find_zephyr)
+                self.assertLess(find_zephyr, add_layer)
+
     def test_clayer_uses_absolute_mlops_path_across_windows_drives(self) -> None:
         mlops_file = Path("C:/temporary/demo.cbuild-mlops.yml")
         with mock.patch.object(generator.os.path, "relpath", side_effect=ValueError):
@@ -203,6 +233,75 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "model_pte.c").is_file())
             self.assertTrue((output / "model_pte.h").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
+
+    def test_main_writes_zephyr_module_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution_dir = Path(temporary) / "solutions" / "demo"
+            solution_dir.mkdir(parents=True)
+            mlops_file = solution_dir / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump(
+                    {
+                        "cbuild-mlops": {
+                            "description": "Demo",
+                            "npu": {"type": "Ethos-U55"},
+                            "model": {
+                                "clayer": "generated/ai_layer.clayer.yml",
+                                "zephyr": {},
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "compile_spec", return_value=object()), mock.patch.object(
+                generator, "export_model", return_value=b"PTE"
+            ), mock.patch.object(generator, "executorch_version", return_value="1.6.0"), mock.patch.object(
+                generator, "executorch_pack", return_value=solution_dir / "pack"
+            ), mock.patch.object(
+                generator, "components", return_value=(["Runtime"], ["Quantized dequantize"])
+            ), mock.patch.object(
+                generator,
+                "zephyr_metadata",
+                return_value={
+                    "CMakeLists.txt": generator.ZEPHYR_CMAKE,
+                    "components.conf": generator.ZEPHYR_COMPONENTS,
+                    "operators.conf": "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y\n",
+                },
+            ):
+                generator.main()
+
+            output = solution_dir / "generated"
+            self.assertTrue((output / "CMakeLists.txt").is_file())
+            self.assertTrue((output / "components.conf").is_file())
+            self.assertTrue((output / "operators.conf").is_file())
+            self.assertTrue((output / "ai_layer.clayer.yml").is_file())
+
+    def test_main_rejects_non_mapping_zephyr_setting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution_dir = Path(temporary)
+            mlops_file = solution_dir / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump(
+                    {
+                        "cbuild-mlops": {
+                            "model": {
+                                "clayer": "ai_layer/ai_layer.clayer.yml",
+                                "zephyr": True,
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), self.assertRaisesRegex(SystemExit, "model.zephyr must be a mapping"):
+                generator.main()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 This workflow builds the template application for the Corstone-300 FVP with an
 Ethos-U55-128 NPU. Its CMSIS solution is
-`cmsis-u55/cmsis-executorch.csolution.yml`.
+`cmsis-u55/cmsis-u55.csolution.yml`.
 
 Complete the workspace-level [prerequisites](../README.md#prerequisites) first.
 Commands below run from the workspace root.
@@ -12,7 +12,7 @@ Commands below run from the workspace root.
 1. Create a repository from the GitHub template, clone it, and open its root
    directory in VS Code.
 2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
-   then select `cmsis-u55/cmsis-executorch.csolution.yml`.
+   then select `cmsis-u55/cmsis-u55.csolution.yml`.
 3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
    variant can be used when a compatible Python `>=3.10,<3.14` is installed.
 4. Use the CMSIS action buttons to build the application, then select **Run** or
@@ -54,10 +54,10 @@ The script creates `.venv/` at workspace level. With
 Enable the `SSE-300-U55` target-set with `--active`:
 
 ```bash
-cbuild setup cmsis-u55/cmsis-executorch.csolution.yml --active SSE-300-U55 --packs
+cbuild setup cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55 --packs
 ```
 
-This writes `cmsis-u55/cmsis-executorch.cbuild-mlops.yml` with the processor,
+This writes `cmsis-u55/cmsis-u55.cbuild-mlops.yml` with the processor,
 Ethos-U55, Vela, simulator, and AI-layer settings.
 
 ## Configuring the Ethos-U target
@@ -79,7 +79,7 @@ so Vela compiles the command stream for the matching accelerator.
 ### 3. Create the AI layer
 
 ```bash
-python3 model_conversion/create_ai_layer.py cmsis-u55/cmsis-executorch.cbuild-mlops.yml
+python3 model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml
 ```
 
 On Windows, use `python`. The conversion tool uses the shared `.venv/` and
@@ -90,18 +90,18 @@ On Windows, use `python`. The conversion tool uses the shared `.venv/` and
 Keep the same target-set active for the build:
 
 ```bash
-cbuild cmsis-u55/cmsis-executorch.csolution.yml --active SSE-300-U55
+cbuild cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55
 ```
 
 The resulting image is under
-`cmsis-u55/out/cmsis-executorch/SSE-300-U55/Debug/`.
+`cmsis-u55/out/cmsis-u55/SSE-300-U55/Debug/`.
 
 ### 5. Run on the FVP
 
 ```bash
 FVP_Corstone_SSE-300_Ethos-U55 \
     -f cmsis-u55/board/fvp_config_u55.txt --simlimit 60 \
-    -a cmsis-u55/out/cmsis-executorch/SSE-300-U55/Debug/cmsis-executorch.axf
+    -a cmsis-u55/out/cmsis-u55/SSE-300-U55/Debug/cmsis-u55.axf
 ```
 
 For more background, see the workspace documentation for the

@@ -4,7 +4,7 @@
 mps4_board.subsystem.ethosu.num_macs=256              # (int   , init-time) default = '0x400'  : Number of 8x8 MACs performed per cycle (128, 256, 512, 1024, or 2048). : [0x80:0x800]
 mps4_board.subsystem.ethosu.extra_args=--fast         # Fast functional simulation; reported NPU timing is not cycle-accurate.
                                                       # NOTE: must match the Vela target the model was compiled for:
-                                                      # --accelerator-config ethos-u85-256 in cmsis-executorch.cbuild-mlops.yml
+                                                      # --accelerator-config ethos-u85-256 in cmsis-u85.cbuild-mlops.yml
                                                       # (from the mlops: node of the csolution), otherwise the command
                                                       # stream is rejected at runtime ("npu.macs_per_cc != optimizer.macs_per_cc").
 mps4_board.subsystem.cpu0.INITSVTOR=0x12000000        # (int   , init-time) default = '0x11000000' : Secure vector-table offset at reset

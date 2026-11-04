@@ -16,7 +16,10 @@ AI/ML AppKit and the Corstone-320 FVP.
 
 The current solution uses the `PyTorch::ExecuTorch` 1.6.0 Zephyr preview
 module. Its path is supplied to Zephyr through `EXTRA_ZEPHYR_MODULES`.
-The Zephyr targets use the Arm GNU Toolchain (`compiler: GCC`).
+The Zephyr targets use the Arm GNU Toolchain (`compiler: GCC`) by default.
+Their CMake and Kconfig configuration also carries the AC6 6.24 compatibility
+needed by the ExecuTorch preview pack when the solution compiler is changed to
+AC6.
 
 ## Quick Start
 
@@ -65,6 +68,25 @@ and start the generated debug configuration.
 The application initializes the Zephyr Ethos-U device, loads the embedded
 ExecuTorch program from `ai_layer/model_pte.c`, runs inference, and reports the
 result on the console.
+
+### Configure with menuconfig
+
+Build the desired target once with the CMSIS Solution extension. From the
+repository root, open a terminal using the same tools environment and run:
+
+```powershell
+cmake --build zephyr-u85/out/Zephyr_app/Corstone-320-FVP/Debug --target menuconfig
+```
+
+Use `--target guiconfig` for the graphical interface. For the physical board,
+replace `Corstone-320-FVP` with `AppKit-E8` after building that target once.
+Each build directory has its own configuration.
+
+In menuconfig, press `/` to search for an option such as `CMSIS_EXECUTORCH`,
+press `?` for its dependencies, and press `Q`, then `Y`, to save. Changes are
+written to the build directory's `zephyr/.config`. Copy settings that must
+survive a clean build into `prj.conf`; files under `ai_layer/*.conf` are
+generated and may be overwritten.
 
 ### Alif E8 validation output
 

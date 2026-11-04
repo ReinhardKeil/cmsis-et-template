@@ -41,6 +41,8 @@ The YAML root shall contain `cbuild-mlops`. The converter uses:
 - `vela.ini`: optional path relative to the solution directory;
 - `vela.options`: generated command-line options;
 - `model.clayer`: required output path relative to the solution directory;
+- `model.zephyr`: optional mapping whose presence enables additional Zephyr
+  integration output;
 - `model.name`: optional layer group and description fallback;
 - `model.input-shape`: optional `x`- or comma-separated dimensions; and
 - `model.calibration-samples`: optional integer sample count.
@@ -60,20 +62,39 @@ The matching `<solution>.cbuild-pack.yml` shall be read from the solution
 directory. Its selected `PyTorch::ExecuTorch` version determines the pack used
 to map serialized CPU operators to CMSIS components.
 
-The directory selected by `model.clayer` shall be created as needed and shall
+`model.zephyr` is a custom property under `mlops.model`; it shall be preserved
+by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
+directly under `mlops`. Its value shall be a mapping, initially empty, so that
+future Zephyr-specific parameters can be added without changing the node type.
+
+The directory containing `model.clayer` shall be created as needed and shall
 receive:
 
 ```text
-<model.clayer>
 model.pte
 model_pte.c
 model_pte.h
 ```
 
-The C array shall be aligned to 16 bytes. The layer shall select ExecuTorch
-Runtime, Kernel Utils, Kernel Registration, Backend EthosU, and the operator
-components detected in the serialized program. An operator with no matching
-pack component shall produce a warning.
+The directory shall also receive the `*.clayer.yml` file named by
+`model.clayer`. It shall select ExecuTorch Runtime, Kernel Utils, Kernel
+Registration, Backend EthosU, and the operator components detected in the
+serialized program.
+
+When `model.zephyr` is present, the directory shall additionally receive
+`CMakeLists.txt`, `components.conf`, and `operators.conf`. The CMake file shall add
+`model_pte.c` directly and exactly once to Zephyr's `app` target for every
+compiler. The configuration fragments shall enable the same runtime, backend,
+and detected operator components as the CMSIS layer.
+
+The consuming Zephyr application's root CMake file shall append the generated
+configuration fragments to `EXTRA_CONF_FILE` before `find_package(Zephyr)` and
+shall add the generated layer directory afterward. The generated layer shall
+not defer source ownership or expose the model through interface sources.
+
+The C array shall be aligned to 16 bytes. An operator with no matching pack
+component shall produce a warning; a selected Zephyr operator without a
+matching Kconfig option shall be an error.
 
 ### `setup_venv.py`
 
@@ -145,5 +166,7 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - The resolved pack version follows the exact selector when available.
 - Model parameters are converted to the types expected by `model/model.py`.
 - Generated C, header, and layer text are deterministic for identical input.
+- A present `model.zephyr` mapping generates complete Zephyr metadata without
+  invoking `west ailayer`; without it, no Zephyr metadata is generated.
 - The complete unit-test suite passes without target hardware.
 

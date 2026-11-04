@@ -62,13 +62,13 @@ jobs:
         run: ./model_conversion/setup_venv.sh
 
       - name: Generate U85 MLOps information
-        run: cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs
+        run: cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
 
       - name: Create U85 AI layer
-        run: .venv/bin/python model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml
+        run: .venv/bin/python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
 
       - name: Build SSE-320-U85
-        run: cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs --toolchain ${{ matrix.toolchain }}
+        run: cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs --toolchain ${{ matrix.toolchain }}
 
       - name: Run SSE-320-U85 on FVP simulation
         env:

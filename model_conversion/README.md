@@ -56,9 +56,9 @@ Pass the MLOps file belonging to the selected solution. For a solution in the
 workspace root:
 
 ```console
-cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs
-python model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml
-cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85
+cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
+python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
+cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85
 ```
 
 The `--active SSE-320-U85` option enables that CMSIS-Toolbox target-set for
@@ -79,23 +79,50 @@ python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml
 
 ## Input
 
-The generated YAML must contain a `cbuild-mlops` mapping. The converter uses:
+The `*.cbuild-mlops.yml` file provides the `npu:` and `vela:` configuration as
+described in the
+[CMSIS-Toolbox MLOps documentation](https://open-cmsis-pack.github.io/cmsis-toolbox/YML-Input-Format/#mlops-management).
+It also provides the following `model:` settings used by
+`create_ai_layer.py`. Add these settings under `mlops.model` in the
+`*.csolution.yml`; `cbuild setup` copies them to the `*.cbuild-mlops.yml` file.
 
-- `npu.type` and optional `npu.macs`;
-- `vela.ini` and `vela.options`;
-- `model.clayer` and optional `model.name`;
-- optional `model.input-shape` and `model.calibration-samples`.
+### `model:`
+
+| `model:` | | Content |
+|---|---|---|
+| `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated model files. |
+| `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. |
+| `name:` | Optional | Model name used for the CMSIS layer group and as the layer-description fallback. |
+| `input-shape:` | Optional | Model input dimensions separated by `x` or commas, for example `1x16x16x3`. Passed to `get_model` and `get_calibration_inputs` as `input_shape`. |
+| `calibration-samples:` | Optional | Number of calibration inputs. Converted to an integer and passed to `get_calibration_inputs`. |
 
 The matching `*.cbuild-pack.yml` file supplies the selected ExecuTorch pack
 version.
 
 ## Output
 
-The directory selected by `model.clayer` receives:
+The script uses the parent folder of the `*.clayer.yml` path specified by
+`model.clayer` as its output folder. For example, with
+`clayer: ai_layer/ai_layer.clayer.yml`, generated files are written to
+`ai_layer/`.
 
-- the requested `.clayer.yml` with runtime, backend, and operator components;
+The script creates:
+
 - `model_pte.c` and `model_pte.h`, which embed the program as a C array; and
 - `model.pte` for inspection.
+
+The script also creates the `*.clayer.yml` file specified by `model.clayer`.
+This file selects the required ExecuTorch runtime, backend, and operator
+components.
+
+When the `zephyr:` mapping is present, the script additionally creates
+`CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
+application. No separate `west ailayer` step is required.
+
+The application root must append the two generated `.conf` files to
+`EXTRA_CONF_FILE` before `find_package(Zephyr)`, then call
+`add_subdirectory(ai_layer)` afterward. This lets the generated layer attach
+`model_pte.c` directly and exactly once to Zephyr's `app` target.
 
 ## Tests
 

@@ -1,4 +1,11 @@
 solution:
+  description: Zephyr ExecuTorch application template targeting an Ethos-U85 on the Corstone-320 (SSE-320) FVP.
+# Usage:
+#   cbuild setup zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP              # generate *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py zephyr-u85/zephyr-u85.cbuild-mlops.yml       # generate ai_layer
+#   cbuild zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP                    # build application
+#
+# See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
 
   packs:
     - pack: ARM::SSE_320_BSP@^2.0.0
@@ -64,7 +71,7 @@ solution:
         app-path: .
         board: $west-board$
         west-defs:
-          - EXTRA_ZEPHYR_MODULES: ${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1
+          - EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$
 
   mlops:
     description: TinyCNN for an Ethos-U85-256 target
@@ -76,6 +83,7 @@ solution:
       memory: Shared_Sram
     model:
       clayer: ai_layer/ai_layer.clayer.yml
+      zephyr: {}
       name: TinyCNN
       input-shape: 1x16x16x3
       calibration-samples: 2

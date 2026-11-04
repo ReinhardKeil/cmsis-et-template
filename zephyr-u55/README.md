@@ -13,7 +13,9 @@ Corstone-300 FVP target for simulation.
 > driver is part of upstream Zephyr 4.5 and uses Zephyr's `hal_ethos_u` module.
 > `PyTorch::ExecuTorch` supplies the ExecuTorch runtime and Ethos-U backend.
 
-The solution uses the Arm GNU Toolchain (`compiler: GCC`).
+The solution uses the Arm GNU Toolchain (`compiler: GCC`) by default. Its
+CMake and Kconfig configuration also carries the AC6 6.24 compatibility needed
+by the ExecuTorch preview pack when the solution compiler is changed to AC6.
 
 ## Quick Start
 
@@ -60,6 +62,25 @@ Start the generated Arm FVP configuration for `Corstone-300-FVP`. For
 `AppKit-E8`, connect the board's supported debug probe and start the generated
 pyOCD configuration. The application prints the detected NPU configuration,
 performs inference, and ends with `Test_result: PASS` when validation succeeds.
+
+### Configure with menuconfig
+
+Build the desired target once with the CMSIS Solution extension. From the
+repository root, open a terminal using the same tools environment and run:
+
+```powershell
+cmake --build zephyr-u55/out/Zephyr_app/Corstone-300-FVP/Debug --target menuconfig
+```
+
+Use `--target guiconfig` for the graphical interface. For the physical board,
+replace `Corstone-300-FVP` with `AppKit-E8` after building that target once.
+Each build directory has its own configuration.
+
+In menuconfig, press `/` to search for an option such as `CMSIS_EXECUTORCH`,
+press `?` for its dependencies, and press `Q`, then `Y`, to save. Changes are
+written to the build directory's `zephyr/.config`. Copy settings that must
+survive a clean build into `prj.conf`; files under `ai_layer/*.conf` are
+generated and may be overwritten.
 
 ### Alif E8 validation output
 

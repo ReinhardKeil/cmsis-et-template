@@ -10,8 +10,8 @@
 
 This repository provides six template applications for deploying and running
 [ExecuTorch](https://github.com/pytorch/executorch) ML models on Cortex-M
-systems. The templates cover CMSIS and Zephyr software workflows, with a choice
-of Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
+systems. The templates cover CMSIS and Zephyr software workflows, with
+Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
 
 Each template is a starting point that can be adopted for a specific hardware
 platform by supplying its device, memory, and execution configuration through
@@ -123,7 +123,7 @@ available guides are:
 ## How ML model generation works
 
 The target is described by the `mlops:` node in
-`cmsis-u85/cmsis-executorch.csolution.yml`:
+`cmsis-u85/cmsis-u85.csolution.yml`:
 
 ```yaml
 mlops:
@@ -141,7 +141,7 @@ mlops:
 
 `cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target-set and
 resolves it into
-`cmsis-u85/cmsis-executorch.cbuild-mlops.yml`, which contains the processor, NPU
+`cmsis-u85/cmsis-u85.cbuild-mlops.yml`, which contains the processor, NPU
 and Vela options, and the FVP simulation target-set as the `simulator:` to test
 on.
 `model_conversion/create_ai_layer.py` reads those options and passes all of them to ExecuTorch's

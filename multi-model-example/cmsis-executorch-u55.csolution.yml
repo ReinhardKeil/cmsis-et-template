@@ -9,9 +9,10 @@
 #   cbuild cmsis-executorch-u55.csolution.yml --active SSE-300-U55
 #
 # See CMSIS-Toolbox MLOps information:
-# https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information
+# https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
 # `cbuild setup` exports it for create_ai_layer.py to generate the AI layer.
 solution:
+  description: Multi-model ExecuTorch example for Ethos-U55-128 on the Corstone-300 FVP
   created-for: CMSIS-Toolbox@2.15.0
   cdefault:
   compiler: AC6

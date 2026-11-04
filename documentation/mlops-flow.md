@@ -1,6 +1,6 @@
 # The MLOps flow
 
-The `mlops:` node in `cmsis-u85/cmsis-executorch.csolution.yml` is the central
+The `mlops:` node in `cmsis-u85/cmsis-u85.csolution.yml` is the central
 definition of the initial Ethos-U target for this template. It follows the CMSIS-Toolbox
 [MLOps information](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
 specification. This document explains how the three build steps use and
@@ -8,14 +8,14 @@ propagate that information.
 
 ```mermaid
 flowchart TD
-    A["cmsis-u85/cmsis-executorch.csolution.yml<br/><b>mlops:</b> node"] -->|"1. cbuild setup --active &lt;target&gt;"| B["cmsis-u85/cmsis-executorch.cbuild-mlops.yml<br/>npu, vela.options, model.clayer"]
+    A["cmsis-u85/cmsis-u85.csolution.yml<br/><b>mlops:</b> node"] -->|"1. cbuild setup --active &lt;target&gt;"| B["cmsis-u85/cmsis-u85.cbuild-mlops.yml<br/>npu, vela.options, model.clayer"]
     B -->|"2. create_ai_layer.py"| C["EthosUCompileSpec<br/>quantize, delegate, Vela"]
     D["model/model.py<br/>TinyCNN"] --> C
     C --> E["cmsis-u85/ai_layer/model_pte.c<br/>the program as a C array"]
     C --> F["cmsis-u85/ai_layer/ai_layer.clayer.yml<br/>component selection"]
     E --> G["3. cbuild --active &lt;target&gt;"]
     F --> G
-    G --> H["cmsis-executorch.axf"]
+    G --> H["cmsis-u85.axf"]
 ```
 
 ## 1. `cbuild setup` turns the csolution into `*.cbuild-mlops.yml`
@@ -42,9 +42,9 @@ CMSIS-Toolbox detects the `simulator:` target (and, for a board, the
 `hardware:` target) from the target-sets, and passes the extra keys under
 `model:` through unchanged.
 
-`cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85`
+`cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85`
 resolves it for the active target and writes
-`cmsis-u85/cmsis-executorch.cbuild-mlops.yml`:
+`cmsis-u85/cmsis-u85.cbuild-mlops.yml`:
 
 ```yaml
 cbuild-mlops:
@@ -63,9 +63,9 @@ cbuild-mlops:
     calibration-samples: 2
   simulator:
     active: SSE-320-U85
-    cbuild-run: cmsis-u85/out/cmsis-executorch+SSE-320-U85.cbuild-run.yml
+    cbuild-run: cmsis-u85/out/cmsis-u85+SSE-320-U85.cbuild-run.yml
     output:
-      - file: cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf
+      - file: cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf
         type: elf
     model: FVP_Corstone_SSE-320
     config-file: cmsis-u85/board/fvp_config.txt
@@ -87,7 +87,7 @@ the flow also works on a checkout without a generated layer.
 
 ## 2. `create_ai_layer.py` turns `*.cbuild-mlops.yml` into the AI layer
 
-`python model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml` stands in
+`python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml` stands in
 for an MLOps system. The workspace directory owns the shared `.venv`; the
 directory containing the selected MLOps file is the solution directory. All
 paths from that file, including `model/model.py`, are resolved from the
@@ -120,7 +120,7 @@ the pack is never compiled, let alone linked.
 
 ## 3. `cbuild` builds the application
 
-`cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85` is a plain
+`cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85` is a plain
 CMSIS build without any Python. The cproject knows nothing about the model: it
 lists the application source and the two layers, and the AI layer contributes
 both the component selection and the model data.

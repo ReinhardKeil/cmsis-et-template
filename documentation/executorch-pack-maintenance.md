@@ -21,8 +21,8 @@ care of it on a fresh clone. To install it by hand:
 cpackget add PyTorch::ExecuTorch@1.5.1
 ```
 
-The version is pinned exactly in each solution's `cmsis-executorch.csolution.yml`
-and `cmsis-executorch.cproject.yml`:
+The version is pinned exactly in each solution's `cmsis-u55.csolution.yml` or
+`cmsis-u85.csolution.yml` and matching `.cproject.yml`:
 
 ```yaml
 packs:
@@ -36,7 +36,8 @@ version — see [Moving to a new ExecuTorch version](#moving-to-a-new-executorch
 `create_ai_layer.py` reads the installed pack's `.pdsc` out of the pack root
 (`$CMSIS_PACK_ROOT`, or cpackget's default) to find out which operator
 components exist. It reads the version `cbuild setup` resolved, taken from
-`cmsis-executorch.cbuild-pack.yml`, so a pack root holding several
+the corresponding `cmsis-u55.cbuild-pack.yml` or `cmsis-u85.cbuild-pack.yml`,
+so a pack root holding several
 ExecuTorch versions cannot make it read the wrong one.
 
 ## What is in the pack
@@ -166,9 +167,9 @@ in order:
 
    ```bash
    ./model_conversion/setup_venv.sh --recreate
-   cbuild setup cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85 --packs
-   python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-executorch.cbuild-mlops.yml
-   cbuild cmsis-u85/cmsis-executorch.csolution.yml --active SSE-320-U85
+   cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
+   python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
+   cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85
    ```
 
    A changed operator set simply shows up in the regenerated

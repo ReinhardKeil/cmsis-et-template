@@ -1,7 +1,8 @@
 TODO
 ====
+- update CMSIS-Toolbox version to 2.16 once it arrives
 
-- Expand support to both Zephyr-based and CMSIS-based workflows.
+- DONE: Expand support to both Zephyr-based and CMSIS-based workflows.
 
 - Add Cortex-M-only targets alongside the existing Cortex-M/Ethos-U targets.
 

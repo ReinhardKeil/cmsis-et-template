@@ -23,7 +23,7 @@
             "type": "gdbtarget",
             "request": "launch",
             "cwd": "${workspaceFolder}/",
-            "program": "cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf",
+            "program": "cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf",
             "gdb": "arm-none-eabi-gdb",
             "auxiliaryGdb": false,
             "initCommands": [
@@ -44,7 +44,7 @@
                     "--simlimit",
                     "60",
                     "-a",
-                    "cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.hex"
+                    "cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.hex"
                 ],
                 "port": "",
                 "serverPortRegExp": "GDBServer: Listening .*port=([0-9]+)",
@@ -60,7 +60,7 @@
             "type": "gdbtarget",
             "request": "attach",
             "cwd": "${workspaceFolder}/",
-            "program": "cmsis-u85/out/cmsis-executorch/SSE-320-U85/Debug/cmsis-executorch.axf",
+            "program": "cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf",
             "gdb": "arm-none-eabi-gdb",
             "auxiliaryGdb": false,
             "initCommands": [
