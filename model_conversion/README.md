@@ -82,9 +82,12 @@ python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml
 For an Ethos-U target, the `*.cbuild-mlops.yml` file provides the `npu:` and
 `vela:` configuration described in the
 [CMSIS-Toolbox MLOps documentation](https://open-cmsis-pack.github.io/cmsis-toolbox/YML-Input-Format/#mlops-management).
-For a CPU-only target, omit `npu:`; the generator derives its
-`CortexMTargetConfig` from `processor.type` and uses the Cortex-M quantizer and
-lowering passes. The file also provides the following `model:` settings used by
+For a CPU-only target, omit `npu:`. If the selected device pack contributes NPU
+information even though the application does not use it, set `model.cpu` to
+the processor name defined by Open-CMSIS-Pack, for example `Cortex-M55`. The
+generator then derives its `CortexMTargetConfig` from `model.cpu` (or otherwise
+from `processor.type`) and uses the Cortex-M quantizer and lowering passes. The
+file also provides the following `model:` settings used by
 `create_ai_layer.py`. Add these settings under `mlops.model` in the
 `*.csolution.yml`; `cbuild setup` copies them to the `*.cbuild-mlops.yml` file.
 
@@ -94,6 +97,7 @@ lowering passes. The file also provides the following `model:` settings used by
 |---|---|---|
 | `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated model files. |
 | `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
+| `cpu:` | Optional | Open-CMSIS-Pack processor name, such as `Cortex-M55`; selects Cortex-M generation even when the device pack contributes NPU information. |
 | `name:` | Optional | Model name used for the CMSIS layer group and as the layer-description fallback. |
 | `input-shape:` | Optional | Model input dimensions separated by `x` or commas, for example `1x16x16x3`. Passed to `get_model` and `get_calibration_inputs` as `input_shape`. |
 | `calibration-samples:` | Optional | Number of calibration inputs. Converted to an integer and passed to `get_calibration_inputs`. |
@@ -123,7 +127,8 @@ components. CPU-only layers omit `Backend EthosU` and add the unversioned
 
 When the `zephyr:` node is present, the script additionally creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
-application. No separate `west ailayer` step is required.
+application. CPU-only fragments omit the Ethos-U backend. No separate
+`west ailayer` step is required.
 
 The application root must append the two generated `.conf` files to
 `EXTRA_CONF_FILE` before `find_package(Zephyr)`, then call

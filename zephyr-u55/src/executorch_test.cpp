@@ -30,13 +30,16 @@ using executorch::runtime::MemoryAllocator;
 
 namespace {
 
+#ifndef EXECUTORCH_TARGET_NAME
+#define EXECUTORCH_TARGET_NAME "Ethos-U55-256"
+#endif
+
 // TinyCNN needs much less space than the original example's two 4 MiB pools.
 constexpr size_t kMethodPoolSize = 128 * 1024;
 constexpr size_t kTempPoolSize = 64 * 1024;
 
 alignas(64) uint8_t g_method_pool[kMethodPoolSize];
-// The NPU uses scratch directly. The default .bss is writable system SRAM on
-// both supplied targets and is accessible by the Ethos-U.
+// The default .bss is writable system SRAM on the supplied targets.
 alignas(64) uint8_t g_temp_pool[kTempPoolSize];
 
 } // namespace
@@ -44,7 +47,8 @@ alignas(64) uint8_t g_temp_pool[kTempPoolSize];
 extern "C" int executorch_run_test(void)
 {
   executorch::runtime::runtime_init();
-  printf("ExecuTorch Ethos-U55-256 application: %lu byte model\n", model_pte_size);
+  printf("ExecuTorch %s application: %lu byte model\n", EXECUTORCH_TARGET_NAME,
+         model_pte_size);
 
   // Devicetree memory-region sections are NOLOAD and are not zeroed at boot.
   std::memset(g_temp_pool, 0, sizeof(g_temp_pool));

@@ -58,7 +58,7 @@ does not use the older context terminology for that selection.
 | [`cmsis-m/`](cmsis-m/README.md) | CMSIS | Cortex-M only | Available |
 | [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
 | [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 | Available |
-| `zephyr-m/` | Zephyr | Cortex-M only | Planned |
+| [`zephyr-m/`](zephyr-m/README.md) | Zephyr | Cortex-M only | Available |
 
 The U55 directories also cover Ethos-U65 targets. Their integration flows are
 close enough that separate `cmsis-u65/` and `zephyr-u65/` templates would only
@@ -121,6 +121,7 @@ available guides are:
 - [CMSIS Cortex-M CPU-only](cmsis-m/README.md) — Corstone-300 / Cortex-M55 with CMSIS-NN.
 - [Zephyr Cortex-M with Ethos-U85](zephyr-u85/README.md) — Alif Ensemble E8 hardware or Corstone-320 FVP.
 - [Zephyr Cortex-M with Ethos-U55](zephyr-u55/README.md) — Alif Ensemble E8 AppKit or Corstone-300 FVP.
+- [Zephyr Cortex-M CPU-only](zephyr-m/README.md) — Alif Ensemble E8 AppKit / Cortex-M55 with Zephyr CMSIS-NN.
 
 ## How ML model generation works
 
@@ -151,9 +152,12 @@ NPU, and Vela options, along with the FVP target set used for simulation.
 `model/model.py` as model parameters.
 
 For CPU-only generation, omit the `npu:` node as shown by
-[`cmsis-m`](cmsis-m/README.md). The script then derives the Cortex-M target
-from the generated `processor:` node and lowers the quantized graph to
-Cortex-M operators implemented by CMSIS-NN. Vela is not used.
+[`cmsis-m`](cmsis-m/README.md). If a device pack adds NPU information to the
+generated MLOps file, set `model.cpu` to its Open-CMSIS-Pack processor name, as in
+[`zephyr-m`](zephyr-m/README.md), to override it. The script then derives the
+Cortex-M target from `model.cpu` (or otherwise from the generated `processor:`
+node) and lowers the quantized graph to Cortex-M operators implemented by
+CMSIS-NN. Vela is not used.
 
 The script then writes:
 
@@ -229,6 +233,7 @@ Windows.
 | `cmsis-m/` | Corstone-300 / Cortex-M55 CPU-only solution using the shared runner and board layer |
 | `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
 | `zephyr-u55/` | Zephyr 4.5 application for the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
+| `zephyr-m/` | Zephyr 4.5 Cortex-M55 CPU-only application for the Alif Ensemble E8 AppKit using Zephyr's CMSIS-NN module |
 | `model/model.py` | Starter TinyCNN ML model |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
 | `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |

@@ -231,7 +231,9 @@ class CreateAiLayerTests(unittest.TestCase):
             (pack / "zephyr" / "Kconfig").write_text(
                 "config CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE\n", encoding="utf-8"
             )
-            metadata = generator.zephyr_metadata(["Quantized dequantize"], pack)
+            metadata = generator.zephyr_metadata(
+                ["Quantized dequantize"], pack, delegated=True
+            )
 
         self.assertIn("target_sources(app PRIVATE", metadata["CMakeLists.txt"])
         self.assertIn("target_include_directories(app PRIVATE", metadata["CMakeLists.txt"])
@@ -243,9 +245,28 @@ class CreateAiLayerTests(unittest.TestCase):
             "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y",
             metadata["operators.conf"],
         )
+        self.assertIn("CONFIG_CMSIS_EXECUTORCH_BACKEND_ETHOS_U=y", metadata["components.conf"])
+
+    def test_cpu_zephyr_metadata_omits_ethosu_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            pack = Path(temporary)
+            (pack / "zephyr").mkdir()
+            (pack / "zephyr" / "Kconfig").write_text(
+                "config CMSIS_EXECUTORCH_OP_CORTEX_M_QUANTIZED_CONV2D\n",
+                encoding="utf-8",
+            )
+            metadata = generator.zephyr_metadata(
+                ["Cortex-M quantized_conv2d"], pack, delegated=False
+            )
+
+        self.assertNotIn("BACKEND_ETHOS_U", metadata["components.conf"])
+        self.assertIn(
+            "CONFIG_CMSIS_EXECUTORCH_OP_CORTEX_M_QUANTIZED_CONV2D=y",
+            metadata["operators.conf"],
+        )
 
     def test_zephyr_templates_configure_layer_before_adding_sources(self) -> None:
-        for template in ("zephyr-u55", "zephyr-u85"):
+        for template in ("zephyr-m", "zephyr-u55", "zephyr-u85"):
             with self.subTest(template=template):
                 cmake = (ROOT / template / "CMakeLists.txt").read_text(encoding="utf-8")
                 configure = cmake.index("list(APPEND EXTRA_CONF_FILE")
@@ -372,7 +393,11 @@ class CreateAiLayerTests(unittest.TestCase):
                         "cbuild-mlops": {
                             "description": "CPU",
                             "processor": {"type": "Cortex-M55"},
-                            "model": {"clayer": "ai_layer/ai_layer.clayer.yml"},
+                            "npu": {"type": "Ethos-U55", "macs": 256},
+                            "model": {
+                                "clayer": "ai_layer/ai_layer.clayer.yml",
+                                "cpu": "Cortex-M55",
+                            },
                         }
                     }
                 ),

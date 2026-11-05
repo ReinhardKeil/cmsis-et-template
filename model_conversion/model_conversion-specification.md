@@ -44,6 +44,8 @@ The YAML root shall contain `cbuild-mlops`. The converter uses:
 - `model.clayer`: required output path relative to the solution directory;
 - `model.zephyr`: optional empty node or mapping whose presence enables
   additional Zephyr integration output;
+- `model.cpu`: optional Open-CMSIS-Pack processor name that selects CPU-only
+  generation even if the device pack contributed an `npu` node;
 - `model.name`: optional layer group and description fallback;
 - `model.input-shape`: optional `x`- or comma-separated dimensions; and
 - `model.calibration-samples`: optional integer sample count.
@@ -52,8 +54,10 @@ It shall load `get_model` and `get_calibration_inputs` from the workspace's
 `model/model.py`. It shall quantize the exported graph and calibrate it with all
 returned samples. For an NPU target it shall delegate supported operations to
 Ethos-U and invoke Vela. Without `npu`, it shall derive a Cortex-M target from
-`processor.type`, use explicit-layout Cortex-M quantization and lowering, and
-serialize operators implemented by CMSIS-NN.
+`processor.type`. With `model.cpu`, that value shall select CPU-only generation
+and the named Cortex-M target. CPU-only generation shall use explicit-layout
+Cortex-M quantization and lowering and serialize operators implemented by
+CMSIS-NN.
 
 Every Ethos-U/Vela invocation shall capture the complete textual report while still
 showing it in the terminal. The generator shall write `VELA_SUMMARY.md` in the
@@ -105,6 +109,7 @@ The consuming Zephyr application's root CMake file shall append the generated
 configuration fragments to `EXTRA_CONF_FILE` before `find_package(Zephyr)` and
 shall add the generated layer directory afterward. The generated layer shall
 not defer source ownership or expose the model through interface sources.
+CPU-only configuration fragments shall not enable the Ethos-U backend.
 
 The C array shall be aligned to 16 bytes. An operator with no matching pack
 component shall produce a warning; a selected Zephyr operator without a

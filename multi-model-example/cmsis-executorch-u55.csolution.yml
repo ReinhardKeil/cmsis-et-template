@@ -62,18 +62,15 @@ solution:
       memory: Shared_Sram
     model:
       clayer: $AI-Layer$
-      inputs:
+      input:
         - name: TinyCNN
-          input-shape: 1x16x16x3
-          calibration-samples: 2
-        - name: MyModel
-          file: MyModel.pte
+          file: ..\model\model.py
+          optimize: size
+          parameter:
+            - input-shape: 1x16x16x3
+            - calibration-samples: 2
+        - name: MyModel1
+          file: ..\model1\MyModel.pte
         - name: MyModel2
-          optimize: fast
-        - name: MyModel3
-          parameter: 1
-        - name: MyModel3
-          parameters:
-            - parameter: foo1
-            - parameter: foo2
+          file: ..\model2\xyz-model.py
           
