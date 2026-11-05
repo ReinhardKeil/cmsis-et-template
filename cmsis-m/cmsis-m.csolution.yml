@@ -7,7 +7,7 @@ solution:
 
   created-for: CMSIS-Toolbox@2.15.0
   cdefault:
-  compiler: GCC
+  compiler: AC6
 
   packs:
     - pack: PyTorch::ExecuTorch@1.5.1
