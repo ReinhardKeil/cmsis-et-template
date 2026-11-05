@@ -20,7 +20,7 @@ layer:
     - component: Machine Learning:ExecuTorch:Kernel Registration
     - component: Machine Learning:ExecuTorch:Backend EthosU
     - component: Machine Learning:ExecuTorch Operators:Quantized dequantize
-    - component: Machine Learning:ExecuTorch Operators:Quantized quantize
+#    - component: Machine Learning:ExecuTorch Operators:Quantized quantize
 
   groups:
     - group: TinyCNN

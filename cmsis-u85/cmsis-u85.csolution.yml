@@ -1,5 +1,5 @@
 solution:
-  description: ExecuTorch application template targeting an Ethos-U85 on the Corstone-320 (SSE-320) FVP.
+  description: ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP.
 # Usage:
 #   cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85              # generate *.cbuild-mlops.yml
 #   python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml  # generate ai_layer
@@ -23,7 +23,7 @@ solution:
       board: SSE-320
       device: SSE-320-FVP
       variables:
-        - Board-Layer: $SolutionDir()$/board/Board-U85.clayer.yml
+        - Board-Layer: $SolutionDir()$/board/Corstone-320/Board-U85.clayer.yml
         - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
       target-set:
         - set:
@@ -34,7 +34,7 @@ solution:
             # On macOS use .vscode/fvp.sh and copy launch.json.mac to launch.json.
             # See: https://github.com/Arm-Examples/FVPs-on-Mac/tree/main/skills/fvp-debug-setup
             model: FVP_Corstone_SSE-320
-            config-file: board/fvp_config.txt
+            config-file: board/Corstone-320/fvp_config.txt
             args: "--simlimit 60"
 
   build-types:

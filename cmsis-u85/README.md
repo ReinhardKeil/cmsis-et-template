@@ -77,8 +77,8 @@ Follow the
 [CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
 when adapting this template. Its U85-256 configuration must remain consistent
 between the solution's `mlops:` and Vela settings,
-`board/Board-U85.clayer.yml` (`ETHOSU_MACS: 256`), and
-`board/fvp_config.txt` (`mps4_board.subsystem.ethosu.num_macs=256`). Memory
+`board/Corstone-320/Board-U85.clayer.yml` (`ETHOSU_MACS: 256`), and
+`board/Corstone-320/fvp_config.txt` (`mps4_board.subsystem.ethosu.num_macs=256`). Memory
 placement and attributes must also match the selected hardware.
 
 See the guide's
@@ -111,7 +111,7 @@ The resulting image is
 
 ```bash
 FVP_Corstone_SSE-320 \
-    -f cmsis-u85/board/fvp_config.txt --simlimit 60 \
+    -f cmsis-u85/board/Corstone-320/fvp_config.txt --simlimit 60 \
     -a cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf
 ```
 

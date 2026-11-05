@@ -1,0 +1,49 @@
+solution:
+  description: ExecuTorch template for Cortex-M55 on Corstone-300 (SSE-300) FVP.
+# Usage:
+#   cbuild setup cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55 --packs
+#   python model_conversion/create_ai_layer.py cmsis-m/cmsis-m.cbuild-mlops.yml
+#   cbuild cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55
+
+  created-for: CMSIS-Toolbox@2.15.0
+  cdefault:
+  compiler: GCC
+
+  packs:
+    - pack: PyTorch::ExecuTorch@1.5.1
+    - pack: ARM::Cortex_DFP
+
+  target-types:
+    - type: SSE-300-M55
+      board: V2M-MPS3-SSE-300-FVP
+      device: SSE-300-MPS3
+      variables:
+        - Board-Layer: $SolutionDir()$/../cmsis-u55/board/Corstone-300/Board.clayer.yml
+        - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
+      target-set:
+        - set:
+          images:
+            - project-context: cmsis-m.Debug
+          debugger:
+            name: Arm-FVP
+            model: FVP_Corstone_SSE-300
+            config-file: board/Corstone-300/fvp_config.txt
+            args: "--simlimit 60"
+
+  build-types:
+    - type: Debug
+      debug: on
+      optimize: debug
+
+  projects:
+    - project: ./cmsis-m.cproject.yml
+
+  # No npu: node: create_ai_layer.py selects the Cortex-M backend from the
+  # processor information generated for this target.
+  mlops:
+    description: TinyCNN int8 image classifier for Cortex-M55
+    model:
+      clayer: $AI-Layer$
+      name: TinyCNN
+      input-shape: 1x16x16x3
+      calibration-samples: 2

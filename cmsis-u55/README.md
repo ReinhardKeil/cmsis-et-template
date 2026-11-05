@@ -65,8 +65,8 @@ Ethos-U55, Vela, simulator, and AI-layer settings.
 Follow the
 [CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
 when adapting this template. The default U55-128 configuration is represented
-by the solution's `mlops:` settings, `board/Board-U55.clayer.yml` with
-`ETHOSU_MACS: 128`, and `board/fvp_config_u55.txt` with
+by the solution's `mlops:` settings, `board/Corstone-300/Board-U55.clayer.yml` with
+`ETHOSU_MACS: 128`, and `board/Corstone-300/fvp_config_u55.txt` with
 `ethosu.num_macs=128`. The included U65-256 board and FVP configurations use
 256 MACs in both corresponding files.
 
@@ -100,7 +100,7 @@ The resulting image is under
 
 ```bash
 FVP_Corstone_SSE-300_Ethos-U55 \
-    -f cmsis-u55/board/fvp_config_u55.txt --simlimit 60 \
+    -f cmsis-u55/board/Corstone-300/fvp_config_u55.txt --simlimit 60 \
     -a cmsis-u55/out/cmsis-u55/SSE-300-U55/Debug/cmsis-u55.axf
 ```
 

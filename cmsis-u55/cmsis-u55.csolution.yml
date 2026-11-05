@@ -1,5 +1,5 @@
 solution:
-  description: ExecuTorch application template targeting an Ethos-U55 on the Corstone-300 (SSE-300) FVP.
+  description: ExecuTorch template for Ethos-U55 on Corstone-300 (SSE-300) FVP.
 # Usage:
 #   cbuild setup cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55              # generate *.cbuild-mlops.yml
 #   python model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml  # generate ai_layer
@@ -23,7 +23,7 @@ solution:
       board: V2M-MPS3-SSE-300-FVP
       device: SSE-300-MPS3
       variables:
-        - Board-Layer: $SolutionDir()$/board/Board-U55.clayer.yml
+        - Board-Layer: $SolutionDir()$/board/Corstone-300/Board-U55.clayer.yml
         - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
       target-set:
         - set:
@@ -34,13 +34,17 @@ solution:
             # See: https://github.com/Arm-Examples/FVPs-on-Mac/tree/main/skills/fvp-debug-setup
             # On macOS use .vscode/fvp.sh and copy launch.json.mac to launch.json.
             model: FVP_Corstone_SSE-300_Ethos-U55
-            config-file: board/fvp_config_u55.txt
+            config-file: board/Corstone-300/fvp_config_u55.txt
             args: "--simlimit 60"
 
   build-types:
     - type: Debug
       debug: on
       optimize: debug
+      misc:
+        - for-compiler: AC6
+          C-CPP:
+            - -O0
 
   projects:
     - project: ./cmsis-u55.cproject.yml

@@ -130,16 +130,46 @@ class CreateAiLayerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             pack = Path(temporary)
             (pack / "ExecuTorch.pdsc").write_text(
-                '<component Csub="Portable add"/><component Csub="Quantized dequantize"/>',
+                '<package><components>'
+                '<component Cgroup="ExecuTorch Operators" Csub="Portable add"/>'
+                '<component Cgroup="ExecuTorch Operators" Csub="Quantized dequantize"/>'
+                '</components></package>',
                 encoding="utf-8",
             )
-            runtime, operators = generator.components(
-                b"aten::add quantized_decomposed::dequantize_per_tensor", pack
+            runtime, operators, cmsis_nn = generator.components(
+                b"aten::add quantized_decomposed::dequantize_per_tensor",
+                pack,
+                delegated=True,
             )
         self.assertEqual(
             runtime, ["Runtime", "Kernel Utils", "Kernel Registration", "Backend EthosU"]
         )
         self.assertEqual(operators, ["Portable add", "Quantized dequantize"])
+        self.assertFalse(cmsis_nn)
+
+    def test_cpu_components_select_cmsis_nn_without_ethosu_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            pack = Path(temporary)
+            (pack / "ExecuTorch.pdsc").write_text(
+                '<package><conditions>'
+                '<condition id="CMSIS-NN"/>'
+                '<condition id="cortex-conv"><require condition="CMSIS-NN"/></condition>'
+                '</conditions><components>'
+                '<component Cgroup="ExecuTorch Operators" '
+                'Csub="Cortex-M quantized_conv2d" condition="cortex-conv"/>'
+                '<component Cgroup="ExecuTorch Operators" Csub="Portable view_copy"/>'
+                '</components></package>',
+                encoding="utf-8",
+            )
+            runtime, operators, cmsis_nn = generator.components(
+                b"cortex_m::quantized_conv2d_nhwc dim_order_ops::view_copy",
+                pack,
+                delegated=False,
+            )
+
+        self.assertEqual(runtime, ["Runtime", "Kernel Utils", "Kernel Registration"])
+        self.assertEqual(operators, ["Cortex-M quantized_conv2d", "Portable view_copy"])
+        self.assertTrue(cmsis_nn)
 
     def test_generated_c_and_layer_content(self) -> None:
         source = generator.c_array(bytes([0, 1, 255]))
@@ -150,12 +180,27 @@ class CreateAiLayerTests(unittest.TestCase):
             {"description": "Demo", "model": {"name": "Network"}},
             ["Runtime"],
             ["Portable add"],
+            False,
             Path("demo.cbuild-mlops.yml"),
             "1.5.1",
         )
         self.assertIn("pack: PyTorch::ExecuTorch@1.5.1", layer)
         self.assertIn("component: Machine Learning:ExecuTorch Operators:Portable add", layer)
         self.assertIn("file: ./model_pte.c", layer)
+
+    def test_cpu_layer_adds_unversioned_cmsis_nn(self) -> None:
+        layer = generator.clayer(
+            {"description": "CPU", "model": {"name": "Network"}},
+            ["Runtime"],
+            ["Cortex-M quantized_conv2d"],
+            True,
+            Path("demo.cbuild-mlops.yml"),
+            "1.5.1",
+        )
+        self.assertIn("pack: ARM::CMSIS-NN\n", layer)
+        self.assertNotIn("pack: ARM::CMSIS-NN@", layer)
+        self.assertIn("component: CMSIS:NN Lib", layer)
+        self.assertNotIn("Backend EthosU", layer)
 
     def test_vela_summary_records_effective_configuration_and_report(self) -> None:
         summary = generator.vela_summary(
@@ -216,6 +261,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 {"description": "Demo", "model": {"name": "Network"}},
                 ["Runtime"],
                 ["Portable add"],
+                False,
                 mlops_file,
                 "1.5.1",
             )
@@ -254,7 +300,7 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
             ), mock.patch.object(
-                generator, "components", return_value=(["Runtime"], ["Portable add"])
+                generator, "components", return_value=(["Runtime"], ["Portable add"], False)
             ):
                 generator.main()
 
@@ -297,7 +343,7 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(generator, "executorch_version", return_value="1.6.0"), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
             ), mock.patch.object(
-                generator, "components", return_value=(["Runtime"], ["Quantized dequantize"])
+                generator, "components", return_value=(["Runtime"], ["Quantized dequantize"], False)
             ), mock.patch.object(
                 generator,
                 "zephyr_metadata",
@@ -314,6 +360,47 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "components.conf").is_file())
             self.assertTrue((output / "operators.conf").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
+
+    def test_main_generates_cpu_layer_without_vela_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution_dir = Path(temporary) / "cmsis-m"
+            solution_dir.mkdir()
+            mlops_file = solution_dir / "cmsis-m.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump(
+                    {
+                        "cbuild-mlops": {
+                            "description": "CPU",
+                            "processor": {"type": "Cortex-M55"},
+                            "model": {"clayer": "ai_layer/ai_layer.clayer.yml"},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            target = mock.Mock()
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "cpu_target", return_value=target), mock.patch.object(
+                generator, "export_model_cpu", return_value=b"CPU"
+            ) as export_cpu, mock.patch.object(
+                generator, "executorch_version", return_value="1.5.1"
+            ), mock.patch.object(
+                generator, "executorch_pack", return_value=solution_dir / "pack"
+            ), mock.patch.object(
+                generator,
+                "components",
+                return_value=(["Runtime"], ["Cortex-M quantized_conv2d"], True),
+            ):
+                generator.main()
+
+            export_cpu.assert_called_once_with(target, {}, solution_dir.resolve())
+            output = solution_dir / "ai_layer"
+            self.assertEqual((output / "model.pte").read_bytes(), b"CPU")
+            self.assertFalse((output / "VELA_SUMMARY.md").exists())
+            layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
+            self.assertIn("pack: ARM::CMSIS-NN", layer)
 
     def test_main_rejects_non_mapping_zephyr_setting(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

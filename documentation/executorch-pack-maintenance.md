@@ -1,4 +1,4 @@
-# ExecuTorch pack maintenance and versioning
+# `PyTorch::ExecuTorch` pack maintenance and versioning
 
 The `PyTorch::ExecuTorch` pack is installed into your CMSIS pack root like
 any other pack; nothing of it lives in this repository. This page explains

@@ -1,13 +1,13 @@
 # ExecuTorch model conversion
 
 This directory contains the complete host-side toolset for converting the
-PyTorch model into an ExecuTorch program for an Arm Ethos-U target and
+PyTorch model into an ExecuTorch program for an Arm Cortex-M or Ethos-U target and
 generating the corresponding CMSIS AI layer.
 
 The converter reads the target and output information produced by
 CMSIS-Toolbox in a `*.cbuild-mlops.yml` file. It quantizes `model/model.py`,
-delegates supported operations to Ethos-U, invokes Vela, and generates the
-files needed by the CMSIS build.
+uses either the Cortex-M backend with CMSIS-NN or the Ethos-U backend with
+Vela, and generates the files needed by the CMSIS build.
 
 [CMSIS-Toolbox MLOps integration](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration)
 describes how the input file is generated.
@@ -79,10 +79,12 @@ python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml
 
 ## Input
 
-The `*.cbuild-mlops.yml` file provides the `npu:` and `vela:` configuration as
-described in the
+For an Ethos-U target, the `*.cbuild-mlops.yml` file provides the `npu:` and
+`vela:` configuration described in the
 [CMSIS-Toolbox MLOps documentation](https://open-cmsis-pack.github.io/cmsis-toolbox/YML-Input-Format/#mlops-management).
-It also provides the following `model:` settings used by
+For a CPU-only target, omit `npu:`; the generator derives its
+`CortexMTargetConfig` from `processor.type` and uses the Cortex-M quantizer and
+lowering passes. The file also provides the following `model:` settings used by
 `create_ai_layer.py`. Add these settings under `mlops.model` in the
 `*.csolution.yml`; `cbuild setup` copies them to the `*.cbuild-mlops.yml` file.
 
@@ -96,7 +98,7 @@ It also provides the following `model:` settings used by
 | `input-shape:` | Optional | Model input dimensions separated by `x` or commas, for example `1x16x16x3`. Passed to `get_model` and `get_calibration_inputs` as `input_shape`. |
 | `calibration-samples:` | Optional | Number of calibration inputs. Converted to an integer and passed to `get_calibration_inputs`. |
 
-The matching `*.cbuild-pack.yml` file supplies the selected ExecuTorch pack
+The matching `*.cbuild-pack.yml` file supplies the selected `PyTorch::ExecuTorch` pack
 version.
 
 ## Output
@@ -110,12 +112,14 @@ The script creates:
 
 - `model_pte.c` and `model_pte.h`, which embed the program as a C array; and
 - `model.pte` for inspection; and
-- `VELA_SUMMARY.md`, containing the model name, effective accelerator, system
-  configuration, memory mode, and complete Vela textual report.
+- `VELA_SUMMARY.md` for Ethos-U generation, containing the model name,
+  effective accelerator, system configuration, memory mode, and complete Vela
+  textual report.
 
 The script also creates the `*.clayer.yml` file specified by `model.clayer`.
-This file selects the required ExecuTorch runtime, backend, and operator
-components.
+This file selects the required ExecuTorch runtime, target backend, and operator
+components. CPU-only layers omit `Backend EthosU` and add the unversioned
+`ARM::CMSIS-NN` pack plus `CMSIS:NN Lib` when selected operators require it.
 
 When the `zephyr:` node is present, the script additionally creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr

@@ -26,7 +26,7 @@ configurations. The images were not flashed or executed on the FVP or AppKit.
 - Ninja: `1.12.1`
 - GCC: `14.3.1`
 - AC6: `6.24.0`
-- ExecuTorch pack: `PyTorch::ExecuTorch@1.6.0-zephyrpreview1`
+- `PyTorch::ExecuTorch` pack: `PyTorch::ExecuTorch@1.6.0-zephyrpreview1`
 
 The released CMSIS-Toolbox 2.15.0 installed on `PATH` does not accept the
 `$Pack(PyTorch::ExecuTorch)$` expression in `west-defs`. The newer CMSIS

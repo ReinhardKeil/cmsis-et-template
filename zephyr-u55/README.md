@@ -15,7 +15,7 @@ Corstone-300 FVP target for simulation.
 
 The solution uses the Arm GNU Toolchain (`compiler: GCC`) by default. Its
 CMake and Kconfig configuration also carries the AC6 6.24 compatibility needed
-by the ExecuTorch preview pack when the solution compiler is changed to AC6.
+by the `PyTorch::ExecuTorch` preview pack when the solution compiler is changed to AC6.
 
 ## Quick Start
 
@@ -151,7 +151,7 @@ west:
 | `CMAKE_CXX_FLAGS: -includestddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. The option has no space because cbuild otherwise splits `-include stddef.h`. |
 | Debug `CONFIG_*` definitions | Enable Zephyr debug information, thread information, and debug optimization for the `Debug` build type. |
 | Release `CONFIG_SPEED_OPTIMIZATIONS` | Selects Zephyr's speed optimization for the `Release` build type. |
-| `EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$` | Resolves the installed ExecuTorch pack and makes its root an external Zephyr module. This exposes the pack's Kconfig symbols, CMake sources, runtime, operators, and Ethos-U backend. |
+| `EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$` | Resolves the installed `PyTorch::ExecuTorch` pack and makes its root an external Zephyr module. This exposes the pack's Kconfig symbols, CMake sources, runtime, operators, and Ethos-U backend. |
 
 The `mlops:` node is consumed before the application build. Solution setup
 generates `zephyr-u55.cbuild-mlops.yml`; `create_ai_layer.py` reads that file,

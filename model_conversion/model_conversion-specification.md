@@ -3,7 +3,7 @@
 ## Purpose and directory contract
 
 `model_conversion/` is the complete host-side toolset for converting a
-solution's PyTorch model into an ExecuTorch program for Arm Ethos-U and
+solution's PyTorch model into an ExecuTorch program for Arm Cortex-M or Ethos-U and
 generating its CMSIS AI layer.
 
 The directory above `model_conversion/` is the **workspace directory**. It
@@ -36,7 +36,8 @@ working directory.
 
 The YAML root shall contain `cbuild-mlops`. The converter uses:
 
-- `npu.type`: required Ethos-U type;
+- `processor.type`: required Cortex-M type when `npu` is absent;
+- `npu.type`: optional Ethos-U type; its absence selects CPU-only generation;
 - `npu.macs`: optional MAC count, defaulting to 256;
 - `vela.ini`: optional path relative to the solution directory;
 - `vela.options`: generated command-line options;
@@ -47,12 +48,14 @@ The YAML root shall contain `cbuild-mlops`. The converter uses:
 - `model.input-shape`: optional `x`- or comma-separated dimensions; and
 - `model.calibration-samples`: optional integer sample count.
 
-It shall load `get_model` and `get_calibration_inputs` from the solution's
-`model/model.py`. It shall quantize the exported graph, calibrate it with all
-returned samples, delegate supported operations to Ethos-U, invoke Vela, and
-serialize the resulting ExecuTorch program.
+It shall load `get_model` and `get_calibration_inputs` from the workspace's
+`model/model.py`. It shall quantize the exported graph and calibrate it with all
+returned samples. For an NPU target it shall delegate supported operations to
+Ethos-U and invoke Vela. Without `npu`, it shall derive a Cortex-M target from
+`processor.type`, use explicit-layout Cortex-M quantization and lowering, and
+serialize operators implemented by CMSIS-NN.
 
-Every Vela invocation shall capture the complete textual report while still
+Every Ethos-U/Vela invocation shall capture the complete textual report while still
 showing it in the terminal. The generator shall write `VELA_SUMMARY.md` in the
 directory containing `model.clayer`. The report shall contain the model name,
 effective accelerator configuration, system configuration, memory mode, and
@@ -87,8 +90,10 @@ VELA_SUMMARY.md
 
 The directory shall also receive the `*.clayer.yml` file named by
 `model.clayer`. It shall select ExecuTorch Runtime, Kernel Utils, Kernel
-Registration, Backend EthosU, and the operator components detected in the
-serialized program.
+Registration, the operator components detected in the serialized program, and
+Backend EthosU only for delegated NPU programs. A CPU-only layer shall add
+`ARM::CMSIS-NN` without a version, `CMSIS:NN Lib`, and its required defines
+when the selected operator component conditions require CMSIS-NN.
 
 When `model.zephyr` is present, the directory shall additionally receive
 `CMakeLists.txt`, `components.conf`, and `operators.conf`. The CMake file shall add
@@ -181,6 +186,8 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - The resolved pack version follows the exact selector when available.
 - Model parameters are converted to the types expected by `model/model.py`.
 - Generated C, header, and layer text are deterministic for identical input.
+- Both Ethos-U and CPU-only Cortex-M generation select their target-specific
+  runtime and operator components.
 - A present `model.zephyr` node generates complete Zephyr metadata without
   invoking `west ailayer`; without it, no Zephyr metadata is generated.
 - The complete unit-test suite passes without target hardware.

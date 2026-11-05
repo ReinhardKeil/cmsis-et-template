@@ -49,7 +49,7 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/*.clayer.yml') }}
+          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/Corstone-320/*.clayer.yml') }}
           path: /home/runner/.cache/arm/packs
 
       - name: Cache model-export environment
@@ -76,7 +76,7 @@ jobs:
         run: |
           set -o pipefail
           FVP_Corstone_SSE-320 \
-            -f cmsis-u85/board/fvp_config.txt \
+            -f cmsis-u85/board/Corstone-320/fvp_config.txt \
             -a cmsis-u85/out/*/SSE-320-U85/*/*.hex \
             --simlimit 120 2>&1 | tee fvp.log
 

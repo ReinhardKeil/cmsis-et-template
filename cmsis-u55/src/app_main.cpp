@@ -1,9 +1,9 @@
 // Copyright 2026 Arm Limited and/or its affiliates.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Headless ExecuTorch runner for an Ethos-U application. Loads the .pte
+// Headless ExecuTorch runner for a Cortex-M or Ethos-U application. Loads the .pte
 // embedded by the AI layer (model_pte.h, see create_ai_layer.py), runs one
-// inference on the NPU, and prints the output logits. Built entirely from the
+// inference, and prints the output logits. Built entirely from the
 // PyTorch::ExecuTorch pack's runtime + operator components; the board layer
 // provides main(), stdout and the Ethos-U driver init and then calls app_main.
 //
@@ -33,14 +33,16 @@
 #define APP_ETHOS_U_NAME "Ethos-U65"
 #elif defined(ETHOSU85)
 #define APP_ETHOS_U_NAME "Ethos-U85"
-#else
-#error "Unknown Ethos-U configuration"
 #endif
 
+#ifdef APP_ETHOS_U_NAME
 #ifdef ETHOSU_MACS
-#define APP_ETHOS_U_CONFIG APP_ETHOS_U_NAME "-" APP_STRINGIFY(ETHOSU_MACS)
+#define APP_TARGET_CONFIG APP_ETHOS_U_NAME "-" APP_STRINGIFY(ETHOSU_MACS)
 #else
-#define APP_ETHOS_U_CONFIG APP_ETHOS_U_NAME
+#define APP_TARGET_CONFIG APP_ETHOS_U_NAME
+#endif
+#else
+#define APP_TARGET_CONFIG "Cortex-M55"
 #endif
 
 using arm::embedded::EmbeddedModule;
@@ -82,7 +84,7 @@ alignas(16) uint8_t g_temp_pool[kTempPoolSize] APP_POOL_ATTRIBUTES;
 extern "C" int app_main(void) {
   executorch::runtime::runtime_init();
 
-  printf("ExecuTorch %s application: %lu byte model\n", APP_ETHOS_U_CONFIG, model_pte_size);
+  printf("ExecuTorch %s application: %lu byte model\n", APP_TARGET_CONFIG, model_pte_size);
 
   EmbeddedModule module(
       model_pte, model_pte_size,

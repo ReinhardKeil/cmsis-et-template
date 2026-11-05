@@ -1,5 +1,5 @@
 solution:
-  description: Zephyr ExecuTorch application template targeting an Ethos-U85 on the Corstone-320 (SSE-320) FVP.
+  description: Zephyr ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP.
 # Usage:
 #   cbuild setup zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP              # generate *.cbuild-mlops.yml
 #   python model_conversion/create_ai_layer.py zephyr-u85/zephyr-u85.cbuild-mlops.yml       # generate ai_layer

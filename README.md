@@ -1,5 +1,6 @@
 # ExecuTorch on Cortex-M and Ethos-U
 
+[![Build and test CMSIS-M](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-m.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-m.yml)
 [![Build and test CMSIS-U85](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
 [![Build and test CMSIS-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml)
 [![Build and test Zephyr-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-u55.yml)
@@ -54,7 +55,7 @@ does not use the older context terminology for that selection.
 | --- | --- | --- | --- |
 | [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
 | [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS | Cortex-M with Ethos-U85 | Available |
-| `cmsis-m/` | CMSIS | Cortex-M only | Planned |
+| [`cmsis-m/`](cmsis-m/README.md) | CMSIS | Cortex-M only | Available |
 | [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
 | [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 | Available |
 | `zephyr-m/` | Zephyr | Cortex-M only | Planned |
@@ -117,6 +118,7 @@ available guides are:
 
 - [CMSIS Cortex-M with Ethos-U55](cmsis-u55/README.md) — Corstone-300 / Ethos-U55-128.
 - [CMSIS Cortex-M with Ethos-U85](cmsis-u85/README.md) — Corstone-320 / Ethos-U85-256.
+- [CMSIS Cortex-M CPU-only](cmsis-m/README.md) — Corstone-300 / Cortex-M55 with CMSIS-NN.
 - [Zephyr Cortex-M with Ethos-U85](zephyr-u85/README.md) — Alif Ensemble E8 hardware or Corstone-320 FVP.
 - [Zephyr Cortex-M with Ethos-U55](zephyr-u55/README.md) — Alif Ensemble E8 AppKit or Corstone-300 FVP.
 
@@ -139,26 +141,38 @@ mlops:
     calibration-samples: 2
 ```
 
-`cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target-set and
-resolves it into
-`cmsis-u85/cmsis-u85.cbuild-mlops.yml`, which contains the processor, NPU
-and Vela options, and the FVP simulation target-set as the `simulator:` to test
-on.
-`model_conversion/create_ai_layer.py` reads those options and passes all of them to ExecuTorch's
-`EthosUCompileSpec`, so the target configuration is never duplicated in
-Python. The two extra keys under `model:` are parameters of the ML model itself;
-the toolbox passes them through and the script hands them to `model/model.py`.
+`cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target set and
+writes `cmsis-u85/cmsis-u85.cbuild-mlops.yml`. This file contains the processor,
+NPU, and Vela options, along with the FVP target set used for simulation.
+
+`model_conversion/create_ai_layer.py` passes these options to ExecuTorch's
+`EthosUCompileSpec`, avoiding duplicate target configuration in Python. The
+`input-shape` and `calibration-samples` entries under `model:` are passed to
+`model/model.py` as model parameters.
+
+For CPU-only generation, omit the `npu:` node as shown by
+[`cmsis-m`](cmsis-m/README.md). The script then derives the Cortex-M target
+from the generated `processor:` node and lowers the quantized graph to
+Cortex-M operators implemented by CMSIS-NN. Vela is not used.
+
 The script then writes:
 
-- `<solution>/ai_layer/ai_layer.clayer.yml`: the CMSIS components required by the ML model.
-- `<solution>/ai_layer/model_pte.c` and `model_pte.h`: the ExecuTorch program embedded as a C array.
+- `<solution>/ai_layer/ai_layer.clayer.yml`: CMSIS components required by the
+  ML model.
+- `<solution>/ai_layer/model_pte.c` and `model_pte.h`: the ExecuTorch program
+  embedded as a C array.
 - `<solution>/ai_layer/model.pte`: the program itself, for inspection.
+
+Specify the `PyTorch::ExecuTorch` pack version in `*.csolution.yml`. The script
+reads the resolved version from `*.cbuild-pack.yml` and writes it to the
+generated `*.clayer.yml`. Re-run the script after changing the solution pack
+version to keep both declarations aligned.
 
 See [the MLOps flow](documentation/mlops-flow.md) for a detailed walkthrough.
 
 ## Component selection
 
-The [ExecuTorch pack](https://www.keil.arm.com/packs/executorch-pytorch/)
+The [`PyTorch::ExecuTorch` pack](https://www.keil.arm.com/packs/executorch-pytorch/)
 provides the runtime, backends, and individual operators as selectable CMSIS
 components. `model_conversion/create_ai_layer.py` examines the exported program and writes
 `<solution>/ai_layer/ai_layer.clayer.yml` so only the required components are linked.
@@ -194,16 +208,17 @@ and, when changing the simulated MAC count, its
 
 When updating ExecuTorch, update the pack and Python package versions
 together. More information is available in
-[ExecuTorch pack maintenance and versioning](documentation/executorch-pack-maintenance.md).
+[`PyTorch::ExecuTorch` pack maintenance and versioning](documentation/executorch-pack-maintenance.md).
 
 ## Continuous integration
 
-Dedicated GitHub Actions workflows validate each available template on every
-push and pull request to `main`. The CMSIS workflows build with AC6, GCC, and
-Clang; the Zephyr workflows use GCC. Each workflow generates the target-specific
-AI layer, builds the application, runs it on the matching FVP, checks
-`Test_result: PASS`, and uploads its artifacts. A separate workflow verifies
-the Python environment setup on Linux, macOS, and Windows.
+Dedicated GitHub Actions workflows validate the three CMSIS templates and the
+Zephyr-U55 template on every push and pull request to `main`. The CMSIS
+workflows build with AC6, GCC, and Clang; the Zephyr workflow uses GCC. Each
+workflow generates the target-specific AI layer, builds the application, runs
+it on the matching FVP, checks `Test_result: PASS`, and uploads its artifacts.
+A separate workflow verifies the Python environment setup on Linux, macOS, and
+Windows.
 
 ## Project layout
 
@@ -211,6 +226,7 @@ the Python environment setup on Linux, macOS, and Windows.
 | ------ | --------- |
 | `cmsis-u85/` | Corstone-320 / Ethos-U85 solution, project, sources, layers, RTE configuration, and board support |
 | `cmsis-u55/` | Corstone-300 / Ethos-U55-128 solution, project, sources, layers, RTE configuration, and board support |
+| `cmsis-m/` | Corstone-300 / Cortex-M55 CPU-only solution using the shared runner and board layer |
 | `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
 | `zephyr-u55/` | Zephyr 4.5 application for the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
 | `model/model.py` | Starter TinyCNN ML model |
@@ -224,7 +240,7 @@ the Python environment setup on Linux, macOS, and Windows.
 | `cmsis-u*/src/arm_embedded_module.*` | `EmbeddedModule`: ExecuTorch's `Module` class without the POSIX file loading (BSD-3-Clause, `src/LICENSE-ExecuTorch`) |
 | `documentation/mlops-flow.md` | The MLOps flow in detail |
 | `documentation/executorch-on-real-devices.md` | Adapting a template, validating it on an FVP, and deploying it to hardware |
-| `documentation/executorch-pack-maintenance.md` | Where the ExecuTorch pack comes from, how to update it |
+| `documentation/executorch-pack-maintenance.md` | Where the `PyTorch::ExecuTorch` pack comes from, how to update it |
 
 ## Usage notes
 
@@ -243,7 +259,7 @@ which are derived from it, use a BSD-3-Clause license; see the adjacent
 
 ## References
 
-- [PyTorch ExecuTorch pack](https://www.keil.arm.com/packs/executorch-pytorch/)
+- [`PyTorch::ExecuTorch` pack](https://www.keil.arm.com/packs/executorch-pytorch/)
 - [ExecuTorch](https://github.com/pytorch/executorch)
 - [ExecuTorch Arm Ethos-U backend](https://docs.pytorch.org/executorch/main/backends-arm-ethos-u.html)
 - [CMSIS-Ethos-U documentation](https://arm-software.github.io/CMSIS-Ethos-U/)

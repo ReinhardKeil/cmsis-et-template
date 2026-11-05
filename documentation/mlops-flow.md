@@ -68,7 +68,7 @@ cbuild-mlops:
       - file: cmsis-u85/out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.axf
         type: elf
     model: FVP_Corstone_SSE-320
-    config-file: cmsis-u85/board/fvp_config.txt
+    config-file: cmsis-u85/board/Corstone-320/fvp_config.txt
 ```
 
 The SSE-320 device family pack declares no NPU, so `npu:` is written out in
