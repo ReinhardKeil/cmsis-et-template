@@ -10,8 +10,8 @@
 [![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
 This repository provides six template applications for deploying and running
-[ExecuTorch](https://github.com/pytorch/executorch) ML models on Cortex-M
-systems. The templates cover CMSIS and Zephyr software workflows, with
+[ExecuTorch](https://github.com/pytorch/executorch) programs for ML models on
+Cortex-M systems. The templates cover CMSIS and Zephyr software workflows, with
 Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
 
 Each template is a starting point that can be adopted for a specific hardware
@@ -67,7 +67,8 @@ specific NPU parameters.
 
 ## What the templates provide
 
-- Exporting an ExecuTorch ML model for Cortex-M or Ethos-U from a shared Python virtual environment.
+- Exporting an ML model as an ExecuTorch program for Cortex-M or Ethos-U from
+  a shared Python virtual environment.
 - The pack [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/) links only the required and operator components that the ML model needs.
 - Managing the target and optional NPU/Vela configuration in the CMSIS project rather than duplicating it in the Python exporter.
 - A three-step flow with a clean hand-over from the CMSIS-Toolbox to an MLOps system: the toolbox describes the target in a `*.cbuild-mlops.yml` file, a script turns that into the AI layer, and the toolbox builds the application.
@@ -167,7 +168,7 @@ The script then writes:
   ML model.
 - `<solution>/ai_layer/TinyCNN_pte.c` and `TinyCNN_pte.h`: the ExecuTorch program
   embedded as a C array.
-- `<solution>/ai_layer/TinyCNN.pte`: the program itself, for inspection.
+- `<solution>/ai_layer/TinyCNN.pte`: the `.pte` program file, for inspection.
 - `<solution>/ai_layer/TinyCNN_REPORT.md`: conversion and optimization report.
 
 Specify the `PyTorch::ExecuTorch` pack version in `*.csolution.yml`. The script

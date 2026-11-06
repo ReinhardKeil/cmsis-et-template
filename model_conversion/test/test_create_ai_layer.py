@@ -109,7 +109,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 "processor": {"type": "Cortex-M55"},
                 "npu": {"type": "Ethos-U55"},
                 "model": {
-                    "inputs": [
+                    "input": [
                         {
                             "name": "NpuModel",
                             "file": "npu.py",
@@ -128,22 +128,19 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertTrue(models[1].cpu_only)
         self.assertTrue(models[1].imported)
 
-    def test_model_inputs_accept_generated_singular_input_key(self) -> None:
+    def test_model_inputs_reject_plural_property(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "model.py").write_text("# model", encoding="utf-8")
             mlops = {
                 "processor": {"type": "Cortex-M55"},
                 "model": {
-                    "input": [{"name": "TinyCNN", "file": "model.py"}],
+                    "inputs": [{"name": "TinyCNN", "file": "model.py"}],
                 },
             }
 
-            models = generator.model_inputs(mlops, root)
-
-        self.assertEqual([model.name for model in models], ["TinyCNN"])
-        self.assertEqual(models[0].stem, "TinyCNN")
-        self.assertTrue(models[0].cpu_only)
+            with self.assertRaisesRegex(SystemExit, "singular model.input"):
+                generator.model_inputs(mlops, root)
 
     def test_imported_pte_must_match_declared_execution(self) -> None:
         cpu = generator.ModelInput("CPU", "CPU", Path("cpu.pte"), {}, True, None, True)
@@ -543,7 +540,7 @@ class CreateAiLayerTests(unittest.TestCase):
                         "model": {
                             "clayer": "ai_layer/ai_layer.clayer.yml",
                             "zephyr": {},
-                            "inputs": [
+                            "input": [
                                 {"name": "NpuModel", "file": "npu.py"},
                                 {"name": "CpuModel", "file": "cpu.py", "cpu": None},
                             ],
@@ -623,7 +620,7 @@ class CreateAiLayerTests(unittest.TestCase):
                         "npu": {"type": "Ethos-U55"},
                         "model": {
                             "clayer": "ai_layer/ai_layer.clayer.yml",
-                            "inputs": [
+                            "input": [
                                 {"name": "A", "file": "a-source.pte"},
                                 {"name": "B", "file": "b-source.pte"},
                             ],
@@ -634,7 +631,10 @@ class CreateAiLayerTests(unittest.TestCase):
             )
 
             def operator_lists(paths, _stage):
-                self.assertEqual(paths["A"], layer_dir / "A.pte")
+                # Windows runners can spell the same temporary directory with
+                # either its long name or its DOS 8.3 alias. Compare filesystem
+                # identity instead of the textual path representation.
+                self.assertTrue(paths["A"].samefile(layer_dir / "A.pte"))
                 self.assertEqual(paths["A"].read_bytes(), b"EXISTING-A")
                 self.assertEqual(paths["B"].read_bytes(), b"NEW-B")
                 return ({"A": ["aten::add.out"], "B": ["aten::mul.out"]},

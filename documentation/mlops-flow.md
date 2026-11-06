@@ -116,7 +116,7 @@ subdirectories. The converter reads the file and:
 |------|---------|
 | `cmsis-u85/ai_layer/ai_layer.clayer.yml` | runtime, kernel utilities and registration, Ethos-U backend and the operator components the program uses |
 | `cmsis-u85/ai_layer/TinyCNN_pte.c` / `.h` | the program as a 16-byte-aligned C array, `TinyCNN_pte` / `TinyCNN_pte_size` |
-| `cmsis-u85/ai_layer/TinyCNN.pte` | the program itself, for inspection (not committed) |
+| `cmsis-u85/ai_layer/TinyCNN.pte` | the `.pte` program file, for inspection (not committed) |
 | `cmsis-u85/ai_layer/TinyCNN_REPORT.md` | model input, conversion parameters, fallback operators, and Vela report |
 
 The clayer and the C array are committed, so a checkout builds without
@@ -130,7 +130,7 @@ the pack is never compiled, let alone linked.
 `cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85` is a plain
 CMSIS build without any Python. The cproject knows nothing about the model: it
 lists the application source and the two layers, and the AI layer contributes
-both the component selection and the model data.
+both the component selection and the embedded ExecuTorch program data.
 
 Because the layer is complete before CMSIS-Toolbox resolves components, a model
 change that changes the operator set is just another run of step 2 followed by

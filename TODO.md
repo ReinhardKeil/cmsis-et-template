@@ -24,34 +24,38 @@
 
 # TODO: Multiple models in one AI layer
 
+End-to-end multi-model acceptance: unit tests verify multiple generated artifacts and combined operators
+
+## DONE
+
 ## Summary
 
 - One AI layer contains all ML models that run on a single CPU (processor),
   optionally with NPU acceleration.
-- Each ML model is stored with its individual artifacts and separate `.pte`,
-  `.c`, and `.h` files.
+- Each ML model is stored with its individual artifacts and separate `.pte`
+  program, `.c`, and `.h` files.
 - The fallback operators that execute on the CPU are combined across all ML
   models in the generated `*.clayer.yml`.
-- Zephyr export is an optional operation that primarily uses the generated
-  `*.clayer.yml` as input.
+- Zephyr export is optional and is rendered from the same validated layer data
+  as the generated `*.clayer.yml`.
 - `create_ai_layer.py` creates the AI layer. Without `--model`, it converts all
   models; with `--model`, it updates only the selected model in that layer.
 
 ## Intended ownership and execution model
 
 One AI `*.clayer.yml` describes one deployable AI layer containing one or more
-ML models. The layer output consists of the serialized and embedded form of
-each ML model plus one shared description of the runtime, backends, CPU
-operators, and optional CMSIS-NN library required to execute all models. The
-application links one ExecuTorch runtime and all model data arrays from that
-layer.
+ML models. The layer output consists of one serialized and embedded ExecuTorch
+program for each ML model plus one shared description of the runtime, backends,
+CPU operators, and optional CMSIS-NN library required to execute all programs.
+The application links one ExecuTorch runtime and all program data arrays from
+that layer.
 
 An Ethos-U model does **not** run entirely on the CPU: delegated graph
 segments run on the NPU, while graph boundaries and unsupported/fallback
 operators run on the CPU. A Cortex-M-only model runs its operators on the
 CPU, optionally using CMSIS-NN kernels. Therefore, operator and component
 selection shall be computed from the union of the requirements of every
-generated/imported `.pte` in the layer.
+generated/imported `.pte` program in the layer.
 
 The following artifacts have different purposes and shall not be conflated:
 
@@ -60,19 +64,20 @@ The following artifacts have different purposes and shall not be conflated:
   the required runtime, backend, and CMSIS-NN components;
 - per-model reports identify the CPU fallback operators required by each model
   and contain the Vela summary where applicable;
-- Zephyr `CMakeLists.txt`, `operators.conf`, and `components.conf` are a derived
-  translation of the generated `*.clayer.yml`, not an independent selection
-  result; and
+- Zephyr `CMakeLists.txt`, `operators.conf`, and `components.conf` are rendered
+  from the same validated layer data as `*.clayer.yml`, not from an independent
+  selection result; and
 - Vela reports describe NPU compilation and are not operator selection input.
 
 ## Relevant upstream ExecuTorch scripts
 
 Review against the ExecuTorch 1.5.1 scripts installed by this template:
 
-- `python -m executorch.codegen.tools.gen_oplist` reads one `.pte` and writes a
-  standard `selected_operators.yaml`, including operator names and available
-  dtype/dimension-order kernel metadata. Use this as a temporary conversion
-  step instead of scanning `.pte` bytes with regular expressions.
+- `python -m executorch.codegen.tools.gen_oplist` reads one `.pte` program and
+  writes a standard `selected_operators.yaml`, including operator names and
+  available dtype/dimension-order kernel metadata. Use this as a temporary
+  conversion step instead of scanning `.pte` program bytes with regular
+  expressions.
 - `python -m executorch.codegen.tools.gen_all_oplist` reads a list of
   `selected_operators.yaml` files and combines them with TorchGen's
   `combine_selective_builders`. This is the correct upstream operation for the
@@ -152,8 +157,8 @@ with generation_stage(layer_dir) as stage:
     )
     write_model_reports(generated_models, components)
     write_clayer(generated_models, components)
-    write_zephyr_projection_from_clayer_if_requested()
-    commit_stage_atomically()
+    write_zephyr_metadata_from_layer_data_if_requested()
+    write_outputs()
 ```
 
 Before importing these functions, the generator shall compare the installed
@@ -161,17 +166,14 @@ Python package version with the resolved `PyTorch::ExecuTorch` pack version and
 fail clearly on a mismatch. Imports shall remain local to the post-`run_in_venv`
 generation path so the initial host-Python invocation can still restart itself.
 
-This replaces the current `components(pte, ...)` implementation, which searches
-raw `.pte` bytes with a regular expression. Component mapping shall instead
-consume the combined YAML `operators` keys, normalize namespaces/overloads, and
-resolve each operator against the pack PDSC. An operator with no matching pack
-component is a generation error rather than a warning.
+Component mapping consumes the combined YAML `operators` keys, normalizes
+namespaces/overloads, and resolves each operator against the pack PDSC. An
+operator with no matching pack component is a generation error rather than a
+warning.
 
 The upstream YAML files remain inside `generation_stage`. Only the model
 artifacts, reports, `*.clayer.yml`, and optional Zephyr projection are committed
-to the AI-layer directory. Tests shall mock `gen_oplist` and
-`gen_all_oplist.main` for unit coverage and include one integration test using
-the pinned ExecuTorch package.
+to the AI-layer directory.
 
 ### Document the user-facing Python version contract
 
@@ -183,7 +185,7 @@ the model-conversion documentation to explain:
   ExecuTorch, PyTorch, TorchAO, and Vela versions used by AI-layer generation;
 - that the ExecuTorch Python version must match the resolved
   `PyTorch::ExecuTorch` pack version because the pack runtime consumes the
-  generated `.pte` files;
+  generated `.pte` program files;
 - that `gen_oplist` and `gen_all_oplist` are supplied by the pinned ExecuTorch
   package and require no additional entry in either requirements file;
 - that TorchGen is supplied by the pinned PyTorch package;
@@ -221,7 +223,7 @@ mlops:
         file: ../model1/model.py
         cpu:              # run on CPU only
       - name: MyModel2
-        file: ../model2/MyModel.pte    # input is a *.pte file
+        file: ../model2/MyModel.pte    # input is a *.pte program file
 ```
 
 Requirements:
@@ -229,17 +231,17 @@ Requirements:
 - `name` is required and unique, and is used for the layer group, output file
   stem, and C identifier after validation/sanitization;
 - `file` is required and is resolved relative to the solution directory;
-- Python sources are exported for the selected target; `.pte` files are copied
-  as already-exported target-specific inputs and are still inspected for CPU
-  operator requirements;
+- Python sources are exported for the selected target; `.pte` program files
+  are copied as already-exported target-specific inputs and are still
+  inspected for CPU operator requirements;
 - the presence of an empty `cpu:` key selects CPU-only export for that model;
   test key presence rather than truthiness because YAML loads the empty value as
   `None`. The CPU type comes from `processor.type`;
 - when `cpu:` is absent, the model is exported for the solution's NPU. If the
   solution has no NPU, CPU-only export is the only valid mode;
-- an imported `.pte` follows the same resolution rule: `cpu:` or a solution
+- an imported `.pte` program follows the same resolution rule: `cpu:` or a solution
   without an NPU declares a CPU-only model; otherwise it declares an
-  NPU-targeted model. The converter shall reject a `.pte` whose
+  NPU-targeted model. The converter shall reject a `.pte` program whose
   delegates/operators are inconsistent with that declaration or with the
   selected solution target;
 - `parameters` is a mapping passed to the model entry point; unknown parameters
@@ -257,9 +259,9 @@ The generated AI-layer directory is the complete output of
 ```text
 ai_layer/
 |-- ai_layer.clayer.yml              # canonical build description
-|-- <model-a>.pte                    # serialized ML model
-|-- <model-a>_pte.c                  # embedded model data
-|-- <model-a>_pte.h                  # model data declarations
+|-- <model-a>.pte                    # serialized ExecuTorch program
+|-- <model-a>_pte.c                  # embedded program data
+|-- <model-a>_pte.h                  # program data declarations
 |-- <model-a>_REPORT.md              # model conversion and optimization summary
 |-- <model-b>.pte
 |-- <model-b>_pte.c
@@ -285,10 +287,10 @@ ML model was produced and optimized for execution on the target CPU/MCU and,
 when applicable, NPU. It shall identify the model input used, record the
 specific conversion parameters and effective optimization settings, list the
 model's CPU fallback operators and whether CMSIS-NN is required, and distinguish
-generated models from imported `.pte` inputs. For an Ethos-U model it shall
-additionally contain the effective accelerator, system configuration, memory
-mode, per-model Vela options, and Vela summary. A CPU-only model therefore has
-a report but no Vela section.
+programs generated from Python model sources from imported `.pte` program
+inputs. For an Ethos-U model it shall additionally contain the effective
+accelerator, system configuration, memory mode, per-model Vela options, and
+Vela summary. A CPU-only model therefore has a report but no Vela section.
 
 Generate these layer-wide files from the union across all models:
 
@@ -308,8 +310,9 @@ operator requires CMSIS-NN. All lists shall be de-duplicated and sorted so
 repeated generation is byte-for-byte stable. Zephyr shall attach all model C
 files to `app` exactly once.
 
-`ai_layer.clayer.yml` is the canonical build description. When Zephyr output is
-requested, the Zephyr files shall be generated only by translating its content:
+`ai_layer.clayer.yml` is the canonical CMSIS build description. When Zephyr
+output is requested, it and the Zephyr files shall be rendered from the same
+validated in-memory layer data:
 
 - layer groups and their `.c` files become `target_sources(app ...)`;
 - the layer include paths become `target_include_directories(app ...)`;
@@ -317,9 +320,10 @@ requested, the Zephyr files shall be generated only by translating its content:
   and
 - ExecuTorch operator components become `operators.conf` selections.
 
-The Zephyr conversion shall not inspect the `.pte` files or calculate another
-operator union. This guarantees that CMSIS and Zephyr builds represent the same
-AI layer.
+Zephyr generation shall not parse `*.clayer.yml`, inspect the `.pte` program
+files, or calculate another operator union. This guarantees that CMSIS and
+Zephyr builds represent the same calculated AI layer while keeping the two
+output renderers independent.
 
 ## Full multi-model generation flow
 
@@ -330,46 +334,52 @@ flowchart TD
     C --> T{cpu key present or solution has no NPU?}
     T -- Yes --> T1[Select CPU-only lowering]
     T -- No --> T2[Select solution NPU lowering]
-    T1 --> D[Export Python model or validate imported .pte]
+    T1 --> D[Export Python model or validate imported .pte program]
     T2 --> D
-    D --> E[Write model.pte and model_pte.c/.h]
+    D --> E[Write .pte program and embedded C data]
     D --> F[ExecuTorch gen_oplist in staging]
     F --> G[Temporary per-model operator YAML]
     D --> H[Build per-model report; add Vela summary for NPU model]
     G --> I[ExecuTorch gen_all_oplist in staging]
     I --> J[Temporary combined operator union]
     J --> K[Map operators to pack components]
-    E --> L[Generate ai_layer.clayer.yml]
+    E --> L[Assemble validated layer data]
     H --> L
     K --> L
+    L --> Q[Render ai_layer.clayer.yml]
     L --> M{Zephyr requested?}
     M -- No --> N[Complete CMSIS AI layer]
-    M -- Yes --> O[Translate clayer to CMakeLists and *.conf]
+    M -- Yes --> O[Render CMakeLists and *.conf]
     O --> P[Complete CMSIS and Zephyr AI layer]
+    Q --> N
+    Q --> P
 ```
 
 The per-model branch may execute repeatedly, but aggregation and layer
 generation happen once. The combined operator list is an internal intermediate;
 its mapped operator components are written to `*.clayer.yml`. It does not
-combine the ML models into one `.pte` file.
+combine the ML models into one `.pte` program file.
 
 ## AI-layer and Zephyr relationship
 
 ```mermaid
 flowchart LR
-    subgraph Layer[Canonical AI layer]
-        C[ai_layer.clayer.yml]
+    subgraph Data[Validated in-memory layer data]
         M1[model A .c/.h]
         M2[model B .c/.h]
         U[CPU operator components]
-        U --> C
-        M1 --> C
-        M2 --> C
+        R[Runtime and backends]
     end
 
-    C -->|component-to-Kconfig mapping| Z1[components.conf]
-    C -->|operator-component mapping| Z2[operators.conf]
-    C -->|groups/files/include paths| Z3[CMakeLists.txt]
+    M1 --> C[ai_layer.clayer.yml]
+    M2 --> C
+    U --> C
+    R --> C
+
+    R -->|component-to-Kconfig mapping| Z1[components.conf]
+    U -->|operator-component mapping| Z2[operators.conf]
+    M1 -->|source and include mapping| Z3[CMakeLists.txt]
+    M2 --> Z3
 
     Z1 --> Z[Zephyr application build]
     Z2 --> Z
@@ -386,41 +396,39 @@ python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml --model <
 Without `--model`, regenerate every declared model and all layer-wide metadata.
 With `--model`, regenerate only that model's per-model artifacts, then rebuild
 the layer-wide union by running `gen_oplist` again on **all** declared `.pte`
-artifacts. No persistent operator-list cache is required. Partial generation
-shall fail without changing layer-wide files when another declared `.pte` is
-missing, stale for a different target/export configuration, or cannot be
-inspected. This prevents a partial run from silently dropping operators needed
-by another model.
+program artifacts. No persistent operator-list cache is required. Partial
+generation shall fail when another declared `.pte` program is missing or cannot
+be inspected. This prevents a partial run from silently dropping operators
+needed by another model.
 
 ```mermaid
 flowchart LR
     A[--model B] --> B[Regenerate model B artifacts]
-    X[Existing valid model A .pte] --> X1[gen_oplist in staging]
-    B --> Y[New model B .pte]
+    X[Existing valid model A .pte program] --> X1[gen_oplist in staging]
+    B --> Y[New model B .pte program]
     Y --> Y1[gen_oplist in staging]
     X1 --> U[gen_all_oplist in staging]
     Y1 --> U
-    U --> C[Map union and regenerate ai_layer.clayer.yml]
-    C --> D[Regenerate Zephyr projection if requested]
+    U --> C[Rebuild validated layer data]
+    C --> D[Regenerate ai_layer.clayer.yml]
+    C --> E[Regenerate Zephyr metadata if requested]
 ```
 
-Stage per-model and layer-wide outputs before replacing destinations. On a
-failed conversion, preserve the last complete layer. Remove obsolete generated
-artifacts only when they are recorded in the previous generator manifest; do
-not delete untracked/user files.
+Remove obsolete generated artifacts only when they are recorded in the
+previous generator manifest; do not delete untracked/user files.
 
 ## Acceptance criteria
 
 - Two models with overlapping CPU operators produce one copy of each runtime
   and operator component in both CMSIS and Zephyr metadata.
 - A CPU-only model plus an Ethos-U model selects the CPU/CMSIS-NN requirements,
-  the Ethos-U backend, and both model arrays.
-- Two model arrays link without symbol collisions and can be selected by the
+  the Ethos-U backend, and both program arrays.
+- Two program arrays link without symbol collisions and can be selected by the
   application at run time.
 - `--model <name>` retains the other models' operator requirements.
 - Unknown model names, duplicate names, invalid identifiers, missing inputs,
-  unsupported file types, and target-incompatible imported `.pte` files fail
-  before replacing the complete layer.
+  unsupported file types, and target-incompatible imported `.pte` program
+  files fail before replacing the complete layer.
 - Reports distinguish CPU runtime operators from NPU-delegated work and are
   reproducible for identical inputs and tool versions.
 # TODO for ExecuTorch compiler diagnostics
@@ -465,7 +473,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 
 - Fix duplicate `libethosu_core_driver.a` emission in Zephyr's ArmClang link command.
 - Fix orphan sections and RWX segments with explicit linker placement and permissions; never suppress these warnings.
-- Ensure `model_pte.c` belongs to Zephyr `app` exactly once; never use weak definitions to hide duplicate symbols.
+- Ensure each `<name>_pte.c` belongs to Zephyr `app` exactly once; never use weak definitions to hide duplicate symbols.
 
 ## Template configuration
 

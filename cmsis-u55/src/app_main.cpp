@@ -84,7 +84,7 @@ alignas(16) uint8_t g_temp_pool[kTempPoolSize] APP_POOL_ATTRIBUTES;
 extern "C" int app_main(void) {
   executorch::runtime::runtime_init();
 
-  printf("ExecuTorch %s application: %lu byte model\n", APP_TARGET_CONFIG, TinyCNN_pte_size);
+  printf("ExecuTorch %s application: %lu byte program\n", APP_TARGET_CONFIG, TinyCNN_pte_size);
 
   EmbeddedModule module(
       TinyCNN_pte, TinyCNN_pte_size,

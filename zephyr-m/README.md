@@ -1,9 +1,9 @@
 # Zephyr Cortex-M55 CPU-only
 
-This template runs the TinyCNN ExecuTorch model entirely on a Cortex-M55 using
-either the Alif Ensemble E8 AI/ML AppKit or the Corstone-300 FVP. It uses the
-ExecuTorch Cortex-M backend and the CMSIS-NN module supplied by Zephyr, without
-Ethos-U delegation or Vela.
+This template runs the TinyCNN ML model as an ExecuTorch program entirely on a
+Cortex-M55 using either the Alif Ensemble E8 AI/ML AppKit or the Corstone-300
+FVP. It uses the ExecuTorch Cortex-M backend and the CMSIS-NN module supplied
+by Zephyr, without Ethos-U delegation or Vela.
 
 ## Prepare Zephyr 4.5
 

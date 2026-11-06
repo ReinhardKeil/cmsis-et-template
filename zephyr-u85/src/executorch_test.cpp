@@ -44,7 +44,7 @@ alignas(64) uint8_t g_temp_pool[kTempPoolSize];
 extern "C" int executorch_run_test(void)
 {
   executorch::runtime::runtime_init();
-  printf("ExecuTorch Ethos-U85-256 application: %lu byte model\n", TinyCNN_pte_size);
+  printf("ExecuTorch Ethos-U85-256 application: %lu byte program\n", TinyCNN_pte_size);
 
   // Devicetree memory-region sections are NOLOAD and are not zeroed at boot.
   std::memset(g_temp_pool, 0, sizeof(g_temp_pool));

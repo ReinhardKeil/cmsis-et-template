@@ -1,4 +1,4 @@
-# ExecuTorch model-conversion toolset specification
+# ML Model to ExecuTorch Program Conversion Toolset Specification
 
 ## Purpose and directory contract
 
@@ -6,9 +6,10 @@
 more ML models into ExecuTorch programs for Arm Cortex-M, optionally with
 Ethos-U acceleration. It generates one AI layer for integration into CMSIS- or
 Zephyr-based projects. Each ML model keeps its own serialized and embedded
-artifacts in the AI layer. The layer also contains the shared runtime and
-backend components, the union of CPU fallback-operator requirements, and the
-optional CMSIS-NN requirements needed to execute all models on one processor.
+program artifacts in the AI layer. The layer also contains the shared runtime
+and backend components, the union of CPU fallback-operator requirements, and
+the optional CMSIS-NN requirements needed to execute all programs on one
+processor.
 
 The directory above `model_conversion/` is the **workspace directory**. It
 owns the shared `.venv`. The directory containing a selected
@@ -77,7 +78,7 @@ cbuild-mlops:
   the layer group, artifact stem, and C identifier. Duplicate names, invalid
   identifiers, and name-to-identifier collisions are errors.
 - `file` is required, is resolved relative to the solution directory, and must
-  name a supported Python source or `.pte` input.
+  name a supported Python model source or `.pte` program input.
 - `parameters` is an optional mapping passed to the Python model entry points.
   Unknown parameters shall fail with a model-qualified diagnostic instead of
   being ignored.
@@ -97,10 +98,11 @@ and lowering and serialize operators implemented by CMSIS-NN. NPU conversion
 shall delegate supported operations to Ethos-U and retain unsupported or
 boundary operations as CPU fallback operators.
 
-An input `.pte` shall be copied as an already-exported, target-specific model.
-It remains subject to operator inspection and report generation. The converter
-shall reject an imported `.pte` whose delegates or operators contradict its
-declared CPU/NPU execution mode or the selected solution target.
+An input `.pte` shall be copied as an already-exported, target-specific
+ExecuTorch program. It remains subject to operator inspection and report
+generation. The converter shall reject an imported `.pte` program whose
+delegates or operators contradict its declared CPU/NPU execution mode or the
+selected solution target.
 
 The previous scalar/single-model `model` form shall remain accepted for one
 release cycle as a compatibility input and shall normalize internally to one
@@ -123,7 +125,7 @@ tokens shall also be rejected.
 
 The matching `<solution>.cbuild-pack.yml` shall be read from the solution
 directory. Its selected `PyTorch::ExecuTorch` version determines the pack used
-to map serialized CPU operators to CMSIS components.
+to map the serialized program's CPU operators to CMSIS components.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
@@ -147,7 +149,7 @@ symbols. The C array shall be aligned to 16 bytes.
 `<name>_REPORT.md` shall be a concise, reproducible summary of how the model was
 produced and optimized for the target CPU/MCU and, when applicable, NPU. It
 shall identify the model input, distinguish generated and imported `.pte`
-inputs, record conversion parameters and effective optimization settings, list
+programs, record conversion parameters and effective optimization settings, list
 the model's CPU fallback operators, and state whether CMSIS-NN is required. An
 Ethos-U report shall additionally contain the shared accelerator, system
 configuration, and memory mode; the effective per-model Vela options; and the
@@ -158,19 +160,20 @@ The directory shall also receive the `*.clayer.yml` file named by
 `model.clayer`. It is the canonical build description and shall contain one
 group per model with that model's C and header files, one shared ExecuTorch
 runtime component set, every backend needed by at least one model, and the
-union of CPU fallback-operator components across all model `.pte` files.
-Repeated components shall be de-duplicated and sorted. Select Backend EthosU
+union of CPU fallback-operator components across all models' `.pte` program
+files. Repeated components shall be de-duplicated and sorted. Select Backend EthosU
 once if any model is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib`, and required defines when any selected CPU fallback operator
 requires CMSIS-NN.
 
 When `model.zephyr` is present, the directory shall additionally receive
-`CMakeLists.txt`, `components.conf`, and `operators.conf`. These files are a
-projection of the completed `*.clayer.yml`: they shall not inspect `.pte` files
-or independently calculate an operator union. The CMake file shall add every
-model C file directly and exactly once to Zephyr's `app` target for every
-compiler. The configuration fragments shall enable the same runtime, backends,
-and fallback-operator components as the CMSIS layer.
+`CMakeLists.txt`, `components.conf`, and `operators.conf`. These files and
+`*.clayer.yml` shall be rendered from the same validated in-memory model,
+runtime, backend, and operator data. Zephyr generation shall not inspect `.pte`
+program files or independently calculate an operator union. The CMake file
+shall add every embedded-program C file directly and exactly once to Zephyr's
+`app` target for every compiler. The configuration fragments shall enable the
+same runtime, backends, and fallback-operator components as the CMSIS layer.
 
 The consuming Zephyr application's root CMake file shall append the generated
 configuration fragments to `EXTRA_CONF_FILE` before `find_package(Zephyr)` and
@@ -180,19 +183,19 @@ CPU-only configuration fragments shall not enable the Ethos-U backend.
 
 ### Fallback-operator extraction and union
 
-The current `.pte` artifact of every declared model is the authoritative input
-for fallback-operator selection. `<name>_REPORT.md` is generated output and
-shall never be used as operator-selection input.
+The current `.pte` program artifact of every declared model is the
+authoritative input for fallback-operator selection. `<name>_REPORT.md` is
+generated output and shall never be used as operator-selection input.
 
-For each `.pte`, the converter shall call ExecuTorch's `gen_oplist` in staging
-to produce a temporary, per-model `selected_operators.yaml`. The per-model list
+For each `.pte` program, the converter shall call ExecuTorch's `gen_oplist` in
+staging to produce a temporary, per-model `selected_operators.yaml`. The per-model list
 shall supply the fallback operators recorded in that model's report. The
 converter shall pass all per-model lists to `gen_all_oplist`, which produces a
 temporary combined `selected_operators.yaml`. It shall map the combined YAML
 operator keys to components in the resolved pack PDSC and write the resulting
 union to the canonical `*.clayer.yml`.
 
-The converter shall not search raw `.pte` bytes or use kernel-definition
+The converter shall not search raw `.pte` program bytes or use kernel-definition
 `merge_yaml` as a multi-model union. An operator with no matching pack
 component and a selected Zephyr operator without a matching Kconfig option are
 errors. Temporary operator YAML files shall not be installed in the AI layer.
@@ -203,21 +206,15 @@ operator inspection.
 
 Without `--model`, the converter shall convert every declared model and rebuild
 all layer-wide metadata. With `--model <name>`, it shall convert only the named
-model. It shall use the newly staged `.pte` for that model and the existing
-`.pte` artifacts for all unchanged models, run `gen_oplist` on every one, and
-rebuild the selected model's report, the operator union, `*.clayer.yml`, and
-the optional Zephyr projection. Reports and other per-model artifacts belonging
-to unchanged models shall be retained. An unknown model name is an error.
-Partial generation shall fail without changing the layer if another declared
-`.pte` is missing, cannot be inspected, or is stale for a different target or
-export configuration.
+model. It shall use the newly staged `.pte` program for that model and the
+existing `.pte` program artifacts for all unchanged models, run `gen_oplist`
+on every one, and rebuild the selected model's report, the operator union,
+`*.clayer.yml`, and the optional Zephyr metadata. Reports and other per-model
+artifacts belonging to unchanged models shall be retained. An unknown model
+name is an error. Partial generation shall fail if another declared `.pte`
+program is missing or cannot be inspected.
 
-All generated artifacts shall first be prepared in temporary storage. Only
-after model export/import, Vela compilation, operator union, component
-discovery, report generation, and output generation succeed shall the script
-atomically replace destination files. A failure shall preserve the previous
-complete AI layer and shall not leave partial destination files. Obsolete
-generated artifacts may be removed only when recorded in the previous
+Obsolete generated artifacts may be removed only when recorded in the previous
 `.ai_layer_manifest.json` generator manifest; untracked or user-owned files
 shall not be deleted. The generated MLOps file shall never be modified.
 
@@ -255,7 +252,7 @@ This is the primary dependency manifest for model conversion. Versions shall
 remain compatible with the ExecuTorch Arm backend and the supported Python
 range. It is the source of truth for the coordinated ExecuTorch, PyTorch,
 TorchAO, and Vela versions. The ExecuTorch version shall match the version of
-the `PyTorch::ExecuTorch` pack that consumes the generated `.pte` files.
+the `PyTorch::ExecuTorch` pack that consumes the generated `.pte` program files.
 `gen_oplist` and `gen_all_oplist` come from ExecuTorch, and TorchGen comes from
 PyTorch; they require no separate dependency entries.
 
@@ -275,9 +272,9 @@ to any deliverable in `model_conversion/` shall be reflected here.
 
 This is the unit-test suite for the converter. It shall cover workspace `.venv`
 selection, solution-relative path handling, multi-model MLOps parsing, model
-selection, per-model CPU/NPU resolution, imported `.pte` validation, Vela
+selection, per-model CPU/NPU resolution, imported `.pte` program validation, Vela
 options, package/pack version matching, per-model and combined operator-list
-generation, operator component selection, reports, atomic updates, and CMSIS
+generation, operator component selection, reports, and CMSIS
 and Zephyr artifacts. Unit tests shall mock model export, `gen_oplist`, and
 `gen_all_oplist.main` so they do not require Torch, Vela, an FVP, or target
 hardware. One integration test shall exercise operator-list generation with
@@ -305,11 +302,11 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   arrays without symbol collisions.
 - All NPU models use the same effective accelerator configuration, system
   configuration, and memory mode.
-- Python and imported `.pte` inputs produce model-qualified reports that record
+- Python model and imported `.pte` program inputs produce model-qualified reports that record
   provenance, parameters, optimization, fallback operators, and applicable
   Vela output.
 - Unknown model names, duplicate names, identifier collisions, missing inputs,
-  unsupported file types, and target-incompatible imported `.pte` inputs fail
+  unsupported file types, and target-incompatible imported `.pte` program inputs fail
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
@@ -321,9 +318,8 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - Both Ethos-U and CPU-only Cortex-M generation select their target-specific
   runtime and operator components.
 - A present `model.zephyr` node generates complete Zephyr metadata; without it,
-  no Zephyr metadata is generated. The Zephyr metadata is derived from
-  `*.clayer.yml` and does not recalculate the operator union.
-- Failed full or partial conversion leaves the previous complete layer intact
-  and never removes untracked or user-owned files.
+  no Zephyr metadata is generated. The Zephyr metadata and `*.clayer.yml` use
+  the same validated layer data and do not recalculate the operator union.
+- Generation never removes untracked or user-owned files.
 - The complete unit-test suite passes without target hardware.
 

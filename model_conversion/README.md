@@ -1,15 +1,25 @@
-# ExecuTorch model conversion
+# ML model to ExecuTorch program conversion
 
-This directory contains the complete host-side toolset for converting one or
-more ML models into ExecuTorch programs for Arm Cortex-M, optionally with
-Ethos-U acceleration, and generating one CMSIS AI layer for them.
+## Summary
+
+- One AI layer contains all ML models that run on a single CPU (processor),
+  optionally with NPU acceleration.
+- Each ML model has its own artifacts and separate `.pte` program, `.c`, and
+  `.h` files.
+- The CPU fallback operators required by all ML models are combined in the
+  generated `*.clayer.yml`.
+- Zephyr export is optional and is generated from the same layer-wide model,
+  runtime, backend, and operator data as `*.clayer.yml`.
+- `create_ai_layer.py` creates the AI layer. Without `--model`, it converts all
+  models; with `--model`, it updates only the selected model and rebuilds the
+  layer-wide metadata.
 
 The converter reads the target and output information produced by
 CMSIS-Toolbox in a `*.cbuild-mlops.yml` file. Python model sources are
 quantized and lowered with either the Cortex-M backend and CMSIS-NN or the
-Ethos-U backend and Vela. Existing target-specific `.pte` files can also be
-imported. Each model keeps separate artifacts; the AI layer contains their
-shared runtime and combined CPU fallback-operator requirements.
+Ethos-U backend and Vela. Existing target-specific `.pte` program files can
+also be imported. Each model keeps separate artifacts; the AI layer contains
+their shared runtime and combined CPU fallback-operator requirements.
 
 [CMSIS-Toolbox MLOps integration](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration)
 describes how the input file is generated.
@@ -48,8 +58,8 @@ The setup creates `.venv` in the workspace directory. It installs
 `requirements.txt` pins a compatible ExecuTorch, PyTorch, TorchAO, and Vela
 set. The ExecuTorch Python version must match the `PyTorch::ExecuTorch` pack
 selected by the solution because that runtime consumes the generated `.pte`
-files. `gen_oplist` and `gen_all_oplist` are included with ExecuTorch; TorchGen
-is included with PyTorch.
+program files. `gen_oplist` and `gen_all_oplist` are included with ExecuTorch;
+TorchGen is included with PyTorch.
 
 Use `--recreate` to rebuild an existing environment. The optional `--uv` and
 `--python VERSION` arguments select uv and a supported Python version:
@@ -93,9 +103,9 @@ python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml 
 ```
 
 The selected model is converted again. The generator then inspects every
-declared `.pte` file and rebuilds the layer-wide fallback-operator union and
-metadata. A per-model report is output only; it is never operator-selection
-input.
+declared `.pte` program file and rebuilds the layer-wide fallback-operator
+union and metadata. A per-model report is output only; it is never
+operator-selection input.
 
 ## Input
 
@@ -131,16 +141,16 @@ mlops:
 
 | `model:` | | Content |
 |---|---|---|
-| `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated model files. |
+| `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
 | `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
-| `input:` | Required | Generated sequence of model definitions. The converter also accepts `inputs` for compatibility with early multi-model drafts. |
+| `input:` | Required | Generated sequence of model definitions. |
 
 Each model entry contains:
 
 | Model entry | | Content |
 |---|---|---|
 | `name:` | Required | Unique C identifier used for the layer group, filenames, and embedded-array symbol. |
-| `file:` | Required | Python model source or target-specific `.pte`, relative to the solution directory. |
+| `file:` | Required | Python model source or target-specific `.pte` program file, relative to the solution directory. |
 | `cpu:` | Optional | Presence selects CPU-only conversion. The CPU type comes from `processor.type`. |
 | `optimize:` | Optional | Per-model Vela optimization setting; invalid for CPU-only conversion. |
 | `parameters:` | Optional | Mapping passed to the Python model functions. `input-shape` and `calibration-samples` are converted to Python-friendly names and types. |
@@ -159,7 +169,7 @@ The script uses the parent folder of the `*.clayer.yml` path specified by
 
 For each model `<name>`, the script creates:
 
-- `<name>.pte`;
+- `<name>.pte`, the serialized ExecuTorch program;
 - `<name>_pte.c` and `<name>_pte.h`, exporting unique embedded-array symbols;
   and
 - `<name>_REPORT.md`, recording the input, conversion parameters, optimization,
@@ -172,24 +182,23 @@ untracked or user-owned files.
 The script also creates the `*.clayer.yml` file specified by `model.clayer`.
 This canonical file contains one group per model and selects the shared
 ExecuTorch runtime, required backends, and the union of CPU fallback-operator
-components extracted from all `.pte` files. CPU-only layers omit `Backend
+components extracted from all `.pte` program files. CPU-only layers omit `Backend
 EthosU`; CMSIS-NN is selected when any fallback operator requires it.
 
 When the `zephyr:` node is present, the script additionally creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
-application. These files are derived from `*.clayer.yml`; they do not inspect
-the `.pte` files or calculate another operator union. CPU-only fragments omit
-the Ethos-U backend.
+application. These files and `*.clayer.yml` are rendered from the same
+validated in-memory layer data. Zephyr generation does not inspect the `.pte`
+program files or calculate another operator union. CPU-only fragments omit the
+Ethos-U backend.
 
 The application root must append the two generated `.conf` files to
 `EXTRA_CONF_FILE` before `find_package(Zephyr)`, then call
 `add_subdirectory(ai_layer)` afterward. This lets the generated layer attach
-every model C file directly and exactly once to Zephyr's `app` target.
+every embedded-program C file directly and exactly once to Zephyr's `app`
+target.
 
-All output files use LF line endings where applicable. The script stages the
-complete generated layer in temporary storage and atomically replaces the
-destination files only after export and output generation succeed. If Vela or
-later generation fails, the previous AI layer remains intact. The generated
+All output files use LF line endings where applicable. The generated
 `*.cbuild-mlops.yml` input is never modified.
 
 ## Troubleshooting

@@ -30,7 +30,7 @@ Ethos-U version info:
     Arch:       v2.0.0
     MACs/cc:    256
     Cmd stream: v1
-ExecuTorch Ethos-U85-256 application: 8720 byte model
+ExecuTorch Ethos-U85-256 application: 8720 byte program
 Output: 10 element(s): -0.0142 0.0206 0.0601 -0.0886 0.0791 0.0522 -0.0301 -0.0775 -0.2800 -0.0095
 Test_result: PASS
 ```

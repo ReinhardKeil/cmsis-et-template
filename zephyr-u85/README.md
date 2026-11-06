@@ -1,8 +1,8 @@
 # Zephyr Cortex-M with Ethos-U85
 
-This template application runs an ExecuTorch model with Ethos-U85 acceleration
-under Zephyr 4.5. It contains target configurations for an Alif Ensemble E8
-AI/ML AppKit and the Corstone-320 FVP.
+This template application runs an ExecuTorch program for an ML model with
+Ethos-U85 acceleration under Zephyr 4.5. It contains target configurations for
+an Alif Ensemble E8 AI/ML AppKit and the Corstone-320 FVP.
 
 > [!NOTE]
 > The Alif E8 hardware target is included temporarily for development and
@@ -109,7 +109,7 @@ Command stream version: 1
 Custom DMA: 0
 MACs per cycle: 256
 Ethos-U85 driver communication OK (ID/configuration read; no inference).
-ExecuTorch Ethos-U85-256 application: 8656 byte model
+ExecuTorch Ethos-U85-256 application: 8656 byte program
 Input shape: [1, 16, 16, 3]
 I: Optimizer release nbr: 0 patch: 1
 I: Optimizer config. product=2, cmd_stream_version=1, macs_per_cc=8, num_axi_ext=1, num_axi_sram=2, custom_dma=0
@@ -179,7 +179,7 @@ requires regenerating the AI layer before rebuilding.
 | `ai_layer/components.conf` | Generated Kconfig fragment enabling only the ExecuTorch runtime, support libraries, kernel registration, and Ethos-U backend required by the generated layer. |
 | `ai_layer/operators.conf` | Generated Kconfig fragment enabling only the operators detected in the lowered model. |
 | `ai_layer/CMakeLists.txt` | Generated CMake fragment that attaches `TinyCNN_pte.c` and its include directory directly to Zephyr's `app` target. Direct ownership prevents the model from being compiled twice during AC6 pre-link. |
-| `ai_layer/ai_layer.clayer.yml` | Generated CMSIS layer metadata recording the pack, components, operators, definitions, and embedded model sources. |
+| `ai_layer/ai_layer.clayer.yml` | Generated CMSIS layer metadata recording the pack, components, operators, definitions, and embedded program sources. |
 | `ai_layer/VELA_SUMMARY.md` | Generated record of the effective Vela configuration and Vela's textual compilation report. |
 
 The two generated `ai_layer/*.conf` files must be appended to

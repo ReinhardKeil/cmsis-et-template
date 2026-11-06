@@ -47,7 +47,7 @@ alignas(64) uint8_t g_temp_pool[kTempPoolSize];
 extern "C" int executorch_run_test(void)
 {
   executorch::runtime::runtime_init();
-  printf("ExecuTorch %s application: %lu byte model\n", EXECUTORCH_TARGET_NAME,
+  printf("ExecuTorch %s application: %lu byte program\n", EXECUTORCH_TARGET_NAME,
          TinyCNN_pte_size);
 
   // Devicetree memory-region sections are NOLOAD and are not zeroed at boot.

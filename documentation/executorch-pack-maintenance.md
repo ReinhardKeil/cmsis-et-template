@@ -53,7 +53,7 @@ ExecuTorch versions cannot make it read the wrong one.
 
 It is a **source** pack: nothing is prebuilt. Every operator is a selectable
 component, which is what lets `create_ai_layer.py` narrow the link to
-exactly the kernels a given `.pte` needs.
+exactly the kernels required by a given `.pte` program file.
 
 ## Building a pack yourself
 
@@ -150,7 +150,7 @@ cpackget list | grep "PyTorch::ExecuTorch@$VERSION"   # cpackget exits 0 even wh
 ## Moving to a new ExecuTorch version
 
 The pack's C++ runtime and the Python exporter must come from the *same*
-ExecuTorch version — a `.pte` produced by a different version than the runtime
+ExecuTorch version — a `.pte` program produced by a different version than the runtime
 that loads it will fail at load time, or worse, at inference time. Four steps,
 in order:
 

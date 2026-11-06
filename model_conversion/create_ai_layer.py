@@ -3,6 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 """Create a multi-model CMSIS AI layer and optional Zephyr projection.
 
+One AI layer contains all ML models that run on a single CPU (processor),
+optionally with NPU acceleration. Each ML model has its own artifacts and
+separate .pte program, .c, and .h files. The generated *.clayer.yml combines
+the CPU fallback operators required by all models. Optional Zephyr output and
+*.clayer.yml are rendered from the same validated layer-wide data.
+
+Without --model, this script converts all declared models. With --model NAME,
+it updates only the selected model and rebuilds the layer-wide metadata from
+all current .pte program artifacts.
+
     python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
 
 Step 2 of the three-step flow:
@@ -12,10 +22,7 @@ Step 2 of the three-step flow:
     cbuild <solution>.csolution.yml --active <target>         # compile and link
 
 The generated `model.input` sequence declares Python sources or imported
-ExecuTorch programs. Each model receives its own .pte, C array, header, and
-report. The generated clayer contains the union of their CPU fallback operator
-requirements. `--model NAME` updates one model while rebuilding that union from
-all current .pte artifacts.
+ExecuTorch programs.
 
 The script runs itself in the workspace's .venv (see setup_venv.py). Paths in
 the MLOps file are resolved from the solution directory containing that file.
@@ -161,7 +168,6 @@ def compile_spec(
     """EthosUCompileSpec for an NPU target; None selects Cortex-M generation."""
     if cpu_only or (
         "input" not in mlops["model"]
-        and "inputs" not in mlops["model"]
         and mlops["model"].get("cpu")
     ):
         return None
@@ -184,7 +190,7 @@ def compile_spec(
     }
     if vela.get("ini"):
         # ExecuTorch stores the path in the compile spec, and the spec ends up
-        # in the .pte. A path relative to the working directory keeps the
+        # in the .pte program. A path relative to the working directory keeps the
         # program identical between checkouts; Vela resolves it from there.
         kwargs["config_ini"] = os.path.relpath(mlops_dir / vela["ini"])
     print(f"[ai_layer] Vela: {kwargs}")
@@ -228,7 +234,7 @@ def model_params(mlops: dict) -> dict:
     return convert_parameters(
         {
             k: v for k, v in model.items()
-            if k not in ("clayer", "name", "zephyr", "cpu", "input", "inputs")
+            if k not in ("clayer", "name", "zephyr", "cpu", "input")
         },
         model.get("name", "Model"),
     )
@@ -237,9 +243,9 @@ def model_params(mlops: dict) -> dict:
 def model_inputs(mlops: dict, solution_dir: Path) -> list[ModelInput]:
     """Validate and normalize new and legacy model declarations."""
     model = mlops["model"]
+    if "inputs" in model:
+        sys.exit("model.inputs is unsupported; use the singular model.input property")
     entries = model.get("input")
-    if entries is None:
-        entries = model.get("inputs")
     legacy = entries is None
     if legacy:
         legacy_name = model.get("name", "Model")
@@ -374,7 +380,7 @@ def quantize(graph, quantizer, samples):
 
 
 def export_model(spec, source: Path, params: dict, model_name: str) -> bytes:
-    """Quantize a Python model, delegate it to Ethos-U, and return the .pte."""
+    """Quantize a Python model and return its serialized ExecuTorch program."""
     import torch
     from executorch.backends.arm.ethosu import EthosUPartitioner
     from executorch.backends.arm.quantizer import EthosUQuantizer, get_symmetric_quantization_config
@@ -487,7 +493,7 @@ def vela_summary(model_name: str, spec, report: str) -> str:
 
 
 def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
-    """Stage a complete AI layer, then atomically replace destination files."""
+    """Write generated outputs and remove obsolete generator-owned files."""
     layer_dir.mkdir(parents=True, exist_ok=True)
     manifest_name = ".ai_layer_manifest.json"
     previous_files: set[str] = set()
@@ -860,7 +866,7 @@ def main() -> None:
         if entry.imported:
             pte = entry.source.read_bytes()
             validate_pte_target(entry, pte, accelerator)
-            vela_reports[entry.name] = "Imported .pte; Vela output is not available."
+            vela_reports[entry.name] = "Imported ExecuTorch program; Vela output is not available."
         elif spec is None:
             target = target or cpu_target(mlops)
             pte = export_model_cpu(target, entry.source, entry.parameters, entry.name)
