@@ -4,7 +4,6 @@ This example runs the TinyCNN model entirely on the Cortex-M55 of the
 Corstone-300 FVP. It uses the ExecuTorch Cortex-M backend and CMSIS-NN, with no
 Ethos-U NPU or Vela compilation.
 
-Complete the workspace-level [prerequisites](../README.md#prerequisites) first.
 Commands below run from the workspace root.
 
 ## Generate, build, and run

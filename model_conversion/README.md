@@ -1,25 +1,12 @@
 # ML model to ExecuTorch program conversion
 
-## Summary
+`create_ai_layer.py` reads the target, model inputs, and output locations from
+a CMSIS-Toolbox `*.cbuild-mlops.yml` file and creates the AI layer for the
+selected CMSIS or Zephyr solution. It converts Python model sources or imports
+existing target-specific `.pte` programs.
 
-- One AI layer contains all ML models that run on a single CPU (processor),
-  optionally with NPU acceleration.
-- Each ML model has its own artifacts and separate `.pte` program, `.c`, and
-  `.h` files.
-- The CPU fallback operators required by all ML models are combined in the
-  generated `*.clayer.yml`.
-- Zephyr export is optional and is generated from the same layer-wide model,
-  runtime, backend, and operator data as `*.clayer.yml`.
-- `create_ai_layer.py` creates the AI layer. Without `--model`, it converts all
-  models; with `--model`, it updates only the selected model and rebuilds the
-  layer-wide metadata.
-
-The converter reads the target and output information produced by
-CMSIS-Toolbox in a `*.cbuild-mlops.yml` file. Python model sources are
-quantized and lowered with either the Cortex-M backend and CMSIS-NN or the
-Ethos-U backend and Vela. Existing target-specific `.pte` program files can
-also be imported. Each model keeps separate artifacts; the AI layer contains
-their shared runtime and combined CPU fallback-operator requirements.
+The top-level [README](../README.md#how-ml-model-generation-works) explains the
+workflow and generated AI-layer structure.
 
 [CMSIS-Toolbox MLOps integration](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration)
 describes how the input file is generated.

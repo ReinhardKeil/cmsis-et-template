@@ -36,11 +36,6 @@ west update
 west zephyr-export
 ```
 
-Open this template repository in VS Code from a shell where the Zephyr Python
-environment is active. Install the prerequisites listed in the
-[top-level README](../README.md#prerequisites), then open
-`zephyr-u85/zephyr-u85.csolution.yml` with the CMSIS Solution extension.
-
 ### 2. Select a target-set
 
 Choose one of these CMSIS-Toolbox target-sets:

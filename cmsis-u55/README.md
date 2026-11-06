@@ -1,22 +1,11 @@
-# CMSIS Cortex-M with Ethos-U55 quick start
+# CMSIS Cortex-M with Ethos-U55/U65 quick start
 
-This workflow builds the template application for the Corstone-300 FVP with an
-Ethos-U55-128 NPU. Its CMSIS solution is
+This template covers Ethos-U55 and Ethos-U65 integrations. The provided default
+workflow builds the application for the Corstone-300 FVP with an Ethos-U55-128
+NPU. Its CMSIS solution is
 `cmsis-u55/cmsis-u55.csolution.yml`.
 
-Complete the workspace-level [prerequisites](../README.md#prerequisites) first.
 Commands below run from the workspace root.
-
-## Keil Studio for VS Code
-
-1. Create a repository from the GitHub template, clone it, and open its root
-   directory in VS Code.
-2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
-   then select `cmsis-u55/cmsis-u55.csolution.yml`.
-3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
-   variant can be used when a compatible Python `>=3.10,<3.14` is installed.
-4. Use the CMSIS action buttons to build the application, then select **Run** or
-   **Debug**. Keil Studio starts the Corstone-300 Ethos-U55 FVP automatically.
 
 The generated AI layer is committed, so the initial build does not require a
 model export. After changing the model or its target settings, run `cbuild

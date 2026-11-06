@@ -18,11 +18,6 @@ west update
 west zephyr-export
 ```
 
-Open this repository in VS Code from a shell where the Zephyr Python
-environment is active. Install the prerequisites in the
-[top-level README](../README.md#prerequisites), then open
-`zephyr-m/zephyr-m.csolution.yml` with the CMSIS Solution extension.
-
 ## Generate and build
 
 From the workspace root:

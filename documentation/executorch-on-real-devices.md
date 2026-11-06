@@ -25,10 +25,10 @@ processor:
 
 | Directory | Software environment | ML execution |
 | --- | --- | --- |
-| [`cmsis-u55/`](../cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55 or Ethos-U65 |
+| [`cmsis-u55/`](../cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55/U65 |
 | [`cmsis-u85/`](../cmsis-u85/README.md) | CMSIS | Cortex-M with Ethos-U85 |
 | `cmsis-m/` | CMSIS | Cortex-M only |
-| `zephyr-u55/` | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 |
+| `zephyr-u55/` | Zephyr | Cortex-M with Ethos-U55/U65 |
 | [`zephyr-u85/`](../zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 |
 | `zephyr-m/` | Zephyr | Cortex-M only |
 

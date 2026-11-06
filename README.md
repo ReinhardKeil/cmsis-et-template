@@ -9,92 +9,38 @@
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
 [![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
-This repository provides six template applications for deploying and running
+This repository provides template applications for deploying and running
 [ExecuTorch](https://github.com/pytorch/executorch) programs for ML models on
 Cortex-M systems. The templates cover CMSIS and Zephyr software workflows, with
 Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
 
-Each template is a starting point that can be adopted for a specific hardware
-platform by supplying its device, memory, and execution configuration through
-the CMSIS project and software packs.
+Each template is a starting point for developing an embedded ML application
+that runs one or more ExecuTorch programs on a Cortex-M platform. Adapt it to
+specific hardware by supplying the device, memory, and execution configuration
+through the selected solution and its CMSIS or Zephyr platform configuration.
 
 - The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
   pack provides the ExecuTorch runtime, required operators, and Ethos-U backend.
 - In the CMSIS templates, the
   [`ARM::CMSIS-Ethos-U`](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
   pack provides the Ethos-U driver and reference-platform integration.
-- The Zephyr templates do not use `ARM::CMSIS-Ethos-U`. They use the Ethos-U
-  driver included in upstream Zephyr 4.5 and Zephyr's `hal_ethos_u` module.
+- The Zephyr templates use the Ethos-U driver included in upstream Zephyr 4.5
+  and Zephyr's `hal_ethos_u` module.
 - The build process uses [CMSIS-Toolbox 2.15.0](https://open-cmsis-pack.github.io/cmsis-toolbox/)
   or higher.
 
 Every template uses the
 [CMSIS-Toolbox MLOps flow](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
 to connect the selected embedded target with the model-conversion tools. The
-generated `*.cbuild-mlops.yml` describes the processor, optional NPU, model,
-conversion settings, and build/run configuration. This allows the resulting
-application and ML model to run and be validated on target hardware or an FVP
-simulation model, following the development loop described in
+generated `*.cbuild-mlops.yml` describes the processor, optional NPU, model
+inputs, conversion settings, and build/run configuration. This allows the
+resulting application and ML models to run and be validated on target hardware
+or an FVP simulation model, following the development loop described in
 [Making Edge AI development more productive](https://developer.arm.com/community/arm-community-blogs/b/tools-software-ides-blog/posts/making-edge-ai-development-more-productive).
 
 For the complete path from selecting a template through FVP validation,
 hardware deployment, repeatable real-world data tests, and optimization, see
 [Create ExecuTorch applications for real devices](documentation/executorch-on-real-devices.md).
-
-## Template workflows
-
-Each template lives in its own directory and contains its application,
-target-specific configuration, generated AI layer, and Quick Start guide.
-Model sources and model-conversion tools are shared at workspace level.
-
-Each solution defines one or more CMSIS-Toolbox target-sets. Select the
-target-set for setup and build with `--active <target-set>`; this repository
-does not use the older context terminology for that selection.
-
-| Directory | Software workflow | ML execution | Availability |
-| --- | --- | --- | --- |
-| [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
-| [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS | Cortex-M with Ethos-U85 | Available |
-| [`cmsis-m/`](cmsis-m/README.md) | CMSIS | Cortex-M only | Available |
-| [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr | Cortex-M with Ethos-U55 or Ethos-U65 | Available |
-| [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr | Cortex-M with Ethos-U85 | Available |
-| [`zephyr-m/`](zephyr-m/README.md) | Zephyr | Cortex-M only | Available |
-
-The U55 directories also cover Ethos-U65 targets. Their integration flows are
-close enough that separate `cmsis-u65/` and `zephyr-u65/` templates would only
-duplicate the same structure; the selected hardware configuration supplies the
-specific NPU parameters.
-
-## What the templates provide
-
-- Exporting an ML model as an ExecuTorch program for Cortex-M or Ethos-U from
-  a shared Python virtual environment.
-- The pack [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/) links only the required and operator components that the ML model needs.
-- Managing the target and optional NPU/Vela configuration in the CMSIS project rather than duplicating it in the Python exporter.
-- A three-step flow with a clean hand-over from the CMSIS-Toolbox to an MLOps system: the toolbox describes the target in a `*.cbuild-mlops.yml` file, a script turns that into the AI layer, and the toolbox builds the application.
-- Running and validating the finished application on hardware or an FVP simulation model.
-
-## Configuring an Ethos-U template
-
-Use the
-[CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
-when adapting an Ethos-U template to hardware. The NPU type, MAC count, memory
-regions, and Vela configuration must describe the same hardware in every part
-of the flow: the solution's `mlops:` settings, the generated model, the driver
-and board configuration, the linker and memory attributes, and the FVP or
-physical target.
-
-For an FVP, keep its `ethosu.num_macs` parameter consistent with the target
-configuration. The integration guide includes a concrete
-[256-MAC FVP configuration example](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation).
-After changing the NPU or its MAC count, run `cbuild setup`, regenerate the AI
-layer so that Vela recompiles the model for that accelerator, and rebuild the
-application.
-
-The CMSIS templates express the driver configuration through the
-`ARM::CMSIS-Ethos-U` Board layer. Zephyr templates apply the same configuration
-consistency to their Kconfig and devicetree settings, but use Zephyr's upstream
-Ethos-U driver rather than the `ARM::CMSIS-Ethos-U` pack.
 
 ## Prerequisites
 
@@ -112,22 +58,51 @@ can be used for evaluation.
 > [!NOTE]
 > On Windows, enable [long-path support](https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
 
-## Quick starts
+## Start a template
 
-Start with the guide in the selected template directory. The currently
-available guides are:
+1. Create a repository from this GitHub template, clone it, and open its root
+   directory in VS Code. For a Zephyr template, first prepare its Zephyr
+   workspace as described in the template README, then open VS Code from a
+   shell where the Zephyr Python environment is active.
+2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
+   then select the `*.csolution.yml` file in one of the template directories
+   below.
+3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
+   variant can be used when a compatible Python `>=3.10,<3.14` is installed.
+4. Follow the selected directory's README to choose a target-set, generate the
+   AI layer when needed, and build, run, or debug the application.
 
-- [CMSIS Cortex-M with Ethos-U55](cmsis-u55/README.md) — Corstone-300 / Ethos-U55-128.
-- [CMSIS Cortex-M with Ethos-U85](cmsis-u85/README.md) — Corstone-320 / Ethos-U85-256.
-- [CMSIS Cortex-M CPU-only](cmsis-m/README.md) — Corstone-300 / Cortex-M55 with CMSIS-NN.
-- [Zephyr Cortex-M with Ethos-U85](zephyr-u85/README.md) — Alif Ensemble E8 hardware or Corstone-320 FVP.
-- [Zephyr Cortex-M with Ethos-U55](zephyr-u55/README.md) — Alif Ensemble E8 AppKit or Corstone-300 FVP.
-- [Zephyr Cortex-M CPU-only](zephyr-m/README.md) — Alif Ensemble E8 AppKit / Cortex-M55 with Zephyr CMSIS-NN.
+## Template workflows
+
+Select a template directory and follow its README. Template descriptions come
+from the corresponding `*.csolution.yml` file.
+
+| Directory | Scope | Contents |
+| --- | --- | --- |
+| [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS Cortex-M/U55/U65 | ExecuTorch template for Ethos-U55/U65 on Corstone-300 (SSE-300) FVP |
+| [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS Cortex-M/U85 | ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP |
+| [`cmsis-m/`](cmsis-m/README.md) | CMSIS Cortex-M | ExecuTorch template for Cortex-M55 on Corstone-300 (SSE-300) FVP |
+| [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr Cortex-M/U55/U65 | Zephyr ExecuTorch template for Ethos-U55/U65 on Corstone-300 (SSE-300) FVP |
+| [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr Cortex-M/U85 | Zephyr ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP |
+| [`zephyr-m/`](zephyr-m/README.md) | Zephyr Cortex-M | Zephyr ExecuTorch template for Cortex-M55 on the Alif Ensemble E8 AppKit and Corstone-300 FVP |
+| [`model_conversion/`](model_conversion/README.md) | Shared model-conversion tools | Converts ML models into ExecuTorch programs and generates the AI layer and integration metadata for CMSIS or Zephyr builds |
+| [`model/`](model/) | Shared model sources | One subdirectory per ML model |
+
+## What the templates provide
+
+- Converting one or more ML models into separate ExecuTorch programs and
+  packaging them in one AI layer for a single Cortex-M processor, optionally
+  with Ethos-U acceleration, using a shared Python virtual environment.
+- Keeping applications small by linking only the ExecuTorch runtime, backends,
+  and operators required by the programs in the AI layer.
+- Simplifying model conversion by taking the processor and optional NPU/Vela
+  configuration directly from the selected CMSIS or Zephyr solution.
+- A three-step flow with a clean hand-over from the CMSIS-Toolbox to an MLOps system: the toolbox describes the target in a `*.cbuild-mlops.yml` file, a script turns that into the AI layer, and the toolbox builds the application.
+- Running and validating the finished application on hardware or an FVP simulation model.
 
 ## How ML model generation works
 
-The target is described by the `mlops:` node in
-`cmsis-u85/cmsis-u85.csolution.yml`:
+The `*.csolution.yml` file describes the target and ML model inputs:
 
 ```yaml
 mlops:
@@ -144,80 +119,69 @@ mlops:
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
+#     - name: model-b
+#       ...
 ```
 
-`cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target set and
-writes `cmsis-u85/cmsis-u85.cbuild-mlops.yml`. This file contains the processor,
-NPU, and Vela options, along with the FVP target set used for simulation.
+A three-step workflow generates the application:
 
-`model_conversion/create_ai_layer.py` passes these options to ExecuTorch's
-`EthosUCompileSpec`, avoiding duplicate target configuration in Python. The
-The `input-shape` and `calibration-samples` entries are passed to
-`model/TinyCNN/model.py` as model parameters.
+```console
+cbuild setup <solution>.csolution.yml --active <target-set> --packs      # create *.cbuild-mlops.yml
+python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml   # create ExecuTorch programs
+cbuild <solution>.csolution.yml --active <target-set>                    # build application
+```
 
-For CPU-only generation, omit the `npu:` node as shown by
-[`cmsis-m`](cmsis-m/README.md). If a device pack adds NPU information, add an
-empty `cpu:` key to that model entry, as in [`zephyr-m`](zephyr-m/README.md).
-The script derives the Cortex-M target from the generated `processor:` node and
-lowers the quantized graph to Cortex-M operators implemented by CMSIS-NN. Vela
-is not used.
-
-The script then writes:
-
-- `<solution>/ai_layer/ai_layer.clayer.yml`: CMSIS components required by the
-  ML model.
-- `<solution>/ai_layer/TinyCNN_pte.c` and `TinyCNN_pte.h`: the ExecuTorch program
-  embedded as a C array.
-- `<solution>/ai_layer/TinyCNN.pte`: the `.pte` program file, for inspection.
-- `<solution>/ai_layer/TinyCNN_REPORT.md`: conversion and optimization report.
-
-Specify the `PyTorch::ExecuTorch` pack version in `*.csolution.yml`. The script
-reads the resolved version from `*.cbuild-pack.yml` and writes it to the
-generated `*.clayer.yml`. Re-run the script after changing the solution pack
-version to keep both declarations aligned.
+By default, `create_ai_layer.py` converts every model declared in the
+solution. Use `--model <name>` to update one model; the script then regenerates
+the layer-wide metadata for all models.
 
 See [the MLOps flow](documentation/mlops-flow.md) for a detailed walkthrough.
 
-## Component selection
-
-The [`PyTorch::ExecuTorch` pack](https://www.keil.arm.com/packs/executorch-pytorch/)
-provides the runtime, backends, and individual operators as selectable CMSIS
-components. `model_conversion/create_ai_layer.py` examines the exported program and writes
-`<solution>/ai_layer/ai_layer.clayer.yml` so only the required components are linked.
-Because the layer is complete before the build starts, an ML model change that
-changes the operator set needs nothing more than re-running steps 2 and 3.
-
 ## Adapting the template
 
-To use a different ML model, add a model directory such as
-`model/AnotherModel/model.py`, declare it in `mlops.model.input`, and update the
-ML model name or input handling as required: `get_model(input_shape)` builds the
-ML model for the `input-shape` of the `mlops:` node, and
-`get_calibration_inputs(input_shape, calibration_samples)` returns the samples
-the quantizer is calibrated with; give it representative data for a trained
-ML model. The runner in each solution's `src/app_main.cpp` builds its input tensor with the same
-fixed shape and prints the output as ten floats, so an ML model with another
-input shape or output needs matching changes there. Then re-run
-`model_conversion/create_ai_layer.py` and build.
+Add one subdirectory under `model/` for each ML model and declare every model
+under `mlops.model.input`. The converter creates a separate ExecuTorch program
+for each entry and packages all programs into one AI layer. Adapt the CMSIS
+runner in `src/app_main.cpp` or the Zephyr runner in `src/executorch_test.cpp`
+to load the required program and provide its input and output handling.
 
-Give a vision ML model its input as NHWC, the layout of a camera frame, as
-`model/TinyCNN/model.py` does: the ML model permutes it to the NCHW its convolutions take,
-and Vela folds that into the first convolution. With an NCHW input the NPU
-first reorders the image in an operation of its own.
-
-To target another Ethos-U configuration, update the target and `mlops:`
-settings in the CMSIS solution and re-run all three steps. The generated Vela
-options then follow that configuration automatically; `vela: misc:` takes any
-further Vela option, for example `--optimise Size`. Moving to a different
-board or reference platform also requires the corresponding device pack, board
-support, memory layout, and FVP configuration. Follow the
+For an Ethos-U target, keep the NPU type, MAC count, Vela memory settings,
+driver configuration, memory layout, and FVP or hardware description
+consistent. CMSIS templates express platform settings through board layers;
+Zephyr templates use Kconfig and devicetree. The
 [CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
-and, when changing the simulated MAC count, its
-[FVP configuration example](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation).
+covers both CMSIS and Zephyr integration. After changing the target or model
+list, rerun all three steps above.
 
 When updating ExecuTorch, update the pack and Python package versions
 together. More information is available in
 [`PyTorch::ExecuTorch` pack maintenance and versioning](documentation/executorch-pack-maintenance.md).
+
+## Generated AI layer
+
+One AI layer contains all ML models that run on one CPU, optionally accelerated
+by an NPU. `create_ai_layer.py` creates separate program artifacts for every ML
+model and one shared build description for the complete AI layer:
+
+```text
+ai_layer/
+|-- ai_layer.clayer.yml              # shared build description
+|-- <model-a>.pte                    # serialized ExecuTorch program
+|-- <model-a>_pte.c                  # embedded program data
+|-- <model-a>_pte.h                  # program data declarations
+|-- <model-a>_REPORT.md              # conversion and optimization summary
+|-- <model-b>.pte
+|-- <model-b>_pte.c
+|-- <model-b>_pte.h
+|-- <model-b>_REPORT.md
+|-- CMakeLists.txt                   # Zephyr, when requested
+|-- components.conf                  # Zephyr, when requested
+`-- operators.conf                   # Zephyr, when requested
+```
+
+`ai_layer.clayer.yml` records the shared ExecuTorch runtime, required backends,
+and combined CPU fallback operators for all programs. The optional Zephyr files
+are generated from the same layer data.
 
 ## Continuous integration
 
@@ -234,10 +198,10 @@ Windows.
 | Path | Purpose |
 | ------ | --------- |
 | `cmsis-u85/` | Corstone-320 / Ethos-U85 solution, project, sources, layers, RTE configuration, and board support |
-| `cmsis-u55/` | Corstone-300 / Ethos-U55-128 solution, project, sources, layers, RTE configuration, and board support |
+| `cmsis-u55/` | Corstone-300 / Ethos-U55/U65 solution, project, sources, layers, RTE configuration, and board support |
 | `cmsis-m/` | Corstone-300 / Cortex-M55 CPU-only solution using the shared runner and board layer |
 | `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
-| `zephyr-u55/` | Zephyr 4.5 application for the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
+| `zephyr-u55/` | Zephyr 4.5 Ethos-U55/U65 application; provided targets use the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
 | `zephyr-m/` | Zephyr 4.5 Cortex-M55 CPU-only application for the Alif Ensemble E8 AppKit using Zephyr's CMSIS-NN module |
 | `model/TinyCNN/model.py` | Starter TinyCNN ML model; add sibling directories for more models |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
@@ -251,14 +215,6 @@ Windows.
 | `documentation/mlops-flow.md` | The MLOps flow in detail |
 | `documentation/executorch-on-real-devices.md` | Adapting a template, validating it on an FVP, and deploying it to hardware |
 | `documentation/executorch-pack-maintenance.md` | Where the `PyTorch::ExecuTorch` pack comes from, how to update it |
-
-## Usage notes
-
-Each solution's generated `ai_layer/` is target-specific. After switching targets, run
-`model_conversion/create_ai_layer.py` with the selected solution's
-`*.cbuild-mlops.yml`. In VS Code, the task obtains its path from
-`${command:cmsis-csolution.getSolutionDir}`; `.venv` remains under
-`${workspaceFolder}`.
 
 ## License
 

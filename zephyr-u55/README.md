@@ -1,8 +1,9 @@
-# Zephyr Cortex-M with Ethos-U55
+# Zephyr Cortex-M with Ethos-U55/U65
 
-This template application runs an ExecuTorch program for an ML model on the
-256-MAC Ethos-U55 integrated in the Alif Ensemble E8 AI/ML AppKit. It also
-provides a matching Corstone-300 FVP target for simulation.
+This template covers Ethos-U55 and Ethos-U65 integrations. The provided
+application runs an ExecuTorch program for an ML model on the 256-MAC Ethos-U55
+integrated in the Alif Ensemble E8 AI/ML AppKit. It also provides a matching
+Corstone-300 FVP target for simulation.
 
 > [!NOTE]
 > The Alif E8 hardware target is included temporarily for development and
@@ -30,11 +31,6 @@ west config manifest.project-filter -- +zephyr,+cmsis,+cmsis_6,+hal_ethos_u
 west update
 west zephyr-export
 ```
-
-Open this repository in VS Code from a shell where the Zephyr Python
-environment is active. Install the prerequisites in the
-[top-level README](../README.md#prerequisites), then open
-`zephyr-u55/zephyr-u55.csolution.yml` with the CMSIS Solution extension.
 
 ### 2. Select a target-set
 
