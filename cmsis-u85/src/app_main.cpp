@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Headless ExecuTorch runner for an Ethos-U application. Loads the .pte
-// embedded by the AI layer (model_pte.h, see create_ai_layer.py), runs one
+// embedded by the AI layer (TinyCNN_pte.h, see create_ai_layer.py), runs one
 // inference on the NPU, and prints the output logits. Built entirely from the
 // PyTorch::ExecuTorch pack's runtime + operator components; the board layer
 // provides main(), stdout and the Ethos-U driver init and then calls app_main.
@@ -22,7 +22,7 @@
 #include <executorch/runtime/platform/runtime.h>
 
 #include "arm_embedded_module.hpp"
-#include "model_pte.h"
+#include "TinyCNN_pte.h"
 
 #define APP_STRINGIFY_IMPL(value) #value
 #define APP_STRINGIFY(value) APP_STRINGIFY_IMPL(value)
@@ -82,15 +82,15 @@ alignas(16) uint8_t g_temp_pool[kTempPoolSize] APP_POOL_ATTRIBUTES;
 extern "C" int app_main(void) {
   executorch::runtime::runtime_init();
 
-  printf("ExecuTorch %s application: %lu byte model\n", APP_ETHOS_U_CONFIG, model_pte_size);
+  printf("ExecuTorch %s application: %lu byte model\n", APP_ETHOS_U_CONFIG, TinyCNN_pte_size);
 
   EmbeddedModule module(
-      model_pte, model_pte_size,
-      std::make_unique<BufferDataLoader>(model_pte, model_pte_size),
+      TinyCNN_pte, TinyCNN_pte_size,
+      std::make_unique<BufferDataLoader>(TinyCNN_pte, TinyCNN_pte_size),
       std::make_unique<MemoryAllocator>(kMethodPoolSize, g_method_pool),
       std::make_unique<MemoryAllocator>(kTempPoolSize, g_temp_pool));
 
-  // TinyCNN takes one 16x16 RGB image in NHWC order (see model/model.py),
+  // TinyCNN takes one 16x16 RGB image in NHWC order (see model/TinyCNN/model.py),
   // filled here with a deterministic ramp. The tensor only wraps the buffer;
   // no tensor extension (and its std::random_device) is needed for that.
   alignas(16) static float input_data[16 * 16 * 3];

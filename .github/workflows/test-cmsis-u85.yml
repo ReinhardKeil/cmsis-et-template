@@ -65,6 +65,8 @@ jobs:
         run: cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
 
       - name: Create U85 AI layer
+        env:
+          PYTHONPATH: ""
         run: .venv/bin/python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
 
       - name: Build SSE-320-U85

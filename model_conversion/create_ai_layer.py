@@ -11,7 +11,7 @@ Step 2 of the three-step flow:
     python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml  # this script
     cbuild <solution>.csolution.yml --active <target>         # compile and link
 
-The generated `model.inputs` sequence declares Python sources or imported
+The generated `model.input` sequence declares Python sources or imported
 ExecuTorch programs. Each model receives its own .pte, C array, header, and
 report. The generated clayer contains the union of their CPU fallback operator
 requirements. `--model NAME` updates one model while rebuilding that union from
@@ -159,7 +159,11 @@ def compile_spec(
     mlops: dict, mlops_dir: Path, *, cpu_only: bool = False, optimize: str | None = None
 ):
     """EthosUCompileSpec for an NPU target; None selects Cortex-M generation."""
-    if cpu_only or ("inputs" not in mlops["model"] and mlops["model"].get("cpu")):
+    if cpu_only or (
+        "input" not in mlops["model"]
+        and "inputs" not in mlops["model"]
+        and mlops["model"].get("cpu")
+    ):
         return None
     npu = mlops.get("npu")
     if not npu:
@@ -222,7 +226,10 @@ def model_params(mlops: dict) -> dict:
     """Compatibility helper for the legacy single-model form."""
     model = mlops["model"]
     return convert_parameters(
-        {k: v for k, v in model.items() if k not in ("clayer", "name", "zephyr", "cpu")},
+        {
+            k: v for k, v in model.items()
+            if k not in ("clayer", "name", "zephyr", "cpu", "input", "inputs")
+        },
         model.get("name", "Model"),
     )
 
@@ -230,12 +237,22 @@ def model_params(mlops: dict) -> dict:
 def model_inputs(mlops: dict, solution_dir: Path) -> list[ModelInput]:
     """Validate and normalize new and legacy model declarations."""
     model = mlops["model"]
-    entries = model.get("inputs")
+    entries = model.get("input")
+    if entries is None:
+        entries = model.get("inputs")
     legacy = entries is None
     if legacy:
+        legacy_name = model.get("name", "Model")
+        legacy_source = WORKSPACE_DIR / "model" / legacy_name / "model.py"
+        if not legacy_source.is_file():
+            legacy_source = WORKSPACE_DIR / "model" / "model.py"
+        if not legacy_source.is_file():
+            candidates = sorted((WORKSPACE_DIR / "model").glob("*/model.py"))
+            if len(candidates) == 1:
+                legacy_source = candidates[0]
         entries = [{
-            "name": model.get("name", "Model"),
-            "file": str(WORKSPACE_DIR / "model" / "model.py"),
+            "name": legacy_name,
+            "file": str(legacy_source),
             "parameters": {
                 k: v for k, v in model.items()
                 if k not in ("clayer", "name", "zephyr", "cpu")
@@ -243,15 +260,15 @@ def model_inputs(mlops: dict, solution_dir: Path) -> list[ModelInput]:
             **({"cpu": model.get("cpu")} if "cpu" in model else {}),
         }]
     if not isinstance(entries, list) or not entries:
-        sys.exit("model.inputs must be a non-empty sequence")
+        sys.exit("model.input must be a non-empty sequence")
 
     result, names, stems = [], set(), set()
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
-            sys.exit(f"model.inputs[{index}] must be a mapping")
+            sys.exit(f"model.input[{index}] must be a mapping")
         name = entry.get("name")
         if not isinstance(name, str) or not name:
-            sys.exit(f"model.inputs[{index}].name is required")
+            sys.exit(f"model.input[{index}].name is required")
         if name in names:
             sys.exit(f"duplicate model name {name!r}")
         stem = "model" if legacy else name
@@ -430,7 +447,10 @@ def model_report(
     vela_report: str = "",
 ) -> str:
     """Create the reproducible per-model conversion report."""
-    source = model.source.as_posix()
+    try:
+        source = model.source.relative_to(WORKSPACE_DIR).as_posix()
+    except ValueError:
+        source = model.source.as_posix()
     lines = [
         f"# Model report: {model.name}", "",
         f"- input: `{source}`",
@@ -750,12 +770,18 @@ def generate_operator_lists(pte_paths: dict[str, Path], stage: Path) -> tuple[di
 
 
 def check_executorch_version(expected: str) -> None:
-    """Require the Python exporter to match the selected runtime pack."""
+    """Require the Python exporter to match the runtime pack's base version.
+
+    CMSIS pack versions may add a pack-specific prerelease suffix, for example
+    ``1.6.0-zephyrpreview1``.  The corresponding Python distribution remains
+    ``1.6.0``.
+    """
     try:
         installed = importlib.metadata.version("executorch")
     except importlib.metadata.PackageNotFoundError:
         sys.exit("the executorch Python package is not installed")
-    if installed != expected:
+    python_version = expected.split("-", 1)[0]
+    if installed != python_version:
         sys.exit(
             f"ExecuTorch Python package {installed} does not match "
             f"{PACK}@{expected}"

@@ -16,7 +16,7 @@
 
 #include "arm_embedded_module.hpp"
 #include "executorch_test.h"
-#include "model_pte.h"
+#include "TinyCNN_pte.h"
 
 using arm::embedded::EmbeddedModule;
 using executorch::aten::DimOrderType;
@@ -44,14 +44,14 @@ alignas(64) uint8_t g_temp_pool[kTempPoolSize];
 extern "C" int executorch_run_test(void)
 {
   executorch::runtime::runtime_init();
-  printf("ExecuTorch Ethos-U85-256 application: %lu byte model\n", model_pte_size);
+  printf("ExecuTorch Ethos-U85-256 application: %lu byte model\n", TinyCNN_pte_size);
 
   // Devicetree memory-region sections are NOLOAD and are not zeroed at boot.
   std::memset(g_temp_pool, 0, sizeof(g_temp_pool));
 
   EmbeddedModule module(
-      model_pte, model_pte_size,
-      std::make_unique<BufferDataLoader>(model_pte, model_pte_size),
+      TinyCNN_pte, TinyCNN_pte_size,
+      std::make_unique<BufferDataLoader>(TinyCNN_pte, TinyCNN_pte_size),
       std::make_unique<MemoryAllocator>(kMethodPoolSize, g_method_pool),
       std::make_unique<MemoryAllocator>(kTempPoolSize, g_temp_pool));
 

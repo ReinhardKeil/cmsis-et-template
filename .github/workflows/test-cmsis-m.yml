@@ -65,6 +65,8 @@ jobs:
         run: cbuild setup cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55 --packs
 
       - name: Create Cortex-M AI layer
+        env:
+          PYTHONPATH: ""
         run: .venv/bin/python model_conversion/create_ai_layer.py cmsis-m/cmsis-m.cbuild-mlops.yml
 
       - name: Build SSE-300-M55

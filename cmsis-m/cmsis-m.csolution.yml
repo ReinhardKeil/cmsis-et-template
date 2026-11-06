@@ -44,6 +44,9 @@ solution:
     description: TinyCNN int8 image classifier for Cortex-M55
     model:
       clayer: $AI-Layer$
-      name: TinyCNN
-      input-shape: 1x16x16x3
-      calibration-samples: 2
+      input:
+        - name: TinyCNN
+          file: ../model/TinyCNN/model.py
+          parameters:
+            input-shape: 1x16x16x3
+            calibration-samples: 2

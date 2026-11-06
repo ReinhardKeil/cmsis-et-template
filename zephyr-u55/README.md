@@ -170,7 +170,7 @@ requires regenerating the AI layer before rebuilding.
 | [`fvp_config.txt`](fvp_config.txt) | Parameters for the FVP executable, not Zephyr. It selects 256 MACs, enables fast functional simulation, sends unbuffered UART0 output directly to the console, shuts down on EOT, and disables unused terminals and visualization. CI captures the same console stream with `tee`. |
 | `ai_layer/components.conf` | Generated Kconfig fragment enabling only the ExecuTorch runtime, support libraries, kernel registration, and Ethos-U backend required by the generated layer. |
 | `ai_layer/operators.conf` | Generated Kconfig fragment enabling only the operators detected in the lowered model. |
-| `ai_layer/CMakeLists.txt` | Generated CMake fragment that attaches `model_pte.c` and its include directory directly to Zephyr's `app` target. Direct ownership prevents the model from being compiled twice during AC6 pre-link. |
+| `ai_layer/CMakeLists.txt` | Generated CMake fragment that attaches `TinyCNN_pte.c` and its include directory directly to Zephyr's `app` target. Direct ownership prevents the model from being compiled twice during AC6 pre-link. |
 | `ai_layer/ai_layer.clayer.yml` | Generated CMSIS layer metadata recording the pack, components, operators, definitions, and embedded model sources. |
 | `ai_layer/VELA_SUMMARY.md` | Generated record of the effective Vela configuration and Vela's textual compilation report. |
 

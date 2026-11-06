@@ -128,6 +128,23 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertTrue(models[1].cpu_only)
         self.assertTrue(models[1].imported)
 
+    def test_model_inputs_accept_generated_singular_input_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "model.py").write_text("# model", encoding="utf-8")
+            mlops = {
+                "processor": {"type": "Cortex-M55"},
+                "model": {
+                    "input": [{"name": "TinyCNN", "file": "model.py"}],
+                },
+            }
+
+            models = generator.model_inputs(mlops, root)
+
+        self.assertEqual([model.name for model in models], ["TinyCNN"])
+        self.assertEqual(models[0].stem, "TinyCNN")
+        self.assertTrue(models[0].cpu_only)
+
     def test_imported_pte_must_match_declared_execution(self) -> None:
         cpu = generator.ModelInput("CPU", "CPU", Path("cpu.pte"), {}, True, None, True)
         npu = generator.ModelInput("NPU", "NPU", Path("npu.pte"), {}, False, None, True)
@@ -163,6 +180,12 @@ class CreateAiLayerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(generator.executorch_version(mlops), "1.5.1")
+
+    def test_pack_prerelease_suffix_uses_base_python_version(self) -> None:
+        with mock.patch.object(
+            generator.importlib.metadata, "version", return_value="1.6.0"
+        ):
+            generator.check_executorch_version("1.6.0-zephyrpreview1")
 
     def test_components_select_known_operators(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -370,7 +393,7 @@ class CreateAiLayerTests(unittest.TestCase):
 
             run_in_venv.assert_called_once_with(ROOT)
             export_model.assert_called_once_with(
-                mock.ANY, (ROOT / "model" / "model.py").resolve(), {}, "Network"
+                mock.ANY, (ROOT / "model" / "TinyCNN" / "model.py").resolve(), {}, "Network"
             )
 
             output = solution_dir / "generated"
@@ -474,7 +497,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator.main()
 
             export_cpu.assert_called_once_with(
-                target, (ROOT / "model" / "model.py").resolve(), {}, "Model"
+                target, (ROOT / "model" / "TinyCNN" / "model.py").resolve(), {}, "Model"
             )
             output = solution_dir / "ai_layer"
             self.assertEqual((output / "model.pte").read_bytes(), b"CPU")

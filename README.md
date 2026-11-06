@@ -137,9 +137,12 @@ mlops:
     memory: Shared_Sram
   model:
     clayer: $AI-Layer$
-    name: TinyCNN
-    input-shape: 1x16x16x3
-    calibration-samples: 2
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/model.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
 ```
 
 `cbuild setup --active SSE-320-U85` enables the `SSE-320-U85` target set and
@@ -148,24 +151,24 @@ NPU, and Vela options, along with the FVP target set used for simulation.
 
 `model_conversion/create_ai_layer.py` passes these options to ExecuTorch's
 `EthosUCompileSpec`, avoiding duplicate target configuration in Python. The
-`input-shape` and `calibration-samples` entries under `model:` are passed to
-`model/model.py` as model parameters.
+The `input-shape` and `calibration-samples` entries are passed to
+`model/TinyCNN/model.py` as model parameters.
 
 For CPU-only generation, omit the `npu:` node as shown by
-[`cmsis-m`](cmsis-m/README.md). If a device pack adds NPU information to the
-generated MLOps file, set `model.cpu` to its Open-CMSIS-Pack processor name, as in
-[`zephyr-m`](zephyr-m/README.md), to override it. The script then derives the
-Cortex-M target from `model.cpu` (or otherwise from the generated `processor:`
-node) and lowers the quantized graph to Cortex-M operators implemented by
-CMSIS-NN. Vela is not used.
+[`cmsis-m`](cmsis-m/README.md). If a device pack adds NPU information, add an
+empty `cpu:` key to that model entry, as in [`zephyr-m`](zephyr-m/README.md).
+The script derives the Cortex-M target from the generated `processor:` node and
+lowers the quantized graph to Cortex-M operators implemented by CMSIS-NN. Vela
+is not used.
 
 The script then writes:
 
 - `<solution>/ai_layer/ai_layer.clayer.yml`: CMSIS components required by the
   ML model.
-- `<solution>/ai_layer/model_pte.c` and `model_pte.h`: the ExecuTorch program
+- `<solution>/ai_layer/TinyCNN_pte.c` and `TinyCNN_pte.h`: the ExecuTorch program
   embedded as a C array.
-- `<solution>/ai_layer/model.pte`: the program itself, for inspection.
+- `<solution>/ai_layer/TinyCNN.pte`: the program itself, for inspection.
+- `<solution>/ai_layer/TinyCNN_REPORT.md`: conversion and optimization report.
 
 Specify the `PyTorch::ExecuTorch` pack version in `*.csolution.yml`. The script
 reads the resolved version from `*.cbuild-pack.yml` and writes it to the
@@ -185,7 +188,8 @@ changes the operator set needs nothing more than re-running steps 2 and 3.
 
 ## Adapting the template
 
-To use a different ML model, replace or modify `model/model.py` and update the
+To use a different ML model, add a model directory such as
+`model/AnotherModel/model.py`, declare it in `mlops.model.input`, and update the
 ML model name or input handling as required: `get_model(input_shape)` builds the
 ML model for the `input-shape` of the `mlops:` node, and
 `get_calibration_inputs(input_shape, calibration_samples)` returns the samples
@@ -196,7 +200,7 @@ input shape or output needs matching changes there. Then re-run
 `model_conversion/create_ai_layer.py` and build.
 
 Give a vision ML model its input as NHWC, the layout of a camera frame, as
-`model/model.py` does: the ML model permutes it to the NCHW its convolutions take,
+`model/TinyCNN/model.py` does: the ML model permutes it to the NCHW its convolutions take,
 and Vela folds that into the first convolution. With an NCHW input the NPU
 first reorders the image in an operation of its own.
 
@@ -234,7 +238,7 @@ Windows.
 | `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
 | `zephyr-u55/` | Zephyr 4.5 application for the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
 | `zephyr-m/` | Zephyr 4.5 Cortex-M55 CPU-only application for the Alif Ensemble E8 AppKit using Zephyr's CMSIS-NN module |
-| `model/model.py` | Starter TinyCNN ML model |
+| `model/TinyCNN/model.py` | Starter TinyCNN ML model; add sibling directories for more models |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
 | `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |
 | `model_conversion/test/` | Unit tests for the AI-layer generator |

@@ -1,8 +1,9 @@
 # Zephyr Cortex-M55 CPU-only
 
-This template runs the TinyCNN ExecuTorch model entirely on the HP Cortex-M55
-of the Alif Ensemble E8 AI/ML AppKit. It uses the ExecuTorch Cortex-M backend
-and the CMSIS-NN module supplied by Zephyr, without an Ethos-U NPU or Vela.
+This template runs the TinyCNN ExecuTorch model entirely on a Cortex-M55 using
+either the Alif Ensemble E8 AI/ML AppKit or the Corstone-300 FVP. It uses the
+ExecuTorch Cortex-M backend and the CMSIS-NN module supplied by Zephyr, without
+Ethos-U delegation or Vela.
 
 ## Prepare Zephyr 4.5
 
@@ -32,6 +33,8 @@ python model_conversion/create_ai_layer.py zephyr-m/zephyr-m.cbuild-mlops.yml
 cbuild zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
 ```
 
+Use `Corstone-300-FVP` instead of `AppKit-E8` for the FVP target.
+
 The solution sets `model.cpu: Cortex-M55` because the Alif device pack describes
 the E8's available NPU even when an application does not use it. This value is
 the processor name defined by Open-CMSIS-Pack. The generator applies the
@@ -48,8 +51,8 @@ Test_result: PASS
 ```
 
 The AppKit image starts at MRAM offset `0x200000`, after the platform firmware.
-No Ethos-U devicetree node, driver, `hal_ethos_u` module, or Vela configuration
-is used.
+The application does not use the Ethos-U device, driver, `hal_ethos_u` module,
+or Vela configuration on either target.
 
 With GCC 15, the application keeps CMSIS-NN's `int32_t*` versus MVE intrinsic
 `long*` compatibility diagnostic as a warning. Both types are 32-bit on this

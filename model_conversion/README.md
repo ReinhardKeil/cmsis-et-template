@@ -107,7 +107,7 @@ model entry selects CPU-only conversion for that model. Accelerator, system
 configuration, and memory mode are shared by every NPU model in the layer.
 
 Declare models under `mlops.model.input` in the `*.csolution.yml` file.
-CMSIS-Toolbox writes the generated form as `cbuild-mlops.model.inputs`:
+CMSIS-Toolbox writes the generated form as `cbuild-mlops.model.input`:
 
 ```yaml
 mlops:
@@ -115,13 +115,13 @@ mlops:
     clayer: $AI-Layer$
     input:
       - name: TinyCNN
-        file: ../TinyCNN-model/model.py
+        file: ../model/TinyCNN/model.py
         optimize: size
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
       - name: CpuModel
-        file: ../CpuModel/model.py
+        file: ../model/CpuModel/model.py
         cpu:
       - name: ImportedModel
         file: ../models/imported.pte
@@ -133,7 +133,7 @@ mlops:
 |---|---|---|
 | `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated model files. |
 | `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
-| `inputs:` | Required | Generated sequence of model definitions. In the authored csolution this property is named `input`. |
+| `input:` | Required | Generated sequence of model definitions. The converter also accepts `inputs` for compatibility with early multi-model drafts. |
 
 Each model entry contains:
 
@@ -191,6 +191,39 @@ complete generated layer in temporary storage and atomically replaces the
 destination files only after export and output generation succeed. If Vela or
 later generation fails, the previous AI layer remains intact. The generated
 `*.cbuild-mlops.yml` input is never modified.
+
+## Troubleshooting
+
+### A global `PYTHONPATH` overrides the workspace environment
+
+A global `PYTHONPATH` that contains another Python installation's
+`site-packages` directory is placed before `.venv/Lib/site-packages` on
+`sys.path`. The converter may then load incompatible global packages even
+though it is running with the workspace's `.venv` interpreter. This can cause
+import errors such as a missing symbol from `typing_extensions`.
+
+Check which copy is being imported:
+
+```console
+.venv/Scripts/python -c "import typing_extensions; print(typing_extensions.__file__)"
+```
+
+On Windows PowerShell, remove `PYTHONPATH` only from the current shell before
+running the converter:
+
+```powershell
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
+```
+
+On Linux or macOS, clear it only for the converter command:
+
+```sh
+PYTHONPATH= python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
+```
+
+The global setting can remain available in other shells for documentation or
+repository-specific tooling.
 
 ## Tests
 

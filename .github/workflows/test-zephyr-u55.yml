@@ -1,7 +1,7 @@
 # Copyright 2026 Arm Limited and/or its affiliates.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Build and test Zephyr-U55
+name: Build and test Zephyr examples
 
 on:
   workflow_dispatch:
@@ -19,10 +19,24 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Corstone-300 / Ethos-U55-256 (GCC)
+    name: ${{ matrix.example }} / ${{ matrix.target }} (GCC)
     runs-on: ubuntu-latest
     env:
       CMSIS_PACK_ROOT: /home/runner/.cache/arm/packs
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - example: zephyr-m
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300
+          - example: zephyr-u55
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300_Ethos-U55
+          - example: zephyr-u85
+            target: Corstone-320-FVP
+            fvp: FVP_Corstone_SSE-320
 
     steps:
       - uses: actions/checkout@v7
@@ -41,7 +55,7 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-zephyr-u55-${{ hashFiles('zephyr-u55/*.csolution.yml', 'Pack/*.pack') }}
+          key: cmsis-packs-zephyr-${{ hashFiles('zephyr-*/*.csolution.yml', 'Pack/*.pack') }}
           path: ${{ env.CMSIS_PACK_ROOT }}
 
       - name: Install repository packs
@@ -52,7 +66,7 @@ jobs:
       - name: Cache Zephyr workspace
         uses: actions/cache@v6
         with:
-          key: zephyr-4.5-u55-minimal-v1-${{ runner.os }}
+          key: zephyr-4.5-executorch-modules-v2-${{ runner.os }}
           path: ../zephyr-workspace
 
       - name: Prepare Zephyr 4.5
@@ -67,50 +81,48 @@ jobs:
           fi
           cd ../zephyr-workspace
           python -m pip install -r zephyr/scripts/requirements.txt
-          west update --narrow -o=--depth=1 cmsis cmsis_6 hal_ethos_u
+          west update --narrow -o=--depth=1 cmsis cmsis_6 cmsis-dsp cmsis-nn hal_ethos_u
           west zephyr-export
 
-      - name: Cache model-export environment
-        uses: actions/cache@v6
-        with:
-          key: model-export-${{ runner.os }}-${{ hashFiles('model_conversion/requirements*.txt', 'model_conversion/setup_venv.py') }}
-          path: .venv
+      # The repository conversion environment uses ExecuTorch 1.5.1 for the
+      # CMSIS examples. Zephyr uses the committed artifacts generated with the
+      # 1.6.0 preview package until the final 1.6.0 Python package is available.
+      - name: Check committed Zephyr AI layer
+        run: |
+          test -f "${{ matrix.example }}/ai_layer/TinyCNN.pte"
+          test -f "${{ matrix.example }}/ai_layer/TinyCNN_pte.c"
+          test -f "${{ matrix.example }}/ai_layer/TinyCNN_pte.h"
+          test -f "${{ matrix.example }}/ai_layer/TinyCNN_REPORT.md"
 
-      - name: Create model-export environment
-        run: ./model_conversion/setup_venv.sh
-
-      - name: Generate U55 MLOps information
+      - name: Generate MLOps information
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
-        run: cbuild setup zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP --packs
+        run: cbuild setup ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs
 
-      - name: Create U55 AI layer
-        run: .venv/bin/python model_conversion/create_ai_layer.py zephyr-u55/zephyr-u55.cbuild-mlops.yml
-
-      - name: Build Corstone-300-FVP
+      - name: Build ${{ matrix.target }}
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
-        run: cbuild zephyr-u55/zephyr-u55.csolution.yml --active Corstone-300-FVP --packs
+        run: cbuild ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs
 
-      - name: Run Corstone-300-FVP
-        working-directory: zephyr-u55
+      - name: Run ${{ matrix.target }}
+        working-directory: ${{ matrix.example }}
         run: |
           set -o pipefail
-          FVP_Corstone_SSE-300_Ethos-U55 \
+          ${{ matrix.fvp }} \
             -f fvp_config.txt \
-            -a out/Zephyr_app/Corstone-300-FVP/Debug/zephyr/zephyr.elf \
-            --simlimit 60 2>&1 | tee ../fvp.log
+            -a out/Zephyr_app/${{ matrix.target }}/Debug/zephyr/zephyr.elf \
+            --simlimit 60 2>&1 | tee ../${{ matrix.example }}-fvp.log
 
       - name: Check application result
-        run: 'grep -Fq "Test_result: PASS" fvp.log'
+        run: 'grep -Fq "Test_result: PASS" "${{ matrix.example }}-fvp.log"'
 
       - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: zephyr-u55-Corstone-300-FVP-GCC
+          name: ${{ matrix.example }}-${{ matrix.target }}-GCC
           path: |
-            zephyr-u55/out
-            zephyr-u55/ai_layer
-            fvp.log
+            ${{ matrix.example }}/out
+            ${{ matrix.example }}/ai_layer
+            ${{ matrix.example }}-fvp.log
           if-no-files-found: warn

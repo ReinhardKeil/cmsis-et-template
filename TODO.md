@@ -19,7 +19,7 @@
   | `zephyr-m` | Zephyr Cortex-M | Solution, app, config |
   | `model_conversion` | Shared model-conversion tools | Scripts and tests |
   | `.venv` | Shared Python environment | Python packages |
-  | `TinyCNN-model` | Shared integration model sources | Test models |
+  | `model` | Shared model sources | One subdirectory per ML model |
 
 
 # TODO: Multiple models in one AI layer
@@ -202,7 +202,7 @@ rather than during AI-layer generation.
 ## MLOps input
 
 Extend the authored `mlops.model` node with an `input` sequence. CMSIS-Toolbox
-currently emits this sequence as `cbuild-mlops.model.inputs`; the converter
+currently emits this sequence as `cbuild-mlops.model.input`; the converter
 shall consume the generated form. Confirm and document the final singular vs.
 plural spelling against the CMSIS-Toolbox 2.16 schema before implementation.
 
@@ -212,7 +212,7 @@ mlops:
     clayer: $AI-Layer$
     input:
       - name: TinyCNN
-        file: ../model/model.py
+        file: ../model/TinyCNN/model.py
         optimize: size    # specific vela parameter for this model
         parameters:
           input-shape: 1x16x16x3

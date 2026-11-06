@@ -1,11 +1,14 @@
 solution:
-  description: Zephyr ExecuTorch template for Cortex-M55 on the Alif Ensemble E8 AppKit.
+  description: Zephyr ExecuTorch template for Cortex-M55 on the Alif Ensemble E8 AppKit and Corstone-300 FVP.
   # Usage:
   #   cbuild setup zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
   #   python model_conversion/create_ai_layer.py zephyr-m/zephyr-m.cbuild-mlops.yml
   #   cbuild zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
+  #
+  # Replace AppKit-E8 with Corstone-300-FVP to build and run on the FVP.
 
   packs:
+    - pack: ARM::V2M_MPS3_SSE_300_BSP@^1.5.0
     - pack: AlifSemiconductor::Ensemble@^2.2.0-0
     # ExecuTorch is an external Zephyr module. CMSIS-NN is supplied by the
     # Zephyr workspace and selected through Kconfig.
@@ -26,6 +29,25 @@ solution:
             protocol: swd
             clock: 4000000
             start-pname: M55_HP
+          images:
+            - project-context: Zephyr_app.Debug
+
+    - type: Corstone-300-FVP
+      board: ARM::V2M-MPS3-SSE-300-FVP
+      device: ARM::SSE-300-MPS3
+      variables:
+        - west-board: mps3/corstone300/fvp
+      west-defs:
+        - FVP_SHUTDOWN_ON_EOT: ON
+        # ExecuTorch tag.h uses size_t without including <stddef.h>.
+        - CMAKE_CXX_FLAGS: -includestddef.h
+      target-set:
+        - set:
+          debugger:
+            name: Arm-FVP
+            model: FVP_Corstone_SSE-300_Ethos-U55
+            config-file: fvp_config.txt
+            args: --simlimit 60
           images:
             - project-context: Zephyr_app.Debug
 
@@ -58,10 +80,13 @@ solution:
     model:
       clayer: ai_layer/ai_layer.clayer.yml
       zephyr:
-      cpu: Cortex-M55
-      name: TinyCNN
-      input-shape: 1x16x16x3
-      calibration-samples: 2
+      input:
+        - name: TinyCNN
+          file: ../model/TinyCNN/model.py
+          cpu:
+          parameters:
+            input-shape: 1x16x16x3
+            calibration-samples: 2
 
   compiler: GCC
   created-for: CMSIS-Toolbox@2.15.0

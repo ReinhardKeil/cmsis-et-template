@@ -55,8 +55,11 @@ solution:
       memory: Shared_Sram            # memory-mode from the Vela config
     model:
       clayer: $AI-Layer$
-      name: TinyCNN
-      # Model parameters for create_ai_layer.py: the NHWC input shape and the
-      # number of samples the quantizer is calibrated with.
-      input-shape: 1x16x16x3
-      calibration-samples: 2
+      input:
+        - name: TinyCNN
+          file: ../model/TinyCNN/model.py
+          # Model parameters: the NHWC input shape and number of samples used
+          # for quantizer calibration.
+          parameters:
+            input-shape: 1x16x16x3
+            calibration-samples: 2

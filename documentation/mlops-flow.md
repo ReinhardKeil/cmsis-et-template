@@ -10,8 +10,8 @@ propagate that information.
 flowchart TD
     A["cmsis-u85/cmsis-u85.csolution.yml<br/><b>mlops:</b> node"] -->|"1. cbuild setup --active &lt;target&gt;"| B["cmsis-u85/cmsis-u85.cbuild-mlops.yml<br/>npu, vela.options, model.clayer"]
     B -->|"2. create_ai_layer.py"| C["EthosUCompileSpec<br/>quantize, delegate, Vela"]
-    D["model/model.py<br/>TinyCNN"] --> C
-    C --> E["cmsis-u85/ai_layer/model_pte.c<br/>the program as a C array"]
+    D["model/TinyCNN/model.py<br/>TinyCNN"] --> C
+    C --> E["cmsis-u85/ai_layer/TinyCNN_pte.c<br/>the program as a C array"]
     C --> F["cmsis-u85/ai_layer/ai_layer.clayer.yml<br/>component selection"]
     E --> G["3. cbuild --active &lt;target&gt;"]
     F --> G
@@ -33,9 +33,12 @@ solution:
       memory: Shared_Sram              # memory-mode from the Vela config
     model:
       clayer: $AI-Layer$
-      name: TinyCNN
-      input-shape: 1x16x16x3           # passed through to create_ai_layer.py
-      calibration-samples: 2
+      input:
+        - name: TinyCNN
+          file: ../model/TinyCNN/model.py
+          parameters:
+            input-shape: 1x16x16x3     # passed through to create_ai_layer.py
+            calibration-samples: 2
 ```
 
 CMSIS-Toolbox detects the `simulator:` target (and, for a board, the
@@ -58,9 +61,12 @@ cbuild-mlops:
     options: --system-config Ethos_U85_SYS_DRAM_Mid --memory-mode Shared_Sram
   model:
     clayer: ai_layer/ai_layer.clayer.yml
-    name: TinyCNN
-    input-shape: 1x16x16x3
-    calibration-samples: 2
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/model.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
   simulator:
     active: SSE-320-U85
     cbuild-run: cmsis-u85/out/cmsis-u85+SSE-320-U85.cbuild-run.yml
@@ -90,7 +96,7 @@ the flow also works on a checkout without a generated layer.
 `python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml` stands in
 for an MLOps system. The workspace directory owns the shared `.venv`; the
 directory containing the selected MLOps file is the solution directory. All
-paths from that file, including `model/model.py`, are resolved from the
+paths from that file, including `../model/TinyCNN/model.py`, are resolved from the
 solution directory. This supports multiple solutions in workspace
 subdirectories. The converter reads the file and:
 
@@ -99,7 +105,7 @@ subdirectories. The converter reads the file and:
    there, and every other option in `vela.options` (the `misc:` of the
    csolution's `vela:` node) reaches Vela as an extra flag, so the Python code
    contains no NPU configuration;
-2. exports `model/model.py`: quantizes it, delegates the whole graph to the
+2. exports `model/TinyCNN/model.py`: quantizes it, delegates the whole graph to the
    Ethos-U and compiles it with Vela;
 3. reads the operators the resulting program still calls on the CPU and looks
    up the matching components in the `PyTorch::ExecuTorch` pack (the version
@@ -109,8 +115,9 @@ subdirectories. The converter reads the file and:
 | File | Content |
 |------|---------|
 | `cmsis-u85/ai_layer/ai_layer.clayer.yml` | runtime, kernel utilities and registration, Ethos-U backend and the operator components the program uses |
-| `cmsis-u85/ai_layer/model_pte.c` / `.h` | the program as a 16-byte-aligned C array, `model_pte` / `model_pte_size` |
-| `cmsis-u85/ai_layer/model.pte` | the program itself, for inspection (not committed) |
+| `cmsis-u85/ai_layer/TinyCNN_pte.c` / `.h` | the program as a 16-byte-aligned C array, `TinyCNN_pte` / `TinyCNN_pte_size` |
+| `cmsis-u85/ai_layer/TinyCNN.pte` | the program itself, for inspection (not committed) |
+| `cmsis-u85/ai_layer/TinyCNN_REPORT.md` | model input, conversion parameters, fallback operators, and Vela report |
 
 The clayer and the C array are committed, so a checkout builds without
 Python. For a fully delegated model the component list is short: `Runtime`,
@@ -131,7 +138,8 @@ step 3.
 
 ## Changing the model or the target
 
-- **Another model:** edit `model/model.py`, run steps 2 and 3.
+- **Another model:** add `model/<name>/model.py`, declare another
+  `mlops.model.input` entry, and run steps 1 to 3.
 - **Another NPU configuration:** edit the `mlops:` node (and add the matching
   `target-types:` entry and board layer), run steps 1 to 3:
 

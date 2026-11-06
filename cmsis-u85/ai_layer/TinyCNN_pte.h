@@ -3,8 +3,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern const unsigned char model_pte[];
-extern const unsigned long model_pte_size;
+extern const unsigned char TinyCNN_pte[];
+extern const unsigned long TinyCNN_pte_size;
 #ifdef __cplusplus
 }
 #endif

@@ -30,7 +30,7 @@
         },
         {
             "label": "Create AI layer",
-            "detail": "Export model/model.py for the active solution's NPU and write ai_layer (run 'cbuild setup' first)",
+            "detail": "Export the active solution's declared ML models and write ai_layer (run 'cbuild setup' first)",
             "type": "shell",
             "command": "${workspaceFolder}/.venv/bin/python",
             "args": [

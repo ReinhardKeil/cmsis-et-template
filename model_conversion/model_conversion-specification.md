@@ -50,24 +50,24 @@ layer-wide properties:
 - `model.clayer`: required output path relative to the solution directory;
 - `model.zephyr`: optional empty node or mapping whose presence enables
   additional Zephyr integration output;
-- `model.inputs`: generated sequence of model definitions described below.
+- `model.input`: generated sequence of model definitions described below.
 
 The authored `mlops.model.input` sequence shall be emitted by CMSIS-Toolbox as
-`cbuild-mlops.model.inputs`. Each entry uses this contract:
+`cbuild-mlops.model.input`. Each entry uses this contract:
 
 ```yaml
 cbuild-mlops:
   model:
     clayer: ai_layer/ai_layer.clayer.yml
-    inputs:
+    input:
       - name: TinyCNN
-        file: ../TinyCNN-model/model.py
+        file: ../model/TinyCNN/model.py
         optimize: size
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
       - name: CpuModel
-        file: ../CpuModel/model.py
+        file: ../model/CpuModel/model.py
         cpu:
       - name: ImportedModel
         file: ../models/imported.pte

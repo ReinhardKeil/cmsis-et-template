@@ -45,6 +45,8 @@ jobs:
 
       - name: Check model-export environment
         shell: bash
+        env:
+          PYTHONPATH: ""
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             PY=.venv/Scripts/python.exe
@@ -57,6 +59,8 @@ jobs:
 
       - name: Check resolved package versions
         shell: bash
+        env:
+          PYTHONPATH: ""
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             PY=.venv/Scripts/python.exe
