@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2026 Arm Limited and/or its affiliates.
 # SPDX-License-Identifier: Apache-2.0
-"""Create a CMSIS layer and optional Zephyr module from MLOps information.
+"""Create a multi-model CMSIS AI layer and optional Zephyr projection.
 
     python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
 
@@ -11,21 +11,11 @@ Step 2 of the three-step flow:
     python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml  # this script
     cbuild <solution>.csolution.yml --active <target>         # compile and link
 
-The *.cbuild-mlops.yml is what CMSIS-Toolbox generates from the `mlops:` node
-of the csolution. This script reads the NPU and Vela settings from it, exports
-the PyTorch model in model/model.py for that NPU (quantize, delegate to
-Ethos-U, compile with Vela) and writes the complete AI layer into the
-directory of the clayer named under `model.clayer`. When `model.zephyr` is
-present, the script also writes Zephyr integration files. The other supported
-keys of the `model:` node (input-shape, calibration-samples) are model parameters that
-CMSIS-Toolbox passes through to this script:
-
-    ai_layer.clayer.yml   CMSIS layer metadata
-    CMakeLists.txt and
-    *.conf                optional Zephyr module metadata
-    model_pte.c / .h      the ExecuTorch program as a C array
-    model.pte             the program itself, for inspection
-    VELA_SUMMARY.md       effective Vela settings and textual report
+The generated `model.inputs` sequence declares Python sources or imported
+ExecuTorch programs. Each model receives its own .pte, C array, header, and
+report. The generated clayer contains the union of their CPU fallback operator
+requirements. `--model NAME` updates one model while rebuilding that union from
+all current .pte artifacts.
 
 The script runs itself in the workspace's .venv (see setup_venv.py). Paths in
 the MLOps file are resolved from the solution directory containing that file.
@@ -34,6 +24,11 @@ the MLOps file are resolved from the solution directory containing that file.
 from __future__ import annotations
 
 import io
+import argparse
+import importlib.metadata
+import importlib.util
+import inspect
+import json
 import os
 import re
 import shlex
@@ -43,11 +38,22 @@ import sys
 import uuid
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
 
 PACK = "PyTorch::ExecuTorch"
-SYMBOL = "model_pte"
 WORKSPACE_DIR = Path(__file__).resolve().parent.parent
+
+
+@dataclass(frozen=True)
+class ModelInput:
+    name: str
+    stem: str
+    source: Path
+    parameters: dict
+    cpu_only: bool
+    optimize: str | None
+    imported: bool
 
 
 def run_in_venv(workspace_dir: Path) -> None:
@@ -149,9 +155,11 @@ def vela_options(options: str) -> tuple[dict[str, str], list[str]]:
     return spec, extra
 
 
-def compile_spec(mlops: dict, mlops_dir: Path):
+def compile_spec(
+    mlops: dict, mlops_dir: Path, *, cpu_only: bool = False, optimize: str | None = None
+):
     """EthosUCompileSpec for an NPU target; None selects Cortex-M generation."""
-    if mlops["model"].get("cpu"):
+    if cpu_only or ("inputs" not in mlops["model"] and mlops["model"].get("cpu")):
         return None
     npu = mlops.get("npu")
     if not npu:
@@ -160,6 +168,8 @@ def compile_spec(mlops: dict, mlops_dir: Path):
     from executorch.backends.arm.ethosu import EthosUCompileSpec
     vela = mlops.get("vela", {})
     spec, extra = vela_options(vela.get("options", ""))
+    if optimize:
+        extra = [*extra, f"--optimise={optimize}"]
 
     target = spec.get("accelerator-config") or f"{npu['type'].lower()}-{npu.get('macs', 256)}"
     kwargs = {
@@ -178,10 +188,10 @@ def compile_spec(mlops: dict, mlops_dir: Path):
 
 
 def cpu_target(mlops: dict):
-    """Create the Cortex-M backend target from model.cpu or processor.type."""
+    """Create the Cortex-M backend target from processor.type."""
     from executorch.backends.cortex_m.target_config import CortexMTargetConfig
 
-    core = mlops["model"].get("cpu") or mlops.get("processor", {}).get("type")
+    core = mlops.get("processor", {}).get("type") or mlops["model"].get("cpu")
     if not core:
         sys.exit("the cbuild-mlops.yml names neither an NPU nor a processor")
     target = core.lower().replace("+", "plus")
@@ -193,31 +203,129 @@ def cpu_target(mlops: dict):
     return config
 
 
-def model_params(mlops: dict) -> dict:
-    """The extra keys of the model: node, as keyword arguments for model/model.py."""
+def convert_parameters(parameters: dict, model_name: str) -> dict:
+    """Convert YAML model parameters to Python keyword arguments."""
     params = {}
-    for key, value in mlops["model"].items():
+    for key, value in parameters.items():
         if key == "input-shape":
             params["input_shape"] = tuple(int(d) for d in re.split(r"[x,]", str(value)))
         elif key == "calibration-samples":
             params["calibration_samples"] = int(value)
-        elif key not in ("clayer", "name", "zephyr", "cpu"):
-            print(f"[ai_layer] warning: ignoring unknown model key {key!r}", file=sys.stderr)
+        else:
+            params[key.replace("-", "_")] = value
     if params:
-        print(f"[ai_layer] model parameters: {params}")
+        print(f"[ai_layer] {model_name} parameters: {params}")
     return params
 
 
-def load_model(params: dict):
-    """Load the shared model and return its exported graph and calibration data."""
+def model_params(mlops: dict) -> dict:
+    """Compatibility helper for the legacy single-model form."""
+    model = mlops["model"]
+    return convert_parameters(
+        {k: v for k, v in model.items() if k not in ("clayer", "name", "zephyr", "cpu")},
+        model.get("name", "Model"),
+    )
+
+
+def model_inputs(mlops: dict, solution_dir: Path) -> list[ModelInput]:
+    """Validate and normalize new and legacy model declarations."""
+    model = mlops["model"]
+    entries = model.get("inputs")
+    legacy = entries is None
+    if legacy:
+        entries = [{
+            "name": model.get("name", "Model"),
+            "file": str(WORKSPACE_DIR / "model" / "model.py"),
+            "parameters": {
+                k: v for k, v in model.items()
+                if k not in ("clayer", "name", "zephyr", "cpu")
+            },
+            **({"cpu": model.get("cpu")} if "cpu" in model else {}),
+        }]
+    if not isinstance(entries, list) or not entries:
+        sys.exit("model.inputs must be a non-empty sequence")
+
+    result, names, stems = [], set(), set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            sys.exit(f"model.inputs[{index}] must be a mapping")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            sys.exit(f"model.inputs[{index}].name is required")
+        if name in names:
+            sys.exit(f"duplicate model name {name!r}")
+        stem = "model" if legacy else name
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", stem):
+            sys.exit(f"model {name!r}: name must be a valid C identifier and file stem")
+        if stem in stems:
+            sys.exit(f"model name collision for identifier {stem!r}")
+        file = entry.get("file")
+        if not isinstance(file, str) or not file:
+            sys.exit(f"model {name!r}: file is required")
+        source = Path(file)
+        if not source.is_absolute():
+            source = solution_dir / source
+        source = source.resolve()
+        if not source.is_file():
+            sys.exit(f"model {name!r}: input does not exist: {source}")
+        if source.suffix.lower() not in (".py", ".pte"):
+            sys.exit(f"model {name!r}: unsupported input type {source.suffix!r}")
+        parameters = entry.get("parameters", {})
+        if not isinstance(parameters, dict):
+            sys.exit(f"model {name!r}: parameters must be a mapping")
+        cpu_only = "cpu" in entry or not mlops.get("npu")
+        optimize = entry.get("optimize")
+        if optimize is not None and cpu_only:
+            sys.exit(f"model {name!r}: optimize is invalid for CPU-only conversion")
+        if isinstance(optimize, str) and optimize.lower() in ("size", "performance"):
+            optimize = optimize.capitalize()
+        names.add(name)
+        stems.add(stem)
+        result.append(ModelInput(
+            name, stem, source, convert_parameters(parameters, name), cpu_only,
+            str(optimize) if optimize is not None else None, source.suffix.lower() == ".pte"
+        ))
+    return result
+
+
+def _accepted_parameter_names(function) -> set[str] | None:
+    signature = inspect.signature(function)
+    accepts_any = any(p.kind == p.VAR_KEYWORD for p in signature.parameters.values())
+    if accepts_any:
+        return None
+    return {
+        name for name, p in signature.parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    }
+
+
+def load_model(source: Path, params: dict, model_name: str):
+    """Load one Python model and return its exported graph and calibration data."""
     import torch
 
-    # Model sources are shared by all solution directories at workspace level.
-    sys.path.insert(0, str(WORKSPACE_DIR / "model"))
-    from model import get_calibration_inputs, get_model
-
-    model = get_model(**{k: v for k, v in params.items() if k == "input_shape"})
-    samples = get_calibration_inputs(**params)
+    module_name = f"ai_layer_model_{re.sub(r'[^A-Za-z0-9_]', '_', model_name)}_{uuid.uuid4().hex}"
+    spec = importlib.util.spec_from_file_location(module_name, source)
+    if spec is None or spec.loader is None:
+        sys.exit(f"model {model_name!r}: cannot load {source}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        get_model = module.get_model
+        get_calibration_inputs = module.get_calibration_inputs
+    except AttributeError as error:
+        sys.exit(f"model {model_name!r}: {source} must define {error.name}")
+    model_names = _accepted_parameter_names(get_model)
+    calibration_names = _accepted_parameter_names(get_calibration_inputs)
+    known = set(params) if model_names is None or calibration_names is None else model_names | calibration_names
+    unknown = sorted(set(params) - known)
+    if unknown:
+        sys.exit(f"model {model_name!r}: unknown parameters {unknown}")
+    model_kwargs = params if model_names is None else {k: v for k, v in params.items() if k in model_names}
+    calibration_kwargs = params if calibration_names is None else {
+        k: v for k, v in params.items() if k in calibration_names
+    }
+    model = get_model(**model_kwargs)
+    samples = get_calibration_inputs(**calibration_kwargs)
     example = (samples[0],)
     graph = torch.export.export(model, example).module()
     strip_guards_fn(graph)
@@ -248,14 +356,14 @@ def quantize(graph, quantizer, samples):
     return convert_pt2e(prepared)
 
 
-def export_model(spec, params: dict, solution_dir: Path) -> bytes:
-    """Quantize model/model.py, delegate it to the Ethos-U and return the .pte."""
+def export_model(spec, source: Path, params: dict, model_name: str) -> bytes:
+    """Quantize a Python model, delegate it to Ethos-U, and return the .pte."""
     import torch
     from executorch.backends.arm.ethosu import EthosUPartitioner
     from executorch.backends.arm.quantizer import EthosUQuantizer, get_symmetric_quantization_config
     from executorch.exir import EdgeCompileConfig, ExecutorchBackendConfig, to_edge_transform_and_lower
 
-    graph, samples, example = load_model(params)
+    graph, samples, example = load_model(source, params, model_name)
 
     # Quantize the whole graph so the partitioner can move every node into the
     # Ethos-U delegate; only a float<->int8 boundary stays on the CPU.
@@ -272,15 +380,15 @@ def export_model(spec, params: dict, solution_dir: Path) -> bytes:
     return bytes(program.buffer)
 
 
-def export_model_cpu(target, params: dict, solution_dir: Path) -> bytes:
-    """Quantize and lower model/model.py for Cortex-M with CMSIS-NN kernels."""
+def export_model_cpu(target, source: Path, params: dict, model_name: str) -> bytes:
+    """Quantize and lower a Python model for Cortex-M with CMSIS-NN kernels."""
     import torch
     from executorch.backends.cortex_m.edge_compile_config import cortex_m_edge_compile_config
     from executorch.backends.cortex_m.passes.cortex_m_pass_manager import CortexMPassManager
     from executorch.backends.cortex_m.quantizer.quantizer import CortexMQuantizer
     from executorch.exir import ExecutorchBackendConfig, to_edge_transform_and_lower
 
-    graph, samples, example = load_model(params)
+    graph, samples, example = load_model(source, params, model_name)
     quantized = quantize(graph, CortexMQuantizer(use_explicit_layout=True), samples)
     exported = torch.export.export(quantized, example)
     strip_guards_fn(exported.graph_module)
@@ -293,7 +401,7 @@ def export_model_cpu(target, params: dict, solution_dir: Path) -> bytes:
 
 
 class Tee(io.TextIOBase):
-    """Copy text to the terminal while retaining it for VELA_SUMMARY.md."""
+    """Copy text to the terminal while retaining it for a model report."""
 
     def __init__(self, terminal, capture: io.StringIO):
         self.terminal = terminal
@@ -314,8 +422,40 @@ def compiler_flag_value(flags: list[str], option: str) -> str:
     return next((flag[len(prefix) :] for flag in flags if flag.startswith(prefix)), "not specified")
 
 
+def model_report(
+    model: ModelInput,
+    operators: list[str],
+    cmsis_nn: bool,
+    spec=None,
+    vela_report: str = "",
+) -> str:
+    """Create the reproducible per-model conversion report."""
+    source = model.source.as_posix()
+    lines = [
+        f"# Model report: {model.name}", "",
+        f"- input: `{source}`",
+        f"- input type: `{'imported ExecuTorch program' if model.imported else 'Python model source'}`",
+        f"- execution: `{'CPU only' if model.cpu_only else 'CPU with Ethos-U acceleration'}`",
+        f"- parameters: `{json.dumps(model.parameters, sort_keys=True, default=list)}`",
+        f"- optimization: `{model.optimize or 'default'}`",
+        f"- CMSIS-NN required: `{'yes' if cmsis_nn else 'no'}`", "",
+        "## CPU fallback operators", "",
+        *([f"- `{operator}`" for operator in operators] or ["None."]), "",
+    ]
+    if spec is not None:
+        report = vela_report.replace("\r\n", "\n").replace("\r", "\n").strip()
+        lines.extend([
+            "## Vela", "",
+            f"- accelerator: `{spec.target}`",
+            f"- system config: `{compiler_flag_value(spec.compiler_flags, 'system-config')}`",
+            f"- memory mode: `{compiler_flag_value(spec.compiler_flags, 'memory-mode')}`", "",
+            "```text", report, "```", "",
+        ])
+    return "\n".join(lines)
+
+
 def vela_summary(model_name: str, spec, report: str) -> str:
-    """Markdown record of the effective Vela configuration and textual report."""
+    """Compatibility helper for the former standalone Vela report."""
     report = report.replace("\r\n", "\n").replace("\r", "\n").strip()
     return (
         f"# Vela report: {model_name}\n\n"
@@ -329,6 +469,18 @@ def vela_summary(model_name: str, spec, report: str) -> str:
 def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
     """Stage a complete AI layer, then atomically replace destination files."""
     layer_dir.mkdir(parents=True, exist_ok=True)
+    manifest_name = ".ai_layer_manifest.json"
+    previous_files: set[str] = set()
+    manifest_path = layer_dir / manifest_name
+    if manifest_path.is_file():
+        try:
+            previous_files = set(json.loads(manifest_path.read_text(encoding="utf-8"))["files"])
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            raise ValueError(f"invalid generator manifest: {manifest_path}") from None
+        for name in previous_files:
+            relative = Path(name)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(f"unsafe path in generator manifest: {name!r}")
     # tempfile.TemporaryDirectory deliberately creates a private directory on
     # Windows. Files moved out of it keep that restrictive ACL and cannot be
     # read by build tools running as the interactive user. A normal child
@@ -351,6 +503,12 @@ def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
             destination = layer_dir / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             os.replace(stage / name, destination)
+        if manifest_name in outputs:
+            current_files = set(json.loads(str(outputs[manifest_name]))["files"])
+            for name in sorted(previous_files - current_files):
+                path = layer_dir / name
+                if path.is_file():
+                    path.unlink()
     finally:
         shutil.rmtree(stage, ignore_errors=True)
 
@@ -394,19 +552,16 @@ def pack_components(pack: Path) -> tuple[set[str], set[str]]:
     }
 
 
-def components(pte: bytes, pack: Path, *, delegated: bool) -> tuple[list[str], list[str], bool]:
-    """Select runtime/operators and report whether their conditions require CMSIS-NN.
-
-    The pack's "Extension Tensor" is not selected: its tensor_ptr_maker.cpp
-    needs std::random_device, which the LLVM embedded toolchain lacks; the
-    runner wraps its input in a TensorImpl instead.
-    """
+def operator_components(operator_names: list[str], pack: Path) -> tuple[list[str], bool]:
+    """Map ExecuTorch operator names to pack components."""
     available, cmsis_nn = pack_components(pack)
-    namespaces = "|".join(FAMILY)
-
     selected, unknown = set(), []
-    for ns, op in sorted(set(re.findall(rf"({namespaces})::(\w+)".encode(), pte))):
-        ns, op = ns.decode(), op.decode()
+    for operator in sorted(set(operator_names)):
+        ns, separator, op = operator.partition("::")
+        if not separator or ns not in FAMILY:
+            unknown.append(operator)
+            continue
+        op = op.split(".", 1)[0]
         op = ALIASES.get(op, op)
         candidates = [
             f"{FAMILY[ns]} {op}",
@@ -416,37 +571,52 @@ def components(pte: bytes, pack: Path, *, delegated: bool) -> tuple[list[str], l
         if match := next((c for c in candidates if c in available), None):
             selected.add(match)
         else:
-            unknown.append(f"{ns}::{op}")
+            unknown.append(operator)
     if unknown:
-        print(f"[ai_layer] warning: no component in {pack.name} for {unknown}", file=sys.stderr)
+        raise ValueError(f"no component in {pack.name} for operators {unknown}")
+    return sorted(selected), bool(selected & cmsis_nn)
+
+
+def components(pte: bytes, pack: Path, *, delegated: bool) -> tuple[list[str], list[str], bool]:
+    """Legacy helper retained for callers; generation uses operator YAML."""
+    namespaces = "|".join(FAMILY)
+    names = [
+        f"{ns.decode()}::{op.decode()}"
+        for ns, op in sorted(set(re.findall(rf"({namespaces})::(\w+)".encode(), pte)))
+    ]
+    selected, needs_nn = operator_components(names, pack)
 
     runtime = ["Runtime", "Kernel Utils", "Kernel Registration"]
     if delegated:
         runtime.append("Backend EthosU")
-    return runtime, sorted(selected), bool(selected & cmsis_nn)
+    return runtime, selected, needs_nn
 
 
-def c_array(pte: bytes) -> str:
+def c_array(pte: bytes, symbol: str = "model_pte") -> str:
     rows = [", ".join(f"0x{b:02x}" for b in pte[i : i + 16]) for i in range(0, len(pte), 16)]
     return (
         "// Generated by create_ai_layer.py -- do not edit.\n"
-        f"__attribute__((aligned(16))) const unsigned char {SYMBOL}[] = {{\n  "
+        f"__attribute__((aligned(16))) const unsigned char {symbol}[] = {{\n  "
         + ",\n  ".join(rows)
-        + f"\n}};\nconst unsigned long {SYMBOL}_size = sizeof({SYMBOL});\n"
+        + f"\n}};\nconst unsigned long {symbol}_size = sizeof({symbol});\n"
     )
 
 
-HEADER = f"""// Generated by create_ai_layer.py -- do not edit.
+def header(symbol: str = "model_pte") -> str:
+    return f"""// Generated by create_ai_layer.py -- do not edit.
 #pragma once
 #ifdef __cplusplus
 extern "C" {{
 #endif
-extern const unsigned char {SYMBOL}[];
-extern const unsigned long {SYMBOL}_size;
+extern const unsigned char {symbol}[];
+extern const unsigned long {symbol}_size;
 #ifdef __cplusplus
 }}
 #endif
 """
+
+
+HEADER = header()
 
 
 def clayer(
@@ -456,6 +626,7 @@ def clayer(
     cmsis_nn: bool,
     mlops_file: Path,
     version: str,
+    models: list[ModelInput] | None = None,
 ) -> str:
     try:
         mlops_path = os.path.relpath(mlops_file, WORKSPACE_DIR)
@@ -466,7 +637,7 @@ def clayer(
     lines = [
         f"# Generated by create_ai_layer.py from {mlops_file.name} -- do not edit.",
         f"# Re-run `python model_conversion/create_ai_layer.py {mlops_path}` after changing",
-        "# model/model.py or the csolution's mlops: node.",
+        "# model inputs or the csolution's mlops: node.",
         "layer:",
         "  type: AI",
         f"  description: {mlops.get('description', mlops['model'].get('name', 'AI layer'))}",
@@ -488,20 +659,32 @@ def clayer(
         *(["    - component: CMSIS:NN Lib"] if cmsis_nn else []),
         "",
         "  groups:",
-        f"    - group: {mlops['model'].get('name', 'Model')}",
-        "      files:",
-        f"        - file: ./{SYMBOL}.c",
-        f"        - file: ./{SYMBOL}.h",
-        "",
     ]
+    if models is None:
+        models = [ModelInput(mlops['model'].get('name', 'Model'), 'model', Path('model.py'), {}, False, None, False)]
+    for model in models:
+        lines.extend([
+            f"    - group: {model.name}",
+            "      files:",
+            f"        - file: ./{model.stem}_pte.c",
+            f"        - file: ./{model.stem}_pte.h",
+        ])
+    lines.append("")
     return "\n".join(lines)
 
 
-ZEPHYR_CMAKE = '''# Generated by create_ai_layer.py -- do not edit.
+def zephyr_cmake(models: list[ModelInput]) -> str:
+    sources = "\n".join(f'  "${{CMAKE_CURRENT_SOURCE_DIR}}/{m.stem}_pte.c"' for m in models)
+    return f'''# Generated by create_ai_layer.py -- do not edit.
 # Include this directory after find_package(Zephyr) creates the app target.
-target_sources(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/model_pte.c")
-target_include_directories(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_sources(app PRIVATE
+{sources}
+)
+target_include_directories(app PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}")
 '''
+
+
+ZEPHYR_CMAKE = zephyr_cmake([ModelInput("Model", "model", Path("model.py"), {}, False, None, False)])
 
 ZEPHYR_COMPONENTS = '''# Generated by create_ai_layer.py -- do not edit.
 CONFIG_CMSIS_EXECUTORCH=y
@@ -512,7 +695,9 @@ CONFIG_CMSIS_EXECUTORCH_KERNEL_REGISTRATION=y
 '''
 
 
-def zephyr_metadata(operators: list[str], pack: Path, delegated: bool) -> dict[str, str]:
+def zephyr_metadata(
+    operators: list[str], pack: Path, delegated: bool, models: list[ModelInput] | None = None
+) -> dict[str, str]:
     """Generate the Zephyr module files for the selected operator components."""
     symbols = [re.sub(r"[^A-Z0-9]+", "_", operator.upper()).strip("_") for operator in operators]
     kconfig = (pack / "zephyr" / "Kconfig").read_text()
@@ -527,20 +712,89 @@ def zephyr_metadata(operators: list[str], pack: Path, delegated: bool) -> dict[s
     if delegated:
         components += "CONFIG_CMSIS_EXECUTORCH_BACKEND_ETHOS_U=y\n"
     return {
-        "CMakeLists.txt": ZEPHYR_CMAKE,
+        "CMakeLists.txt": zephyr_cmake(models or [ModelInput("Model", "model", Path("model.py"), {}, False, None, False)]),
         "components.conf": components,
         "operators.conf": operator_config,
     }
 
 
+def _operator_names(path: Path) -> list[str]:
+    import yaml
+
+    content = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return sorted((content.get("operators") or {}).keys())
+
+
+def generate_operator_lists(pte_paths: dict[str, Path], stage: Path) -> tuple[dict[str, list[str]], list[str]]:
+    """Extract per-model operator lists and combine them in temporary storage."""
+    from executorch.codegen.tools.gen_oplist import gen_oplist
+    from executorch.codegen.tools import gen_all_oplist
+
+    operator_root = stage / "operators"
+    paths, per_model = [], {}
+    for name, pte_path in pte_paths.items():
+        output = operator_root / name / "selected_operators.yaml"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        gen_oplist(output_path=output, model_file_path=str(pte_path))
+        paths.append(output)
+        per_model[name] = _operator_names(output)
+    model_list = operator_root / "models.txt"
+    model_list.write_text("\n".join(str(path) for path in paths) + "\n", encoding="utf-8")
+    combined_dir = operator_root / "all-models"
+    combined_dir.mkdir(parents=True)
+    gen_all_oplist.main([
+        "--model_file_list_path", f"@{model_list}",
+        "--output_dir", str(combined_dir),
+    ])
+    return per_model, _operator_names(combined_dir / "selected_operators.yaml")
+
+
+def check_executorch_version(expected: str) -> None:
+    """Require the Python exporter to match the selected runtime pack."""
+    try:
+        installed = importlib.metadata.version("executorch")
+    except importlib.metadata.PackageNotFoundError:
+        sys.exit("the executorch Python package is not installed")
+    if installed != expected:
+        sys.exit(
+            f"ExecuTorch Python package {installed} does not match "
+            f"{PACK}@{expected}"
+        )
+
+
+def expected_accelerator(mlops: dict) -> str | None:
+    npu = mlops.get("npu")
+    if not npu:
+        return None
+    spec, _ = vela_options(mlops.get("vela", {}).get("options", ""))
+    return spec.get("accelerator-config") or f"{npu['type'].lower()}-{npu.get('macs', 256)}"
+
+
+def validate_pte_target(model: ModelInput, pte: bytes, accelerator: str | None) -> None:
+    """Reject existing programs that contradict their declared execution target."""
+    delegated = b"EthosUBackend" in pte
+    if model.cpu_only and delegated:
+        sys.exit(f"model {model.name!r}: CPU-only input contains an Ethos-U delegate")
+    if not model.cpu_only and not delegated:
+        sys.exit(f"model {model.name!r}: NPU input contains no Ethos-U delegate")
+    if delegated and accelerator and accelerator.encode() not in pte:
+        sys.exit(
+            f"model {model.name!r}: imported program does not target {accelerator}"
+        )
+
+
 def main() -> None:
-    if len(sys.argv) != 2 or not sys.argv[1].endswith(".cbuild-mlops.yml"):
-        sys.exit(f"usage: {Path(__file__).name} <solution>.cbuild-mlops.yml")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mlops_file")
+    parser.add_argument("--model")
+    args = parser.parse_args()
+    if not args.mlops_file.endswith(".cbuild-mlops.yml"):
+        parser.error("mlops_file must end with .cbuild-mlops.yml")
 
     # CMSIS-Toolbox paths are relative to the generated MLOps file. The Python
     # environment is workspace-wide, while model sources and generated files
     # belong to the selected solution.
-    mlops_file = Path(sys.argv[1]).resolve()
+    mlops_file = Path(args.mlops_file).resolve()
     solution_dir = mlops_file.parent
     run_in_venv(WORKSPACE_DIR)
 
@@ -557,43 +811,103 @@ def main() -> None:
             sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
     layer_file = solution_dir / model["clayer"]
     layer_dir = layer_file.parent
-
-    params = model_params(mlops)
-    spec = compile_spec(mlops, solution_dir)
-    vela_report = None
-    if spec is None:
-        pte = export_model_cpu(cpu_target(mlops), params, solution_dir)
-    else:
-        vela_report = io.StringIO()
-        with redirect_stdout(Tee(sys.stdout, vela_report)):
-            pte = export_model(spec, params, solution_dir)
     version = executorch_version(mlops_file)
-    runtime, operators, cmsis_nn = components(
-        pte, executorch_pack(version), delegated=spec is not None
-    )
+    check_executorch_version(version)
+    pack = executorch_pack(version)
+    models = model_inputs(mlops, solution_dir)
+    accelerator = expected_accelerator(mlops)
+    selected = models
+    if args.model:
+        selected = [entry for entry in models if entry.name == args.model]
+        if not selected:
+            sys.exit(f"unknown model {args.model!r}")
 
-    outputs: dict[str, bytes | str] = {
-        "model.pte": pte,
-        f"{SYMBOL}.c": c_array(pte),
-        f"{SYMBOL}.h": HEADER,
-        layer_file.name: clayer(
-            mlops, runtime, operators, cmsis_nn, mlops_file, version
+    outputs: dict[str, bytes | str] = {}
+    generated_pte: dict[str, bytes] = {}
+    specs, vela_reports = {}, {}
+    target = None
+    for entry in selected:
+        spec = compile_spec(
+            mlops, solution_dir, cpu_only=entry.cpu_only, optimize=entry.optimize
+        )
+        specs[entry.name] = spec
+        if entry.imported:
+            pte = entry.source.read_bytes()
+            validate_pte_target(entry, pte, accelerator)
+            vela_reports[entry.name] = "Imported .pte; Vela output is not available."
+        elif spec is None:
+            target = target or cpu_target(mlops)
+            pte = export_model_cpu(target, entry.source, entry.parameters, entry.name)
+            vela_reports[entry.name] = ""
+        else:
+            capture = io.StringIO()
+            with redirect_stdout(Tee(sys.stdout, capture)):
+                pte = export_model(spec, entry.source, entry.parameters, entry.name)
+            vela_reports[entry.name] = capture.getvalue()
+        generated_pte[entry.name] = pte
+        symbol = f"{entry.stem}_pte"
+        outputs[f"{entry.stem}.pte"] = pte
+        outputs[f"{entry.stem}_pte.c"] = c_array(pte, symbol)
+        outputs[f"{entry.stem}_pte.h"] = header(symbol)
+
+    layer_dir.mkdir(parents=True, exist_ok=True)
+    operator_stage = layer_dir / f".operators-{uuid.uuid4().hex}"
+    operator_stage.mkdir()
+    try:
+        pte_paths = {}
+        for entry in models:
+            if entry.name in generated_pte:
+                path = operator_stage / "pte" / f"{entry.stem}.pte"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(generated_pte[entry.name])
+            else:
+                path = layer_dir / f"{entry.stem}.pte"
+                if not path.is_file():
+                    sys.exit(f"model {entry.name!r}: existing artifact is missing: {path}")
+                validate_pte_target(entry, path.read_bytes(), accelerator)
+            pte_paths[entry.name] = path
+        per_model_ops, combined_ops = generate_operator_lists(pte_paths, operator_stage)
+    finally:
+        shutil.rmtree(operator_stage, ignore_errors=True)
+
+    operators, cmsis_nn = operator_components(combined_ops, pack)
+    delegated = any(not entry.cpu_only for entry in models)
+    runtime = ["Runtime", "Kernel Utils", "Kernel Registration"]
+    if delegated:
+        runtime.append("Backend EthosU")
+    for entry in selected:
+        _, model_cmsis_nn = operator_components(per_model_ops[entry.name], pack)
+        outputs[f"{entry.stem}_REPORT.md"] = model_report(
+            entry, per_model_ops[entry.name], model_cmsis_nn,
+            specs[entry.name], vela_reports[entry.name]
+        )
+    outputs[layer_file.name] = clayer(
+        mlops, runtime, operators, cmsis_nn, mlops_file, version, models
+    )
+    if "zephyr" in model:
+        outputs.update(zephyr_metadata(operators, pack, delegated, models))
+    expected_files = {
+        layer_file.name,
+        *(
+            filename
+            for entry in models
+            for filename in (
+                f"{entry.stem}.pte",
+                f"{entry.stem}_pte.c",
+                f"{entry.stem}_pte.h",
+                f"{entry.stem}_REPORT.md",
+            )
         ),
     }
-    if vela_report is not None:
-        outputs["VELA_SUMMARY.md"] = vela_summary(
-            model.get("name", "Model"), spec, vela_report.getvalue()
-        )
     if "zephyr" in model:
-        outputs.update(
-            zephyr_metadata(operators, executorch_pack(version), delegated=spec is not None)
-        )
+        expected_files.update(("CMakeLists.txt", "components.conf", "operators.conf"))
+    outputs[".ai_layer_manifest.json"] = json.dumps(
+        {"files": sorted(expected_files)}, indent=2
+    ) + "\n"
     replace_outputs(layer_dir, outputs)
 
-    print(f"[ai_layer] {len(pte)} byte program, operators: {operators}")
+    print(f"[ai_layer] models: {[entry.name for entry in selected]}, operators: {operators}")
     print(f"[ai_layer] wrote {layer_file}")
-    if vela_report is not None:
-        print(f"[ai_layer] wrote {layer_dir / 'VELA_SUMMARY.md'}")
     if "zephyr" in model:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")
 

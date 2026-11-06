@@ -100,6 +100,44 @@ class CreateAiLayerTests(unittest.TestCase):
             {"input_shape": (1, 16, 16, 3), "calibration_samples": 4},
         )
 
+    def test_model_inputs_validate_multi_model_form(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "npu.py").write_text("# model", encoding="utf-8")
+            (root / "cpu.pte").write_bytes(b"PTE")
+            mlops = {
+                "processor": {"type": "Cortex-M55"},
+                "npu": {"type": "Ethos-U55"},
+                "model": {
+                    "inputs": [
+                        {
+                            "name": "NpuModel",
+                            "file": "npu.py",
+                            "optimize": "size",
+                            "parameters": {"input-shape": "1x4"},
+                        },
+                        {"name": "CpuModel", "file": "cpu.pte", "cpu": None},
+                    ]
+                },
+            }
+            models = generator.model_inputs(mlops, root)
+
+        self.assertEqual([model.name for model in models], ["NpuModel", "CpuModel"])
+        self.assertEqual(models[0].parameters, {"input_shape": (1, 4)})
+        self.assertFalse(models[0].cpu_only)
+        self.assertTrue(models[1].cpu_only)
+        self.assertTrue(models[1].imported)
+
+    def test_imported_pte_must_match_declared_execution(self) -> None:
+        cpu = generator.ModelInput("CPU", "CPU", Path("cpu.pte"), {}, True, None, True)
+        npu = generator.ModelInput("NPU", "NPU", Path("npu.pte"), {}, False, None, True)
+        with self.assertRaisesRegex(SystemExit, "CPU-only input contains"):
+            generator.validate_pte_target(cpu, b"EthosUBackend ethos-u55-128", "ethos-u55-128")
+        with self.assertRaisesRegex(SystemExit, "contains no Ethos-U delegate"):
+            generator.validate_pte_target(npu, b"portable operators", "ethos-u55-128")
+        with self.assertRaisesRegex(SystemExit, "does not target ethos-u55-128"):
+            generator.validate_pte_target(npu, b"EthosUBackend ethos-u85-256", "ethos-u55-128")
+
     def test_executorch_version_prefers_exact_selected_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -321,19 +359,26 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
             ), mock.patch.object(
-                generator, "components", return_value=(["Runtime"], ["Portable add"], False)
+                generator, "check_executorch_version"
+            ), mock.patch.object(
+                generator, "generate_operator_lists",
+                return_value=({"Network": ["aten::add.out"]}, ["aten::add.out"]),
+            ), mock.patch.object(
+                generator, "operator_components", return_value=(["Portable add"], False)
             ):
                 generator.main()
 
             run_in_venv.assert_called_once_with(ROOT)
-            export_model.assert_called_once_with(mock.ANY, {}, solution_dir.resolve())
+            export_model.assert_called_once_with(
+                mock.ANY, (ROOT / "model" / "model.py").resolve(), {}, "Network"
+            )
 
             output = solution_dir / "generated"
             self.assertEqual((output / "model.pte").read_bytes(), b"PTE")
             self.assertTrue((output / "model_pte.c").is_file())
             self.assertTrue((output / "model_pte.h").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
-            self.assertTrue((output / "VELA_SUMMARY.md").is_file())
+            self.assertTrue((output / "model_REPORT.md").is_file())
 
     def test_main_accepts_empty_zephyr_and_writes_module_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -364,7 +409,12 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(generator, "executorch_version", return_value="1.6.0"), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
             ), mock.patch.object(
-                generator, "components", return_value=(["Runtime"], ["Quantized dequantize"], False)
+                generator, "check_executorch_version"
+            ), mock.patch.object(
+                generator, "generate_operator_lists",
+                return_value=({"Model": ["quantized_decomposed::dequantize_per_tensor"]}, ["quantized_decomposed::dequantize_per_tensor"]),
+            ), mock.patch.object(
+                generator, "operator_components", return_value=(["Quantized dequantize"], False)
             ), mock.patch.object(
                 generator,
                 "zephyr_metadata",
@@ -414,16 +464,22 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(
                 generator, "executorch_pack", return_value=solution_dir / "pack"
             ), mock.patch.object(
-                generator,
-                "components",
-                return_value=(["Runtime"], ["Cortex-M quantized_conv2d"], True),
+                generator, "check_executorch_version"
+            ), mock.patch.object(
+                generator, "generate_operator_lists",
+                return_value=({"Model": ["cortex_m::quantized_conv2d_nhwc"]}, ["cortex_m::quantized_conv2d_nhwc"]),
+            ), mock.patch.object(
+                generator, "operator_components", return_value=(["Cortex-M quantized_conv2d"], True)
             ):
                 generator.main()
 
-            export_cpu.assert_called_once_with(target, {}, solution_dir.resolve())
+            export_cpu.assert_called_once_with(
+                target, (ROOT / "model" / "model.py").resolve(), {}, "Model"
+            )
             output = solution_dir / "ai_layer"
             self.assertEqual((output / "model.pte").read_bytes(), b"CPU")
             self.assertFalse((output / "VELA_SUMMARY.md").exists())
+            self.assertTrue((output / "model_REPORT.md").exists())
             layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
             self.assertIn("pack: ARM::CMSIS-NN", layer)
 
@@ -449,6 +505,136 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator, "run_in_venv"
             ), self.assertRaisesRegex(SystemExit, "model.zephyr must be empty or a mapping"):
                 generator.main()
+
+    def test_main_generates_multiple_models_and_combined_layer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution = Path(temporary)
+            for name in ("npu.py", "cpu.py"):
+                (solution / name).write_text("# mocked", encoding="utf-8")
+            mlops_file = solution / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump({
+                    "cbuild-mlops": {
+                        "processor": {"type": "Cortex-M55"},
+                        "npu": {"type": "Ethos-U55"},
+                        "model": {
+                            "clayer": "ai_layer/ai_layer.clayer.yml",
+                            "zephyr": {},
+                            "inputs": [
+                                {"name": "NpuModel", "file": "npu.py"},
+                                {"name": "CpuModel", "file": "cpu.py", "cpu": None},
+                            ],
+                        },
+                    }
+                }),
+                encoding="utf-8",
+            )
+            npu_spec = self.compile_spec()
+
+            def compile_for_model(_mlops, _directory, *, cpu_only=False, optimize=None):
+                return None if cpu_only else npu_spec
+
+            def map_components(names, _pack):
+                if any(name.startswith("cortex_m::") for name in names):
+                    return ["Cortex-M quantized_conv2d"], True
+                if len(names) > 1:
+                    return ["Cortex-M quantized_conv2d", "Portable add"], True
+                return ["Portable add"], False
+
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
+                generator, "check_executorch_version"
+            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
+                generator, "compile_spec", side_effect=compile_for_model
+            ), mock.patch.object(generator, "cpu_target", return_value=mock.Mock()), mock.patch.object(
+                generator, "export_model", return_value=b"NPU"
+            ), mock.patch.object(generator, "export_model_cpu", return_value=b"CPU"), mock.patch.object(
+                generator,
+                "generate_operator_lists",
+                return_value=(
+                    {
+                        "NpuModel": ["aten::add.out"],
+                        "CpuModel": ["cortex_m::quantized_conv2d_nhwc"],
+                    },
+                    ["aten::add.out", "cortex_m::quantized_conv2d_nhwc"],
+                ),
+            ), mock.patch.object(generator, "operator_components", side_effect=map_components), mock.patch.object(
+                generator,
+                "zephyr_metadata",
+                side_effect=lambda operators, pack, delegated, models: {
+                    "CMakeLists.txt": generator.zephyr_cmake(models),
+                    "components.conf": "components\n",
+                    "operators.conf": "operators\n",
+                },
+            ):
+                generator.main()
+
+            output = solution / "ai_layer"
+            self.assertEqual((output / "NpuModel.pte").read_bytes(), b"NPU")
+            self.assertEqual((output / "CpuModel.pte").read_bytes(), b"CPU")
+            self.assertTrue((output / "NpuModel_REPORT.md").is_file())
+            self.assertTrue((output / "CpuModel_REPORT.md").is_file())
+            layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
+            self.assertIn("group: NpuModel", layer)
+            self.assertIn("group: CpuModel", layer)
+            self.assertEqual(layer.count("Backend EthosU"), 1)
+            cmake = (output / "CMakeLists.txt").read_text(encoding="utf-8")
+            self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
+            self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
+
+    def test_model_option_uses_unchanged_pte_for_operator_union(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution = Path(temporary)
+            (solution / "a-source.pte").write_bytes(b"SOURCE-A")
+            (solution / "b-source.pte").write_bytes(b"NEW-B")
+            layer_dir = solution / "ai_layer"
+            layer_dir.mkdir()
+            (layer_dir / "A.pte").write_bytes(b"EXISTING-A")
+            (layer_dir / "A_REPORT.md").write_text("keep A\n", encoding="utf-8")
+            mlops_file = solution / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump({
+                    "cbuild-mlops": {
+                        "npu": {"type": "Ethos-U55"},
+                        "model": {
+                            "clayer": "ai_layer/ai_layer.clayer.yml",
+                            "inputs": [
+                                {"name": "A", "file": "a-source.pte"},
+                                {"name": "B", "file": "b-source.pte"},
+                            ],
+                        },
+                    }
+                }),
+                encoding="utf-8",
+            )
+
+            def operator_lists(paths, _stage):
+                self.assertEqual(paths["A"], layer_dir / "A.pte")
+                self.assertEqual(paths["A"].read_bytes(), b"EXISTING-A")
+                self.assertEqual(paths["B"].read_bytes(), b"NEW-B")
+                return ({"A": ["aten::add.out"], "B": ["aten::mul.out"]},
+                        ["aten::add.out", "aten::mul.out"])
+
+            argv = [str(SCRIPT), str(mlops_file), "--model", "B"]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
+                generator, "check_executorch_version"
+            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
+                generator, "compile_spec", return_value=self.compile_spec()
+            ), mock.patch.object(generator, "generate_operator_lists", side_effect=operator_lists), mock.patch.object(
+                generator, "operator_components", return_value=(["Portable add"], False)
+            ), mock.patch.object(
+                generator, "validate_pte_target"
+            ):
+                generator.main()
+
+            self.assertEqual((layer_dir / "A.pte").read_bytes(), b"EXISTING-A")
+            self.assertEqual((layer_dir / "A_REPORT.md").read_text(encoding="utf-8"), "keep A\n")
+            self.assertEqual((layer_dir / "B.pte").read_bytes(), b"NEW-B")
+            self.assertTrue((layer_dir / "B_REPORT.md").is_file())
 
 
 if __name__ == "__main__":

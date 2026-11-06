@@ -124,10 +124,16 @@ def pip(python: Path, *args: str, uv: str | None = None, env: dict[str, str] | N
 
 
 def smoke_test(python: Path) -> None:
-    """Import the module the export needs; a torch/executorch mismatch fails here."""
+    """Import the exporter and operator-list modules needed by generation."""
     try:
         subprocess.run(
-            [str(python), "-c", "import executorch.backends.arm.quantizer.quantization_annotator"],
+            [
+                str(python),
+                "-c",
+                "import executorch.backends.arm.quantizer.quantization_annotator; "
+                "from executorch.codegen.tools.gen_oplist import gen_oplist; "
+                "from executorch.codegen.tools import gen_all_oplist",
+            ],
             check=True,
         )
     except subprocess.CalledProcessError:
