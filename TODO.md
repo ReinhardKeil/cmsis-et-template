@@ -24,6 +24,19 @@
 
 # TODO: Multiple models in one AI layer
 
+## Summary
+
+- One AI layer contains all ML models that run on a single CPU (processor),
+  optionally with NPU acceleration.
+- Each ML model is stored with its individual artifacts and separate `.pte`,
+  `.c`, and `.h` files.
+- The fallback operators that execute on the CPU are combined across all ML
+  models in the generated `*.clayer.yml`.
+- Zephyr export is an optional operation that primarily uses the generated
+  `*.clayer.yml` as input.
+- `create_ai_layer.py` creates the AI layer. Without `--model`, it converts all
+  models; with `--model`, it updates only the selected model in that layer.
+
 ## Intended ownership and execution model
 
 One AI `*.clayer.yml` describes one deployable AI layer containing one or more
@@ -45,8 +58,8 @@ The following artifacts have different purposes and shall not be conflated:
 - the generated `*.clayer.yml` is the persistent operator selection: every CPU
   operator is represented by one ExecuTorch operator component, together with
   the required runtime, backend, and CMSIS-NN components;
-- per-model reports explain which of those operator components each model
-  needs and contain the Vela summary where applicable;
+- per-model reports identify the CPU fallback operators required by each model
+  and contain the Vela summary where applicable;
 - Zephyr `CMakeLists.txt`, `operators.conf`, and `components.conf` are a derived
   translation of the generated `*.clayer.yml`, not an independent selection
   result; and
@@ -83,6 +96,109 @@ in the generator's staging directory and shall not be installed in the AI
 layer. Their persistent equivalent is the operator component list in
 `*.clayer.yml`.
 
+### Integration inside `model_conversion/create_ai_layer.py`
+
+[`model_conversion/create_ai_layer.py`](model_conversion/create_ai_layer.py)
+shall remain the only user-facing command. It orchestrates the upstream modules
+internally; users do not run the operator tools as an additional build step.
+
+`run_in_venv()` already restarts the generator with the workspace's pinned
+Python environment. After that restart, import the upstream functions directly:
+
+```python
+from executorch.codegen.tools.gen_oplist import gen_oplist
+from executorch.codegen.tools import gen_all_oplist
+```
+
+`gen_oplist` provides a callable API. `gen_all_oplist` exposes its merge through
+`main(argv)`, so call that function with an explicit argument list. Do not start
+another Python process and do not import its private helper functions.
+
+The multi-model path in `create_ai_layer.py` shall then follow this structure:
+
+```python
+with generation_stage(layer_dir) as stage:
+    model_yamls = []
+    generated_models = []
+
+    for model in models:
+        execution = resolve_model_execution(model, mlops)
+        pte, vela_report = export_or_import_model(model, execution)
+        staged_pte = write_staged_model_files(stage, model, pte)
+
+        model_yaml = stage / "operators" / model.name / "selected_operators.yaml"
+        model_yaml.parent.mkdir(parents=True)
+        gen_oplist(
+            output_path=model_yaml,
+            model_file_path=str(staged_pte),
+        )
+        model_yamls.append(model_yaml)
+        generated_models.append(
+            GeneratedModel(model, execution, staged_pte, model_yaml, vela_report)
+        )
+
+    model_list = write_operator_list_file(stage, model_yamls)
+    union_dir = stage / "operators" / "all-models"
+    union_dir.mkdir(parents=True)
+    gen_all_oplist.main([
+        "--model_file_list_path", f"@{model_list}",
+        "--output_dir", str(union_dir),
+    ])
+
+    selected = read_selected_operators(union_dir / "selected_operators.yaml")
+    operators = map_operators_to_pack_components(selected, executorch_pack)
+    components = union_runtime_backend_and_operator_components(
+        generated_models, operators
+    )
+    write_model_reports(generated_models, components)
+    write_clayer(generated_models, components)
+    write_zephyr_projection_from_clayer_if_requested()
+    commit_stage_atomically()
+```
+
+Before importing these functions, the generator shall compare the installed
+Python package version with the resolved `PyTorch::ExecuTorch` pack version and
+fail clearly on a mismatch. Imports shall remain local to the post-`run_in_venv`
+generation path so the initial host-Python invocation can still restart itself.
+
+This replaces the current `components(pte, ...)` implementation, which searches
+raw `.pte` bytes with a regular expression. Component mapping shall instead
+consume the combined YAML `operators` keys, normalize namespaces/overloads, and
+resolve each operator against the pack PDSC. An operator with no matching pack
+component is a generation error rather than a warning.
+
+The upstream YAML files remain inside `generation_stage`. Only the model
+artifacts, reports, `*.clayer.yml`, and optional Zephyr projection are committed
+to the AI-layer directory. Tests shall mock `gen_oplist` and
+`gen_all_oplist.main` for unit coverage and include one integration test using
+the pinned ExecuTorch package.
+
+### Document the user-facing Python version contract
+
+Treat [`model_conversion/requirements.txt`](model_conversion/requirements.txt)
+as a user-facing configuration file, not only as an installer input. Improve
+the model-conversion documentation to explain:
+
+- that this file is the source of truth for the mutually compatible
+  ExecuTorch, PyTorch, TorchAO, and Vela versions used by AI-layer generation;
+- that the ExecuTorch Python version must match the resolved
+  `PyTorch::ExecuTorch` pack version because the pack runtime consumes the
+  generated `.pte` files;
+- that `gen_oplist` and `gen_all_oplist` are supplied by the pinned ExecuTorch
+  package and require no additional entry in either requirements file;
+- that TorchGen is supplied by the pinned PyTorch package;
+- why `requirements-arm-tosa.txt` is installed separately with `--no-deps` and
+  is not the general version-selection file; and
+- the update procedure: change the coordinated pins, the csolution pack pins,
+  and compatibility documentation together, then run environment validation,
+  model-conversion tests, and CMSIS/Zephyr build tests.
+
+Add a short compatibility table to `model_conversion/README.md` and link to the
+requirements files instead of duplicating their complete dependency lists.
+Extend `setup_venv.py` validation to import `gen_oplist` and `gen_all_oplist` so
+a future ExecuTorch wheel that omits these tools fails during environment setup
+rather than during AI-layer generation.
+
 ## MLOps input
 
 Extend the authored `mlops.model` node with an `input` sequence. CMSIS-Toolbox
@@ -97,14 +213,15 @@ mlops:
     input:
       - name: TinyCNN
         file: ../model/model.py
-        optimize: size
+        optimize: size    # specific vela parameter for this model
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
       - name: MyModel1
         file: ../model1/model.py
+        cpu:              # run on CPU only
       - name: MyModel2
-        file: ../model2/MyModel.pte
+        file: ../model2/MyModel.pte    # input is a *.pte file
 ```
 
 Requirements:
@@ -115,10 +232,20 @@ Requirements:
 - Python sources are exported for the selected target; `.pte` files are copied
   as already-exported target-specific inputs and are still inspected for CPU
   operator requirements;
+- the presence of an empty `cpu:` key selects CPU-only export for that model;
+  test key presence rather than truthiness because YAML loads the empty value as
+  `None`. The CPU type comes from `processor.type`;
+- when `cpu:` is absent, the model is exported for the solution's NPU. If the
+  solution has no NPU, CPU-only export is the only valid mode;
+- an imported `.pte` follows the same resolution rule: `cpu:` or a solution
+  without an NPU declares a CPU-only model; otherwise it declares an
+  NPU-targeted model. The converter shall reject a `.pte` whose
+  delegates/operators are inconsistent with that declaration or with the
+  selected solution target;
 - `parameters` is a mapping passed to the model entry point; unknown parameters
   fail with a model-qualified diagnostic rather than being silently ignored;
-- `optimize` is a per-model Vela setting and is rejected for CPU-only targets;
-  target-wide Vela settings remain under `vela`; and
+- `optimize` is a per-model Vela setting. It supplements the target-wide
+  settings under `vela` and is rejected for resolved CPU-only execution;
 - the existing scalar `model` form remains supported as the single-model
   compatibility form for one release cycle.
 
@@ -133,7 +260,7 @@ ai_layer/
 |-- <model-a>.pte                    # serialized ML model
 |-- <model-a>_pte.c                  # embedded model data
 |-- <model-a>_pte.h                  # model data declarations
-|-- <model-a>_REPORT.md              # CPU components and Vela summary
+|-- <model-a>_REPORT.md              # model conversion and optimization summary
 |-- <model-b>.pte
 |-- <model-b>_pte.c
 |-- <model-b>_pte.h
@@ -153,10 +280,15 @@ For each model `<name>` (using its validated file stem and identifier), generate
 ```
 
 `<name>_pte.c/.h` shall export unique `<name>_pte` and `<name>_pte_size`
-symbols. The report shall list the model's CPU operator components and whether
-CMSIS-NN is required. For an Ethos-U model it shall additionally contain the
-effective accelerator, system configuration, memory mode, per-model options,
-and Vela summary. A CPU-only model therefore has a report but no Vela section.
+symbols. `<name>_REPORT.md` shall be a concise, reproducible summary of how the
+ML model was produced and optimized for execution on the target CPU/MCU and,
+when applicable, NPU. It shall identify the model input used, record the
+specific conversion parameters and effective optimization settings, list the
+model's CPU fallback operators and whether CMSIS-NN is required, and distinguish
+generated models from imported `.pte` inputs. For an Ethos-U model it shall
+additionally contain the effective accelerator, system configuration, memory
+mode, per-model Vela options, and Vela summary. A CPU-only model therefore has
+a report but no Vela section.
 
 Generate these layer-wide files from the union across all models:
 
@@ -168,11 +300,13 @@ operators.conf               # Zephyr only
 ```
 
 The `*.clayer.yml` shall contain one group per model with that model's C and
-header files, one runtime component set, the union of CPU operator components,
-every backend used by any model, and `ARM::CMSIS-NN`/`CMSIS:NN Lib` if any
-selected operator requires CMSIS-NN. All lists shall be de-duplicated and
-sorted so repeated generation is byte-for-byte stable. Zephyr shall attach all
-model C files to `app` exactly once.
+header files, one shared runtime component set, the union of CPU operator
+components, and every backend required by at least one model. Thus a mixed
+layer can contain CPU-only and Ethos-U models while selecting the Ethos-U
+backend only once. Add `ARM::CMSIS-NN`/`CMSIS:NN Lib` if any selected CPU
+operator requires CMSIS-NN. All lists shall be de-duplicated and sorted so
+repeated generation is byte-for-byte stable. Zephyr shall attach all model C
+files to `app` exactly once.
 
 `ai_layer.clayer.yml` is the canonical build description. When Zephyr output is
 requested, the Zephyr files shall be generated only by translating its content:
@@ -193,11 +327,15 @@ AI layer.
 flowchart TD
     A[*.cbuild-mlops.yml] --> B[Validate model list and target]
     B --> C{For each ML model}
-    C --> D[Export Python model or import .pte]
+    C --> T{cpu key present or solution has no NPU?}
+    T -- Yes --> T1[Select CPU-only lowering]
+    T -- No --> T2[Select solution NPU lowering]
+    T1 --> D[Export Python model or validate imported .pte]
+    T2 --> D
     D --> E[Write model.pte and model_pte.c/.h]
     D --> F[ExecuTorch gen_oplist in staging]
     F --> G[Temporary per-model operator YAML]
-    D --> H[Build per-model report including Vela summary]
+    D --> H[Build per-model report; add Vela summary for NPU model]
     G --> I[ExecuTorch gen_all_oplist in staging]
     I --> J[Temporary combined operator union]
     J --> K[Map operators to pack components]
