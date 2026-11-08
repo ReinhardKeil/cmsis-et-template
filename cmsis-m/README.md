@@ -1,8 +1,11 @@
 # CMSIS Cortex-M CPU-only quick start
 
-This example runs the TinyCNN model entirely on the Cortex-M55 of the
-Corstone-300 FVP. It uses the ExecuTorch Cortex-M backend and CMSIS-NN, with no
-Ethos-U NPU or Vela compilation.
+This CMSIS template deploys ML models on Cortex-M targets using ExecuTorch
+and CMSIS-NN for CPU-only inference. It does not require an Ethos-U NPU or
+Vela compilation.
+
+The supplied configuration runs TinyCNN on the Cortex-M55 of the
+Corstone-300 FVP.
 
 Commands below run from the workspace root.
 

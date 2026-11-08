@@ -1,8 +1,10 @@
 # Zephyr Cortex-M with Ethos-U85
 
-This template application runs an ExecuTorch program for an ML model with
-Ethos-U85 acceleration under Zephyr 4.5. It contains target configurations for
-an Alif Ensemble E8 AI/ML AppKit and the Corstone-320 FVP.
+This Zephyr template deploys ML models on Cortex-M targets with Ethos-U85
+acceleration using ExecuTorch.
+
+The supplied configurations run on the Alif Ensemble E8 AI/ML AppKit or the
+Corstone-320 FVP using Zephyr 4.5.
 
 > [!NOTE]
 > The Alif E8 hardware target is included temporarily for development and

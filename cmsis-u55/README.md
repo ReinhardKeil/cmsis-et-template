@@ -1,9 +1,10 @@
 # CMSIS Cortex-M with Ethos-U55/U65 quick start
 
-This template covers Ethos-U55 and Ethos-U65 integrations. The provided default
-workflow builds the application for the Corstone-300 FVP with an Ethos-U55-128
-NPU. Its CMSIS solution is
-`cmsis-u55/cmsis-u55.csolution.yml`.
+This CMSIS template deploys ML models on Cortex-M targets with Ethos-U55/U65
+acceleration using ExecuTorch.
+
+The supplied configuration runs on the Corstone-300 FVP with an Ethos-U55-128
+NPU. Its solution is `cmsis-u55/cmsis-u55.csolution.yml`.
 
 Commands below run from the workspace root.
 

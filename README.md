@@ -9,15 +9,17 @@
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
 [![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
-This repository provides template applications for deploying and running
-[ExecuTorch](https://github.com/pytorch/executorch) programs for ML models on
-Cortex-M systems. The templates cover CMSIS and Zephyr software workflows, with
-Cortex-M-only execution or acceleration by an Arm Ethos-U NPU.
+This repository provides template applications for deploying ML models on
+Cortex-M targets using [ExecuTorch](https://github.com/pytorch/executorch).
+The templates support CMSIS and Zephyr applications on Cortex-M-only systems,
+where inference runs entirely on the CPU, and Cortex-M systems with an Arm
+Ethos-U NPU, where supported model operations run on the NPU and the remaining
+operations run on the CPU.
 
-Each template is a starting point for developing an embedded ML application
-that runs one or more ExecuTorch programs on a Cortex-M platform. Adapt it to
-specific hardware by supplying the device, memory, and execution configuration
-through the selected solution and its CMSIS or Zephyr platform configuration.
+The templates support multiple ML models in one application and link only the
+runtime, backends, and operators those models need.
+
+## Software components
 
 - The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
   pack provides the ExecuTorch runtime, required operators, and Ethos-U backend.
@@ -26,29 +28,16 @@ through the selected solution and its CMSIS or Zephyr platform configuration.
   pack provides the Ethos-U driver and reference-platform integration.
 - The Zephyr templates use the Ethos-U driver included in upstream Zephyr 4.5
   and Zephyr's `hal_ethos_u` module.
-- The build process uses [CMSIS-Toolbox 2.15.0](https://open-cmsis-pack.github.io/cmsis-toolbox/)
-  or higher.
-
-Every template uses the
-[CMSIS-Toolbox MLOps flow](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
-to connect the selected embedded target with the model-conversion tools. The
-generated `*.cbuild-mlops.yml` describes the processor, optional NPU, model
-inputs, conversion settings, and build/run configuration. This allows the
-resulting application and ML models to run and be validated on target hardware
-or an FVP simulation model, following the development loop described in
-[Making Edge AI development more productive](https://developer.arm.com/community/arm-community-blogs/b/tools-software-ides-blog/posts/making-edge-ai-development-more-productive).
-
-For the complete path from selecting a template through FVP validation,
-hardware deployment, repeatable real-world data tests, and optimization, see
-[Create ExecuTorch applications for real devices](documentation/executorch-on-real-devices.md).
+- [CMSIS-Toolbox 2.15.0](https://open-cmsis-pack.github.io/cmsis-toolbox/) or
+  higher manages the build and passes target settings to the model converter.
 
 ## Prerequisites
 
-- [Git](https://git-scm.com/) to clone the repository created from this template.
+- [Git](https://git-scm.com/).
 - [Keil Studio for VS Code](https://marketplace.visualstudio.com/items?itemName=Arm.keil-studio-pack) from the VS Code marketplace.
 - [Python extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-python.python).
 - [Astral's uv](https://docs.astral.sh/uv/getting-started/installation/) on `PATH` for the
-  recommended environment task, or an installed Python `>=3.10,<3.14` for pip.
+  Python environment task, or Python `>=3.10,<3.14` for the pip alternative.
 - On macOS, follow [FVPs on macOS](https://github.com/Arm-Examples/FVPs-on-Mac)
   to install Docker Desktop and configure the FVP environment.
 
@@ -72,37 +61,24 @@ can be used for evaluation.
 4. Follow the selected directory's README to choose a target-set, generate the
    AI layer when needed, and build, run, or debug the application.
 
-## Template workflows
+## Choose a template
 
-Select a template directory and follow its README. Template descriptions come
-from the corresponding `*.csolution.yml` file.
+Choose a template for your software stack and processor/NPU combination.
+Each template README lists the supplied board and FVP configurations and
+explains how to use them. Adapt the template to your target hardware.
 
-| Directory | Scope | Contents |
-| --- | --- | --- |
-| [`cmsis-u55/`](cmsis-u55/README.md) | CMSIS Cortex-M/U55/U65 | ExecuTorch template for Ethos-U55/U65 on Corstone-300 (SSE-300) FVP |
-| [`cmsis-u85/`](cmsis-u85/README.md) | CMSIS Cortex-M/U85 | ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP |
-| [`cmsis-m/`](cmsis-m/README.md) | CMSIS Cortex-M | ExecuTorch template for Cortex-M55 on Corstone-300 (SSE-300) FVP |
-| [`zephyr-u55/`](zephyr-u55/README.md) | Zephyr Cortex-M/U55/U65 | Zephyr ExecuTorch template for Ethos-U55/U65 on Corstone-300 (SSE-300) FVP |
-| [`zephyr-u85/`](zephyr-u85/README.md) | Zephyr Cortex-M/U85 | Zephyr ExecuTorch template for Ethos-U85 on Corstone-320 (SSE-320) FVP |
-| [`zephyr-m/`](zephyr-m/README.md) | Zephyr Cortex-M | Zephyr ExecuTorch template for Cortex-M55 on the Alif Ensemble E8 AppKit and Corstone-300 FVP |
-| [`model_conversion/`](model_conversion/README.md) | Shared model-conversion tools | Converts ML models into ExecuTorch programs and generates the AI layer and integration metadata for CMSIS or Zephyr builds |
-| [`model/`](model/) | Shared model sources | One subdirectory per ML model |
+| Template | Target |
+| --- | --- |
+| [`cmsis-u55/`](cmsis-u55/README.md) | Cortex-M with Ethos-U55/U65 |
+| [`cmsis-u85/`](cmsis-u85/README.md) | Cortex-M with Ethos-U85 |
+| [`cmsis-m/`](cmsis-m/README.md) | Cortex-M CPU only |
+| [`zephyr-u55/`](zephyr-u55/README.md) | Cortex-M with Ethos-U55/U65 |
+| [`zephyr-u85/`](zephyr-u85/README.md) | Cortex-M with Ethos-U85 |
+| [`zephyr-m/`](zephyr-m/README.md) | Cortex-M CPU only |
 
-## What the templates provide
+## Convert models and build
 
-- Converting one or more ML models into separate ExecuTorch programs and
-  packaging them in one AI layer for a single Cortex-M processor, optionally
-  with Ethos-U acceleration, using a shared Python virtual environment.
-- Keeping applications small by linking only the ExecuTorch runtime, backends,
-  and operators required by the programs in the AI layer.
-- Simplifying model conversion by taking the processor and optional NPU/Vela
-  configuration directly from the selected CMSIS or Zephyr solution.
-- A three-step flow with a clean hand-over from the CMSIS-Toolbox to an MLOps system: the toolbox describes the target in a `*.cbuild-mlops.yml` file, a script turns that into the AI layer, and the toolbox builds the application.
-- Running and validating the finished application on hardware or an FVP simulation model.
-
-## How ML model generation works
-
-The `*.csolution.yml` file describes the target and ML model inputs:
+Define your target and model inputs in the `*.csolution.yml` file:
 
 ```yaml
 mlops:
@@ -123,7 +99,11 @@ mlops:
 #       ...
 ```
 
-A three-step workflow generates the application:
+The [CMSIS-Toolbox MLOps integration](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
+has three steps. First, the toolbox writes the target and conversion settings
+to `*.cbuild-mlops.yml`. Next, the converter creates the AI layer: the model
+programs and their shared build configuration. Finally, the toolbox builds
+the application.
 
 ```console
 cbuild setup <solution>.csolution.yml --active <target-set> --packs      # create *.cbuild-mlops.yml
@@ -135,15 +115,15 @@ By default, `create_ai_layer.py` converts every model declared in the
 solution. Use `--model <name>` to update one model; the script then regenerates
 the layer-wide metadata for all models.
 
-See [the MLOps flow](documentation/mlops-flow.md) for a detailed walkthrough.
+See [the MLOps integration](documentation/mlops-flow.md) for a detailed walkthrough
+and [model-conversion tools](model_conversion/README.md) for converter options.
 
 ## Adapting the template
 
-Add one subdirectory under `model/` for each ML model and declare every model
-under `mlops.model.input`. The converter creates a separate ExecuTorch program
-for each entry and packages all programs into one AI layer. Adapt the CMSIS
-runner in `src/app_main.cpp` or the Zephyr runner in `src/executorch_test.cpp`
-to load the required program and provide its input and output handling.
+Add a subdirectory under `model/` for each model and list it under
+`mlops.model.input`. Adapt the CMSIS runner in `src/app_main.cpp` or the Zephyr
+runner in `src/executorch_test.cpp` to load the model and handle its inputs and
+outputs.
 
 For an Ethos-U target, keep the NPU type, MAC count, Vela memory settings,
 driver configuration, memory layout, and FVP or hardware description
@@ -157,11 +137,13 @@ When updating ExecuTorch, update the pack and Python package versions
 together. More information is available in
 [`PyTorch::ExecuTorch` pack maintenance and versioning](documentation/executorch-pack-maintenance.md).
 
+For guidance on FVP validation, hardware deployment, real-world data tests,
+and optimization, see
+[Create ExecuTorch applications for real devices](documentation/executorch-on-real-devices.md).
+
 ## Generated AI layer
 
-One AI layer contains all ML models that run on one CPU, optionally accelerated
-by an NPU. `create_ai_layer.py` creates separate program artifacts for every ML
-model and one shared build description for the complete AI layer:
+`create_ai_layer.py` writes the following files to `ai_layer/`:
 
 ```text
 ai_layer/
@@ -193,16 +175,10 @@ it on the matching FVP, checks `Test_result: PASS`, and uploads its artifacts.
 A separate workflow verifies the Python environment setup on Linux, macOS, and
 Windows.
 
-## Project layout
+## Shared files and tools
 
 | Path | Purpose |
 | ------ | --------- |
-| `cmsis-u85/` | Corstone-320 / Ethos-U85 solution, project, sources, layers, RTE configuration, and board support |
-| `cmsis-u55/` | Corstone-300 / Ethos-U55/U65 solution, project, sources, layers, RTE configuration, and board support |
-| `cmsis-m/` | Corstone-300 / Cortex-M55 CPU-only solution using the shared runner and board layer |
-| `zephyr-u85/` | Zephyr 4.5 application for Alif Ensemble E8 hardware and the Corstone-320 FVP |
-| `zephyr-u55/` | Zephyr 4.5 Ethos-U55/U65 application; provided targets use the Alif Ensemble E8 AppKit's Ethos-U55 and the Corstone-300 FVP |
-| `zephyr-m/` | Zephyr 4.5 Cortex-M55 CPU-only application for the Alif Ensemble E8 AppKit using Zephyr's CMSIS-NN module |
 | `model/TinyCNN/model.py` | Starter TinyCNN ML model; add sibling directories for more models |
 | `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
 | `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |
@@ -212,9 +188,6 @@ Windows.
 | `.vscode/fvp.sh`, `.vscode/fvp.Dockerfile`, `.vscode/launch.json.mac` | macOS only: runs the FVP in Docker, and the debug configuration that waits for it |
 | `cmsis-u*/src/app_main.cpp` | Loads the ML model, runs inference, and prints the result; pool sizes overridable with `APP_METHOD_POOL_SIZE`, `APP_TEMP_POOL_SIZE`, `APP_POOL_SECTION` |
 | `cmsis-u*/src/arm_embedded_module.*` | `EmbeddedModule`: ExecuTorch's `Module` class without the POSIX file loading (BSD-3-Clause, `src/LICENSE-ExecuTorch`) |
-| `documentation/mlops-flow.md` | The MLOps flow in detail |
-| `documentation/executorch-on-real-devices.md` | Adapting a template, validating it on an FVP, and deploying it to hardware |
-| `documentation/executorch-pack-maintenance.md` | Where the `PyTorch::ExecuTorch` pack comes from, how to update it |
 
 ## License
 

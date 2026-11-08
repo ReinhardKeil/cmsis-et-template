@@ -1,9 +1,10 @@
 # Zephyr Cortex-M with Ethos-U55/U65
 
-This template covers Ethos-U55 and Ethos-U65 integrations. The provided
-application runs an ExecuTorch program for an ML model on the 256-MAC Ethos-U55
-integrated in the Alif Ensemble E8 AI/ML AppKit. It also provides a matching
-Corstone-300 FVP target for simulation.
+This Zephyr template deploys ML models on Cortex-M targets with Ethos-U55/U65
+acceleration using ExecuTorch.
+
+The supplied configurations use a 256-MAC Ethos-U55 on the Alif Ensemble E8
+AI/ML AppKit or the Corstone-300 FVP.
 
 > [!NOTE]
 > The Alif E8 hardware target is included temporarily for development and

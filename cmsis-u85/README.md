@@ -1,8 +1,10 @@
 # CMSIS Cortex-M with Ethos-U85 quick start
 
-This workflow builds the template application for the Corstone-320 FVP with an
-Ethos-U85-256 NPU. Its CMSIS solution is
-`cmsis-u85/cmsis-u85.csolution.yml`.
+This CMSIS template deploys ML models on Cortex-M targets with Ethos-U85
+acceleration using ExecuTorch.
+
+The supplied configuration runs on the Corstone-320 FVP with an Ethos-U85-256
+NPU. Its solution is `cmsis-u85/cmsis-u85.csolution.yml`.
 
 Commands below run from the workspace root.
 
