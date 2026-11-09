@@ -47,9 +47,8 @@ jobs:
           config: .github/vcpkg-zephyr.json
           cache: cmsis-executorch-zephyr
 
-      # Arm Virtual Hardware requires an Arm tools license for every compiler.
-      - name: Activate Arm tool license
-        uses: ARM-software/cmsis-actions/armlm@v1
+      - name: Add FVP license tools to PATH
+        run: echo "$(dirname "${AVH_FVP_PLUGINS%/}")/arm_license_management_utilities" >> "${GITHUB_PATH}"
 
       # Temporary pin until the required CMSIS-Toolbox version is released.
       # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700
@@ -67,6 +66,10 @@ jobs:
           echo "${RUNNER_TEMP}/cmsis-toolbox/bin" >> "${GITHUB_PATH}"
           "${RUNNER_TEMP}/cmsis-toolbox/bin/cbuild" --version
           "${RUNNER_TEMP}/cmsis-toolbox/bin/cpackget" --version
+
+      # Arm Virtual Hardware requires an Arm tools license for every compiler.
+      - name: Activate Arm tool license
+        uses: ARM-software/cmsis-actions/armlm@v1
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
