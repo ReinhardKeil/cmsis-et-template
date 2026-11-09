@@ -189,6 +189,15 @@ representative PTQ calibration cases. Both positional and keyword inputs are
 supported. Use `.pt2` for custom quantization, QAT, specialized calibration, or
 producer-owned accuracy validation.
 
+### References
+
+- [PyTorch `torch.export`](https://docs.pytorch.org/docs/stable/export)
+- [PyTorch export serialization](https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export.html#serialization)
+- [PT2 Archive Specification](https://docs.pytorch.org/docs/main/user_guide/torch_compiler/export/pt2_archive.html)
+- [ExecuTorch model export and lowering](https://docs.pytorch.org/executorch/stable/using-executorch-export.html)
+- [ExecuTorch quantization overview](https://docs.pytorch.org/executorch/stable/quantization-overview.html)
+- [ExecuTorch Ethos-U quantization](https://docs.pytorch.org/executorch/stable/backends/arm-ethos-u/arm-ethos-u-quantization.html)
+
 ## Output
 
 The script writes generated files to the directory containing the

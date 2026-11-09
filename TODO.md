@@ -70,7 +70,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 - Zephyr: use target/source `target_compile_options` with language/compiler expressions; do not mute application or unrelated modules.
 - Every warning suppression needs scope, reason, owner, upstream issue, removal condition, and CMSIS/Zephyr documentation.
 
-## TODO: AI Input
+## DONE: AI Input
 
 Use these terms for the `create_ai_layer` interface:
 
