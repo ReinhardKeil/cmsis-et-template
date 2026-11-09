@@ -38,7 +38,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 
 - Add Zephyr integration folder; use generation script to generate the files.
 - Apply fix for AC6 crash in `op_quantize.cpp`.
-- Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-includestddef.h` workaround.
+- Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 
 ### Zephyr Templates
 
@@ -55,7 +55,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 - Move or instantiate LLVM-reported unused header helpers; do not add global `-Wno-unused-function`.
 - Fix the AC6 `op_quantize.cpp` crash, test all optimization levels on AC6 and LLVM.
 - Verify GCC C++ ABI compatibility; retain scoped `-Wno-psabi` only when the informational note cannot be eliminated.
-- Include `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-includestddef.h` workaround.
+- Include `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 - Fix the CMSIS-NN MVE intrinsic type mismatch; remove scoped  `-Wno-incompatible-pointer-types`.
 
 ## Zephyr Integration issues
@@ -732,7 +732,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 
 - Add Zephyr integration folder; use generation script to generate the files.
 - Apply fix for AC6 crash in `op_quantize.cpp`.
-- Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-includestddef.h` workaround.
+- Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 
 ### Zephyr Templates
 
@@ -749,7 +749,7 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 - Move or instantiate LLVM-reported unused header helpers; do not add global `-Wno-unused-function`.
 - Fix the AC6 `op_quantize.cpp` crash, test all optimization levels on AC6 and LLVM.
 - Verify GCC C++ ABI compatibility; retain scoped `-Wno-psabi` only when the informational note cannot be eliminated.
-- Include `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-includestddef.h` workaround.
+- Include `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 - Fix the CMSIS-NN MVE intrinsic type mismatch; remove scoped  `-Wno-incompatible-pointer-types`.
 
 ## Zephyr Integration issues

@@ -47,6 +47,10 @@ jobs:
           config: .github/vcpkg-zephyr.json
           cache: cmsis-executorch-zephyr
 
+      # Arm Virtual Hardware requires an Arm tools license for every compiler.
+      - name: Activate Arm tool license
+        uses: ARM-software/cmsis-actions/armlm@v1
+
       # Temporary pin until the required CMSIS-Toolbox version is released.
       # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700
       - name: Install nightly CMSIS-Toolbox

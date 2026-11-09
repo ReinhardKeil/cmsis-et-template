@@ -42,7 +42,7 @@ solution:
         - DTC_OVERLAY_FILE: fvp.overlay
         - FVP_SHUTDOWN_ON_EOT: ON
         # ExecuTorch tag.h uses size_t without including <stddef.h>.
-        - CMAKE_CXX_FLAGS: -includestddef.h
+        - CMAKE_CXX_FLAGS: -include stddef.h
       target-set:
         - set:
           debugger:

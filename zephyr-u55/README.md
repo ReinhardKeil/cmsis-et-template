@@ -145,7 +145,7 @@ west:
 | `west-board` | Selects `mps3/corstone300/fvp` for the FVP or `ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp` for the AppKit. The project-level `board: $west-board$` passes the selected value to west. |
 | `DTC_OVERLAY_FILE` | Selects the target-specific devicetree overlay: `fvp.overlay` or `app.overlay`. |
 | `EXTRA_CONF_FILE: app.conf` | Adds the AppKit-only Kconfig fragment. It is intentionally absent from the FVP target. |
-| `CMAKE_CXX_FLAGS: -includestddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. The option has no space because cbuild otherwise splits `-include stddef.h`. |
+| `CMAKE_CXX_FLAGS: -include stddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. |
 | Debug `CONFIG_*` definitions | Enable Zephyr debug information, thread information, and debug optimization for the `Debug` build type. |
 | Release `CONFIG_SPEED_OPTIMIZATIONS` | Selects Zephyr's speed optimization for the `Release` build type. |
 | `EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$` | Resolves the installed `PyTorch::ExecuTorch` pack and makes its root an external Zephyr module. This exposes the pack's Kconfig symbols, CMake sources, runtime, operators, and Ethos-U backend. |
