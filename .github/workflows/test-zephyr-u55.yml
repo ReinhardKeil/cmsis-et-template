@@ -47,6 +47,23 @@ jobs:
           config: .github/vcpkg-zephyr.json
           cache: cmsis-executorch-zephyr
 
+      # Temporary pin until the required CMSIS-Toolbox version is released.
+      # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700
+      - name: Install nightly CMSIS-Toolbox
+        env:
+          CMSIS_TOOLBOX_URL: https://nightly.link/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700/cmsis-toolbox-linux-amd64.zip
+          CMSIS_TOOLBOX_SHA256: 2d28b494bd25d76eff35c4a8903d73cabd835912c536e61dd5bbf38d3bef17b2
+        run: |
+          curl --fail --location --retry 3 \
+            --output "${RUNNER_TEMP}/cmsis-toolbox.zip" \
+            "${CMSIS_TOOLBOX_URL}"
+          echo "${CMSIS_TOOLBOX_SHA256}  ${RUNNER_TEMP}/cmsis-toolbox.zip" | sha256sum --check -
+          mkdir -p "${RUNNER_TEMP}/cmsis-toolbox"
+          unzip -q "${RUNNER_TEMP}/cmsis-toolbox.zip" -d "${RUNNER_TEMP}/cmsis-toolbox"
+          echo "${RUNNER_TEMP}/cmsis-toolbox/bin" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/cmsis-toolbox/bin/cbuild" --version
+          "${RUNNER_TEMP}/cmsis-toolbox/bin/cpackget" --version
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
