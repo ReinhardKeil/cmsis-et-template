@@ -46,10 +46,17 @@ def get_model(input_shape: tuple[int, ...] = INPUT_SHAPE) -> nn.Module:
     return TinyCNN(input_shape).eval()
 
 
+def get_example_inputs(
+    input_shape: tuple[int, ...] = INPUT_SHAPE,
+) -> tuple[tuple[torch.Tensor, ...], dict]:
+    """Return the explicit positional and keyword inputs used by ``torch.export``."""
+    return (torch.zeros(input_shape),), {}
+
+
 def get_calibration_inputs(
     input_shape: tuple[int, ...] = INPUT_SHAPE, calibration_samples: int = 2
-) -> list[torch.Tensor]:
-    """Float samples for quantization calibration; the first one is also the export input.
+) -> list[tuple[tuple[torch.Tensor, ...], dict]]:
+    """Return representative PTQ cases independently from the export example.
 
     Fixed values keep the quantization parameters, and with them the output
     logits in the README, the same from one export to the next. Replace them
@@ -58,4 +65,4 @@ def get_calibration_inputs(
     samples = [torch.full(input_shape, 0.5), torch.full(input_shape, -0.5)][:calibration_samples]
     for i in range(len(samples), calibration_samples):
         samples.append(torch.randn(input_shape, generator=torch.Generator().manual_seed(i)))
-    return samples
+    return [((sample,), {}) for sample in samples]

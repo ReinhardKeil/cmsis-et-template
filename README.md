@@ -98,11 +98,15 @@ explains how to use them. Adapt the template to your target hardware.
 | `.py` | Convenience model-production input | Export, quantize, backend-lower, serialize, and integrate. |
 
 A `.pt2` input contains one or more quantized `ExportedProgram`s. Model-specific
-preparation—including calibration, quantization, and accuracy validation—takes
+preparation, including calibration, quantization, and accuracy validation, takes
 place before `create_ai_layer.py`; the tool applies target-specific lowering and
-Vela processing for Ethos-U. A `.pte` must already be backend-lowered and
-compatible with the selected target. The tool never runs Vela on `.pte` inputs
-and rejects portable, incompatible, or unverifiable programs.
+Vela processing for Ethos-U. All named programs in one `.pt2` become methods in
+that input's output `.pte` container. A `.pte` must already be backend-lowered
+and compatible with the selected target. The tool never runs Vela on `.pte`
+inputs and rejects portable-only NPU inputs, incompatible programs, and
+programs that cannot be verified.
+
+One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
 
 The `.py` convenience workflow performs the complete process for simple models
 and examples. Its Python workflow defines or loads the `torch.nn.Module` and

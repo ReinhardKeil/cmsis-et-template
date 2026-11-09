@@ -2,18 +2,21 @@
 
 ## Purpose and directory contract
 
-`model_conversion/` is the complete host-side toolset for converting one or
-more ML models into ExecuTorch programs for Arm Cortex-M, optionally with
-Ethos-U acceleration. It generates one AI layer for integration into CMSIS- or
-Zephyr-based projects. Each ML model keeps its own serialized and embedded
-program artifacts in the AI layer. The layer also contains the shared runtime
-and backend components, the union of CPU fallback-operator requirements, and
-the optional CMSIS-NN requirements needed to execute all programs on one
-processor.
+`model_conversion/` is the complete host-side toolset for processing one or
+more `.pt2`, `.pte`, or `.py` input artifacts into deployment-ready ExecuTorch
+programs for Arm Cortex-M, optionally with Ethos-U acceleration. It generates
+one AI layer for integration into CMSIS- or Zephyr-based projects. Each AI layer
+targets exactly one CPU, optionally with Ethos-U acceleration. An input artifact
+is a container boundary, not necessarily a single model: it may hold one model
+or several named models or programs. Each input entry owns one serialized and
+embedded output `.pte` container, which may contain one or more named methods.
+The layer also contains the shared runtime and backend components, the union of
+CPU fallback-operator requirements, and the optional CMSIS-NN requirements
+needed to execute all programs on that CPU.
 
 The directory above `model_conversion/` is the **workspace directory**. It
 owns the shared `.venv`. The directory containing a selected
-`*.cbuild-mlops.yml` is the **solution directory**. It owns the model inputs,
+`*.cbuild-mlops.yml` is the **solution directory**. It owns the input artifacts,
 solution-specific configuration, pack metadata, and generated AI layer. A
 workspace may contain multiple solution directories.
 
@@ -21,7 +24,7 @@ workspace may contain multiple solution directories.
 
 ### `README.md`
 
-The README is the user entry point. It shall give the setup, conversion, and
+The README is the user entry point. It shall give the setup, processing, and
 test commands; explain the workspace/solution distinction; and link to this
 specification for the complete directory contract.
 
@@ -40,6 +43,36 @@ that environment's interpreter unless it is already running there. It shall
 derive the solution directory from the MLOps file rather than from the current
 working directory.
 
+#### Interface terminology
+
+- An **input artifact** is a file supplied through `model.input`. It may
+  represent one model or a container of named models or programs. Supported
+  extensions are `.pt2`, `.pte`, and `.py`.
+- An **output program artifact** is a deployment-ready `.pte` produced or
+  accepted by the generator. It is backend-lowered for, and validated against,
+  the selected target. It may contain portable CPU fallback operators.
+- The **AI layer** is the generated `*.clayer.yml` and its output programs,
+  embedded C arrays, dependency metadata, reports, and optional Zephyr files.
+  It targets exactly one CPU, optionally with Ethos-U acceleration; all output
+  programs shall be compatible with that CPU and, when used, its shared Ethos-U
+  configuration.
+
+No one-input/one-model assumption is made. Every declared input entry owns
+exactly one output `.pte` container. A `.pt2` archive may contain several named
+`ExportedProgram`s representing separate models or methods; they shall become
+named methods in that input's output `.pte`. Separate `.pt2` inputs shall not
+be combined implicitly into one `.pte`.
+
+The supported workflows are:
+
+| Input | Role | Generator action |
+| --- | --- | --- |
+| `.pt2` | Recommended lowering input | Validate, backend-lower, serialize as `.pte`, and integrate. |
+| `.pte` | Optional prebuilt deployment artifact | Inspect, validate, and integrate unchanged. |
+| `.py` | Convenience model-production input | Export, quantize, backend-lower, serialize, and integrate. |
+
+#### MLOps contract
+
 The YAML root shall contain `cbuild-mlops`. The converter uses these
 layer-wide properties:
 
@@ -51,7 +84,7 @@ layer-wide properties:
 - `model.clayer`: required output path relative to the solution directory;
 - `model.zephyr`: optional empty node or mapping whose presence enables
   additional Zephyr integration output;
-- `model.input`: generated sequence of model definitions described below.
+- `model.input`: generated sequence of input definitions described below.
 
 The authored `mlops.model.input` sequence shall be emitted by CMSIS-Toolbox as
 `cbuild-mlops.model.input`. Each entry uses this contract:
@@ -67,54 +100,122 @@ cbuild-mlops:
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
+      - name: Vision
+        file: ../models/vision.pt2
       - name: CpuModel
-        file: ../model/CpuModel/model.py
+        file: ../models/cpu-model.pt2
         cpu:
       - name: ImportedModel
         file: ../models/imported.pte
 ```
 
 - `name` is required and unique. After validation and sanitization it supplies
-  the layer group, artifact stem, and C identifier. Duplicate names, invalid
-  identifiers, and name-to-identifier collisions are errors.
+  the layer group, output-artifact stem, and C identifier. Duplicate names,
+  invalid identifiers, and name-to-identifier collisions are errors.
 - `file` is required, is resolved relative to the solution directory, and must
-  name a supported Python model source or `.pte` program input.
-- `parameters` is an optional mapping passed to the Python model entry points.
-  Unknown parameters shall fail with a model-qualified diagnostic instead of
-  being ignored.
-- Presence of the `cpu` key, including an empty `cpu:` value, selects CPU-only
-  conversion for that model. The target comes from `processor.type`. Key
-  presence, not YAML value truthiness, determines this behavior.
-- Without `cpu`, a model uses the solution's NPU. If the solution has no NPU,
-  every model is necessarily CPU-only.
-- `optimize` is an optional per-model Vela optimization setting that supplements
-  the layer-wide `vela.options`. It is invalid for a resolved CPU-only model.
+  name a `.pt2`, `.pte`, or `.py` input artifact. The extension selects the
+  workflow; no `format` or `process` property is used.
+- `parameters` is optional and valid only for `.py`. It is passed to the Python
+  workflow functions. Unknown parameters shall fail with an input-qualified
+  diagnostic instead of being ignored.
+- Presence of `cpu`, including an empty `cpu:` value, selects CPU lowering for
+  `.py` and `.pt2`. For `.pte`, it declares the expected CPU-only execution
+  mode and shall be cross-checked against the inspected program. Key presence,
+  not YAML value truthiness, determines this behavior.
+- Without `cpu`, `.py` and `.pt2` use the solution's NPU when present; otherwise
+  they use the processor. A `.pte` without `cpu` on an NPU solution is expected
+  to contain the matching NPU backend. On a solution without an NPU, every
+  input is necessarily CPU-only.
+- `optimize` is an optional per-input Vela optimization setting for `.py` and
+  `.pt2`. It supplements the layer-wide `vela.options`. It is invalid for a
+  CPU-resolved input and for `.pte`, which is never lowered again.
 
-Python inputs shall provide `get_model` and `get_calibration_inputs`. The
-converter shall load them from the file named by that entry, pass the declared
-parameters, quantize the exported graph, and calibrate it with all returned
-samples. CPU-only conversion shall use explicit-layout Cortex-M quantization
-and lowering and serialize operators implemented by CMSIS-NN. NPU conversion
-shall delegate supported operations to Ethos-U and retain unsupported or
-boundary operations as CPU fallback operators.
+Unsupported extensions and properties that do not apply to the selected input
+type are errors.
 
-An input `.pte` shall be copied as an already-exported, target-specific
-ExecuTorch program. It remains subject to operator inspection and report
-generation. The converter shall reject an imported `.pte` program whose
-delegates or operators contradict its declared CPU/NPU execution mode or the
-selected solution target.
+#### `.pt2` input
 
-The previous scalar/single-model `model` form shall remain accepted for one
-release cycle as a compatibility input and shall normalize internally to one
-model definition.
+A `.pt2` is the boundary between model-specific preparation and target-specific
+deployment. It shall contain one or more quantized `ExportedProgram`s and their
+input signatures, with no target-specific backend lowering. These programs may
+represent distinct models or multiple methods of one model.
+
+The producer owns model definition, named programs, example and calibration
+inputs, PTQ or QAT configuration, quantization, and post-quantization accuracy
+validation. The producer shall save the resulting quantized program or programs
+in the `.pt2` archive.
+
+The generator shall:
+
+- load the archive and validate every named program, signature, quantization,
+  and compatibility with the selected backend;
+- reject unquantized, unsupported, or incompatible programs;
+- never quantize or requantize the `.pt2` input;
+- partition and lower every program for the selected target, including Vela for
+  Ethos-U and the effective per-input `optimize` setting;
+- preserve program names and signatures as methods in the output `.pte`; and
+- validate the serialized `.pte` before integrating it.
+
+#### `.pte` input
+
+A `.pte` is an optional prebuilt deployment artifact. The generator shall never
+run Vela or another backend-lowering pass on it. It shall inspect every method
+and accept the file only when structured inspection proves that it is already
+backend-lowered and compatible with the selected target and declared execution
+mode.
+
+For Cortex-M, validation shall cover the core, backend-specific operators, and
+required portable fallback operators. For Ethos-U, it shall cover the
+accelerator, system configuration, memory mode, backend delegate, and required
+CPU fallback operators. Portable-only programs, unknown backends, mismatched
+`cpu` declarations, and programs whose compatibility cannot be established are
+errors. Raw byte-string searches are not structured inspection.
+
+If the program does not expose enough information, the generator may use
+trusted producer metadata that identifies the backend, target configuration,
+ExecuTorch version, required operators, and program hash. Without reliable
+inspection or trusted metadata, `.pte` input support shall reject the artifact;
+the user shall provide the corresponding quantized `.pt2` instead.
+
+#### `.py` input
+
+A `.py` input is the convenience workflow for simple models and examples. It
+shall provide:
+
+- `get_model`, returning an evaluation-mode `torch.nn.Module`;
+- `get_example_inputs`, returning `(args, kwargs)` for `torch.export`; and
+- `get_calibration_inputs`, returning calibration cases in the same
+  `(args, kwargs)` form.
+
+Example inputs define positional and keyword arguments, tensor shapes, and
+dtypes. They shall not be inferred from the first calibration sample.
+Calibration inputs are representative samples used only for PTQ. The workflow
+shall support multiple positional and keyword inputs. Declared `parameters`
+shall be passed only to functions that accept them; unknown parameters are
+errors.
+
+The generator shall export the module, apply the built-in quantization flow,
+calibrate it with every returned case, lower it for the selected backend and
+target, serialize it as `.pte`, validate it, and integrate it. CPU lowering
+shall use the configured Cortex-M backend and applicable CMSIS-NN operators.
+Ethos-U lowering shall delegate supported operations and retain boundary or
+unsupported operations as CPU fallbacks.
+
+Custom quantization schemes, QAT, specialized calibration, or model-specific
+accuracy validation shall use a producer-owned `.pt2` workflow instead.
+
+The previous scalar `model` form, which describes one Python model-production
+input, shall remain accepted for one release cycle and shall normalize
+internally to one `.py` input definition. This compatibility form does not
+constrain the contents of `.pt2` or `.pte` containers.
 
 The accelerator configuration, system configuration, and memory mode are
-layer-wide target properties. All NPU models in one AI layer shall use the same
-effective values. Per-model system configurations or memory modes are not
-supported.
+layer-wide target properties. All NPU-resolved inputs in one AI layer shall use
+the same effective values. Per-input system configurations or memory modes are
+not supported.
 
 Every Ethos-U/Vela invocation shall capture the complete textual report while
-still showing it in the terminal. Its content shall be included in that model's
+still showing it in the terminal. Its content shall be included in that input's
 `<name>_REPORT.md`, not written as a layer-wide `VELA_SUMMARY.md`.
 
 `--accelerator-config`, `--system-config`, and `--memory-mode` shall initialize
@@ -134,7 +235,7 @@ mapping. A non-empty value shall be a mapping so that future Zephyr-specific
 parameters can be added without changing the node type.
 
 The directory containing `model.clayer` shall be created as needed. For every
-model it shall receive:
+input it shall receive:
 
 ```text
 <name>.pte
@@ -146,29 +247,30 @@ model it shall receive:
 `<name>_pte.c/.h` shall export unique `<name>_pte` and `<name>_pte_size`
 symbols. The C array shall be aligned to 16 bytes.
 
-`<name>_REPORT.md` shall be a concise, reproducible summary of how the model was
-produced and optimized for the target CPU/MCU and, when applicable, NPU. It
-shall identify the model input, distinguish generated and imported `.pte`
-programs, record conversion parameters and effective optimization settings, list
-the model's CPU fallback operators, and state whether CMSIS-NN is required. An
+`<name>_REPORT.md` shall be a concise, reproducible summary of how the input was
+processed and validated for the target CPU/MCU and, when applicable, NPU. It
+shall identify the input type and provenance, distinguish generated and
+prebuilt `.pte` programs, record applicable parameters and effective
+optimization settings, list every method and its CPU fallback operators, and
+state whether CMSIS-NN is required. An
 Ethos-U report shall additionally contain the shared accelerator, system
-configuration, and memory mode; the effective per-model Vela options; and the
+configuration, and memory mode; the effective per-input Vela options; and the
 complete Vela textual report in a fenced code block. A CPU-only report shall
 have no Vela section. Reports shall use UTF-8 and LF line endings.
 
 The directory shall also receive the `*.clayer.yml` file named by
 `model.clayer`. It is the canonical build description and shall contain one
-group per model with that model's C and header files, one shared ExecuTorch
-runtime component set, every backend needed by at least one model, and the
-union of CPU fallback-operator components across all models' `.pte` program
-files. Repeated components shall be de-duplicated and sorted. Select Backend EthosU
-once if any model is delegated. Add `ARM::CMSIS-NN` without a version,
+group per input with that input's C and header files, one shared ExecuTorch
+runtime component set, every backend needed by at least one output program, and
+the union of CPU fallback-operator components across all output `.pte` files.
+Repeated components shall be de-duplicated and sorted. Select Backend EthosU
+once if any output program is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib`, and required defines when any selected CPU fallback operator
 requires CMSIS-NN.
 
 When `model.zephyr` is present, the directory shall additionally receive
 `CMakeLists.txt`, `components.conf`, and `operators.conf`. These files and
-`*.clayer.yml` shall be rendered from the same validated in-memory model,
+`*.clayer.yml` shall be rendered from the same validated in-memory layer,
 runtime, backend, and operator data. Zephyr generation shall not inspect `.pte`
 program files or independently calculate an operator union. The CMake file
 shall add every embedded-program C file directly and exactly once to Zephyr's
@@ -178,45 +280,70 @@ same runtime, backends, and fallback-operator components as the CMSIS layer.
 The consuming Zephyr application's root CMake file shall append the generated
 configuration fragments to `EXTRA_CONF_FILE` before `find_package(Zephyr)` and
 shall add the generated layer directory afterward. The generated layer shall
-not defer source ownership or expose the model through interface sources.
+not defer source ownership or expose output programs through interface sources.
 CPU-only configuration fragments shall not enable the Ethos-U backend.
 
 ### Fallback-operator extraction and union
 
-The current `.pte` program artifact of every declared model is the
+The current output `.pte` artifact of every declared input is the
 authoritative input for fallback-operator selection. `<name>_REPORT.md` is
 generated output and shall never be used as operator-selection input.
 
 For each `.pte` program, the converter shall call ExecuTorch's `gen_oplist` in
-staging to produce a temporary, per-model `selected_operators.yaml`. The per-model list
-shall supply the fallback operators recorded in that model's report. The
-converter shall pass all per-model lists to `gen_all_oplist`, which produces a
-temporary combined `selected_operators.yaml`. It shall map the combined YAML
-operator keys to components in the resolved pack PDSC and write the resulting
-union to the canonical `*.clayer.yml`.
+staging to produce a temporary, per-input `selected_operators.yaml`. The
+per-input list shall supply the fallback operators recorded in that input's
+report. The converter shall pass all per-input lists to `gen_all_oplist`, which
+produces a temporary combined `selected_operators.yaml`. It shall map the
+combined YAML operator keys to components in the resolved pack PDSC and write
+the resulting union to the canonical `*.clayer.yml`.
 
 The converter shall not search raw `.pte` program bytes or use kernel-definition
-`merge_yaml` as a multi-model union. An operator with no matching pack
+`merge_yaml` as a multi-program union. An operator with no matching pack
 component and a selected Zephyr operator without a matching Kconfig option are
 errors. Temporary operator YAML files shall not be installed in the AI layer.
 
 The installed ExecuTorch Python package version shall match the resolved
 `PyTorch::ExecuTorch` pack version. A mismatch shall fail before model export or
-operator inspection.
+input processing or program inspection.
 
 Without `--input`, the generator shall process every declared input and rebuild
 all layer-wide metadata. With `--input <name>`, it shall process only the named
 input. It shall use the newly staged `.pte` program for that input and the
 existing `.pte` program artifacts for all unchanged inputs, run `gen_oplist`
 on every one, and rebuild the selected input's report, the operator union,
-`*.clayer.yml`, and the optional Zephyr metadata. Reports and other per-model
+`*.clayer.yml`, and the optional Zephyr metadata. Reports and other per-input
 artifacts belonging to unchanged inputs shall be retained. An unknown input
 name is an error. Partial generation shall fail if another declared `.pte`
 program is missing or cannot be inspected.
 
-Obsolete generated artifacts may be removed only when recorded in the previous
-`.ai_layer_manifest.json` generator manifest; untracked or user-owned files
-shall not be deleted. The generated MLOps file shall never be modified.
+The generator shall replace the files produced by the current run but shall not
+delete other files from the output directory. Obsolete artifacts from removed
+inputs are left for explicit removal. The generated MLOps file shall never be
+modified.
+
+### Validation boundaries
+
+Validation has separate inputs and stages:
+
+- **Example inputs** define the positional arguments, keyword arguments, tensor
+  shapes, and dtypes used by `torch.export`. They are required by `.py` and are
+  distinct from calibration data.
+- **Calibration inputs** are representative PTQ samples. They are supplied by
+  the `.py` workflow or owned by the producer of a `.pt2` input.
+- **Validation inputs** are held-out cases used to assess quantized-model
+  accuracy and shall not be reused as calibration data. Model-specific
+  validation belongs to the `.pt2` producer or `.py` workflow.
+- **Artifact validation** checks every generated or supplied output `.pte` for
+  its methods, backend lowering, operators, ExecuTorch compatibility, and
+  selected-target compatibility before replacing the current AI layer.
+- **Application validation** uses the SDS Framework to replay deterministic
+  model-boundary inputs and record raw model outputs and post-processed results
+  on FVP and hardware. SDS metadata shall describe the method, shape, dtype,
+  layout, preprocessing, expected result, and comparison tolerance.
+
+Artifact validation is part of `create_ai_layer`. Application validation is a
+separate CI or target-test stage and shall not be conflated with export,
+calibration, or artifact inspection.
 
 ### `setup_venv.py`
 
@@ -271,14 +398,27 @@ to any deliverable in `model_conversion/` shall be reflected here.
 ### `test/test_create_ai_layer.py`
 
 This is the unit-test suite for the converter. It shall cover workspace `.venv`
-selection, solution-relative path handling, multi-model MLOps parsing, model
-selection, per-model CPU/NPU resolution, imported `.pte` program validation, Vela
-options, package/pack version matching, per-model and combined operator-list
-generation, operator component selection, reports, and CMSIS
-and Zephyr artifacts. Unit tests shall mock model export, `gen_oplist`, and
-`gen_all_oplist.main` so they do not require Torch, Vela, an FVP, or target
-hardware. One integration test shall exercise operator-list generation with
-the pinned ExecuTorch package.
+selection, solution-relative path handling, MLOps parsing, input selection,
+extension-based dispatch, and property applicability. It shall cover:
+
+- `.py` example and calibration inputs, including multiple positional and
+  keyword arguments, unknown parameters, CPU/NPU resolution, and lowering;
+- `.pt2` archive validation, multiple named programs in one output `.pte`,
+  rejection of unquantized input, and preservation of method names and
+  signatures;
+- `.pte` structured inspection, declared execution-mode and target validation,
+  rejection of portable or unverifiable programs, and proof that Vela is never
+  invoked for this input type;
+- `cpu` and `optimize` applicability and effective Vela options;
+- package/pack version matching, per-input and combined operator-list
+  generation, component selection, reports, partial updates, and CMSIS and
+  Zephyr artifacts.
+
+Unit tests shall mock export, PT2 loading, backend lowering, Vela, structured
+PTE inspection, `gen_oplist`, and `gen_all_oplist.main` so they do not require
+an FVP or target hardware. Integration tests shall exercise PT2-to-PTE lowering,
+PTE inspection, and operator-list generation with the pinned ExecuTorch
+package.
 
 Run it from the workspace directory:
 
@@ -291,28 +431,44 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - Invocation from any current directory locates the workspace `.venv` and the
   selected solution's files correctly.
 - Multiple solutions in workspace subdirectories share `.venv` while keeping
-  their models, configuration, metadata, and output independent.
+  their input artifacts, configuration, metadata, and output independent.
+- The `.pt2`, `.pte`, and `.py` extensions select their specified workflows;
+  unsupported extensions and inapplicable properties fail before output is
+  replaced.
+- An input artifact is not limited to one model. Every input entry owns exactly
+  one backend-lowered, target-validated output `.pte` container. Multiple named
+  models or programs in one `.pt2` become methods in that output without implicit
+  bundling across separate inputs.
 - Without `--input`, every declared input is processed. With `--input <name>`,
   only that input is processed while the layer-wide operator union and metadata
   continue to include every declared input.
-- Two models with overlapping CPU fallback operators produce one copy of each
+- A `.pt2` input is never quantized or requantized by the generator; all named
+  programs are lowered with the selected target configuration and effective
+  `optimize` setting.
+- A `.pte` input is never passed through Vela or another lowering pass. It is
+  accepted unchanged only when structured inspection or trusted producer
+  metadata proves backend and target compatibility.
+- A `.py` input obtains example inputs independently from calibration inputs and
+  supports multiple positional and keyword arguments.
+- Two output programs with overlapping CPU fallback operators produce one copy of each
   runtime and operator component in CMSIS and Zephyr metadata.
-- A CPU-only model and an Ethos-U model can share one layer; it selects their
-  combined CPU/CMSIS-NN requirements, the Ethos-U backend once, and both model
+- A CPU-only output and an Ethos-U output can share one layer; it selects their
+  combined CPU/CMSIS-NN requirements, the Ethos-U backend once, and both program
   arrays without symbol collisions.
-- All NPU models use the same effective accelerator configuration, system
+- All NPU-resolved inputs use the same effective accelerator configuration, system
   configuration, and memory mode.
-- Python model and imported `.pte` program inputs produce model-qualified reports that record
-  provenance, parameters, optimization, fallback operators, and applicable
-  Vela output.
-- Unknown model names, duplicate names, identifier collisions, missing inputs,
-  unsupported file types, and target-incompatible imported `.pte` program inputs fail
+- Every input produces an input-qualified report that records provenance,
+  methods, applicable parameters and optimization, fallback operators,
+  validation, and applicable Vela output.
+- Unknown input names, duplicate names, identifier collisions, missing inputs,
+  unsupported file types, and incompatible or unverifiable input artifacts fail
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
 - The resolved pack version follows the exact selector when available and
   mismatches with the installed ExecuTorch package are rejected.
-- Model parameters are converted to the types expected by each Python model.
+- `.py` parameters are converted to the types expected by each accepting
+  workflow function; parameters on `.pt2` or `.pte` are rejected.
 - Generated C, header, report, layer, and Zephyr text are deterministic for
   identical inputs and tool versions.
 - Both Ethos-U and CPU-only Cortex-M generation select their target-specific

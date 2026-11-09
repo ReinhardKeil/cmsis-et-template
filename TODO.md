@@ -74,18 +74,22 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 
 Use these terms for the `create_ai_layer` interface:
 
-- **Input artifact**: a file supplied through `model.input`. A quantized `.pt2`
-  exported program still requires backend lowering; a `.pte` is a candidate
-  prebuilt program that must already be backend-lowered; and a `.py` file uses
-  the convenience workflow to define or load a `torch.nn.Module`, supply
-  its example and calibration inputs, and still requires export, quantization,
-  and backend lowering.
+- **Input artifact**: a file supplied through `model.input`. It is a container
+  boundary, not necessarily a single model, and may represent one model or
+  several named models or programs. A quantized `.pt2` archive still requires
+  backend lowering; a `.pte` is a candidate prebuilt program container that
+  must already be backend-lowered; and a `.py` file uses the convenience
+  workflow to define or load a `torch.nn.Module`, supply its example and
+  calibration inputs, and still requires export, quantization, and backend
+  lowering.
 - **Output program artifact**: a deployment-ready `.pte` produced or accepted
   by `create_ai_layer`. It is backend-lowered for, and validated against, the
   selected target. It may contain portable CPU fallback operators.
 - **AI layer**: the generated `*.clayer.yml` and its integrated output program
   artifacts, C arrays, dependency metadata, reports, and optional Zephyr files.
-  Every `.pte` in the AI layer satisfies the output-program invariant above.
+  It targets exactly one CPU, optionally with Ethos-U acceleration. Every
+  `.pte` in the AI layer satisfies the output-program invariant above and is
+  compatible with that CPU and, when used, its Ethos-U configuration.
 
 A typical flow is:
 
@@ -127,7 +131,8 @@ Agree on and implement the supported `create_ai_layer` input workflows:
 A `.pt2` input defines the boundary between model-specific preparation and
 target-specific deployment. It contains one or more quantized
 `ExportedProgram`s and their input signatures, but no target-specific backend
-lowering.
+lowering. These programs may represent distinct models or multiple methods of
+one model.
 
 The model-owned workflow is responsible for:
 
@@ -149,6 +154,11 @@ The model-owned workflow is responsible for:
 
 `create_ai_layer` does not quantize or requantize a `.pt2` input. It rejects an
 unquantized, unsupported, or incompatible program.
+
+No one-input/one-model assumption is made. One `model.input` entry owns one
+output `.pte` container. All named programs in a `.pt2` input become named
+methods in that output. Separate `.pt2` input entries are not implicitly
+combined into one `.pte`.
 
 ### `.pte` input
 
@@ -296,10 +306,12 @@ the same validation case on FVP and hardware.
 
 ## Summary
 
-- One AI layer contains all ML models that run on a single CPU (processor),
-  optionally with NPU acceleration.
-- Each input produces or supplies an individual, backend-lowered `.pte` output
-  program with corresponding `.c` and `.h` files.
+- One AI layer targets exactly one CPU (processor), optionally with Ethos-U
+  acceleration, and contains all programs assigned to that target.
+- Each input entry produces or supplies an individual, backend-lowered `.pte`
+  output container with corresponding `.c` and `.h` files. An input container,
+  especially `.pt2`, may contain multiple named models or programs; these
+  become methods in its output `.pte`.
 - The fallback operators that execute on the CPU are combined across all ML
   models in the generated `*.clayer.yml`.
 - Zephyr export is optional and is rendered from the same validated layer data
@@ -309,12 +321,13 @@ the same validation case on FVP and hardware.
 
 ## Intended ownership and execution model
 
-One AI `*.clayer.yml` describes one deployable AI layer containing one or more
-ML models. The layer output consists of one serialized and embedded ExecuTorch
-program for each ML model plus one shared description of the runtime, backends,
-CPU operators, and optional CMSIS-NN library required to execute all programs.
-The application links one ExecuTorch runtime and all program data arrays from
-that layer.
+One AI `*.clayer.yml` describes one deployable AI layer for exactly one CPU,
+optionally with Ethos-U acceleration, and contains one or more models or
+programs. The layer output consists of one serialized and embedded ExecuTorch
+program container for each input entry plus one shared description of the
+runtime, backends, CPU operators, and optional CMSIS-NN library required to
+execute all programs. The application links one ExecuTorch runtime and all
+program data arrays from that layer.
 
 An Ethos-U model does **not** run entirely on the CPU: delegated graph
 segments run on the NPU, while graph boundaries and unsupported/fallback
@@ -347,17 +360,17 @@ Review against the ExecuTorch 1.5.1 scripts installed by this template:
 - `python -m executorch.codegen.tools.gen_all_oplist` reads a list of
   `selected_operators.yaml` files and combines them with TorchGen's
   `combine_selective_builders`. This is the correct upstream operation for the
-  multi-model operator union and preserves kernel metadata and debug origin.
+  multi-program operator union and preserves kernel metadata and debug origin.
 - `python -m executorch.codegen.tools.gen_max_kernel_num` accepts repeated
   operator-list YAML inputs and computes the shared runtime registry size. It
   may be useful when the pack exposes the generated registry-size header.
 - `executorch.codegen.tools.merge_yaml` and the CMake `merge_yaml` wrapper merge
   optimized and fallback **kernel-definition** YAML with precedence. They do
-  not merge the operator requirements of several ML models and shall not be
+  not merge the operator requirements of several output programs and shall not be
   used for that purpose.
-- The CMake `gen_selected_ops` interface accepts only one model path. Calling
-  `gen_oplist` once per model followed by `gen_all_oplist` is therefore the
-  applicable upstream multi-model flow.
+- The CMake `gen_selected_ops` interface accepts only one program path. Calling
+  `gen_oplist` once per output `.pte` followed by `gen_all_oplist` is therefore
+  the applicable upstream multi-program flow.
 
 After the upstream union is produced, `create_ai_layer.py` remains responsible
 for mapping selected operators to components supplied by the resolved
@@ -385,31 +398,31 @@ from executorch.codegen.tools import gen_all_oplist
 `main(argv)`, so call that function with an explicit argument list. Do not start
 another Python process and do not import its private helper functions.
 
-The multi-model path in `create_ai_layer.py` shall then follow this structure:
+The multi-input path in `create_ai_layer.py` shall then follow this structure:
 
 ```python
 with generation_stage(layer_dir) as stage:
-    model_yamls = []
-    generated_models = []
+    input_yamls = []
+    generated_inputs = []
 
-    for model in models:
-        execution = resolve_model_execution(model, mlops)
-        pte, vela_report = export_or_import_model(model, execution)
-        staged_pte = write_staged_model_files(stage, model, pte)
+    for input in inputs:
+        execution = resolve_input_execution(input, mlops)
+        pte, vela_report = process_input(input, execution)
+        staged_pte = write_staged_input_files(stage, input, pte)
 
-        model_yaml = stage / "operators" / model.name / "selected_operators.yaml"
-        model_yaml.parent.mkdir(parents=True)
+        input_yaml = stage / "operators" / input.name / "selected_operators.yaml"
+        input_yaml.parent.mkdir(parents=True)
         gen_oplist(
-            output_path=model_yaml,
+            output_path=input_yaml,
             model_file_path=str(staged_pte),
         )
-        model_yamls.append(model_yaml)
-        generated_models.append(
-            GeneratedModel(model, execution, staged_pte, model_yaml, vela_report)
+        input_yamls.append(input_yaml)
+        generated_inputs.append(
+            GeneratedInput(input, execution, staged_pte, input_yaml, vela_report)
         )
 
-    model_list = write_operator_list_file(stage, model_yamls)
-    union_dir = stage / "operators" / "all-models"
+    model_list = write_operator_list_file(stage, input_yamls)
+    union_dir = stage / "operators" / "all-programs"
     union_dir.mkdir(parents=True)
     gen_all_oplist.main([
         "--model_file_list_path", f"@{model_list}",
@@ -419,10 +432,10 @@ with generation_stage(layer_dir) as stage:
     selected = read_selected_operators(union_dir / "selected_operators.yaml")
     operators = map_operators_to_pack_components(selected, executorch_pack)
     components = union_runtime_backend_and_operator_components(
-        generated_models, operators
+        generated_inputs, operators
     )
-    write_model_reports(generated_models, components)
-    write_clayer(generated_models, components)
+    write_input_reports(generated_inputs, components)
+    write_clayer(generated_inputs, components)
     write_zephyr_metadata_from_layer_data_if_requested()
     write_outputs()
 ```
@@ -437,7 +450,7 @@ namespaces/overloads, and resolves each operator against the pack PDSC. An
 operator with no matching pack component is a generation error rather than a
 warning.
 
-The upstream YAML files remain inside `generation_stage`. Only the model
+The upstream YAML files remain inside `generation_stage`. Only the input
 artifacts, reports, `*.clayer.yml`, and optional Zephyr projection are committed
 to the AI-layer directory.
 
@@ -486,7 +499,7 @@ mlops:
           input-shape: 1x16x16x3
           calibration-samples: 2
       - name: MyModel1
-        file: ../model1/model.py
+        file: ../model1/model.pt2
         cpu:              # run on CPU only
       - name: MyModel2
         file: ../model2/MyModel.pte    # input is a *.pte program file
@@ -497,10 +510,11 @@ Requirements:
 - `name` is required and unique, and is used for the layer group, output file
   stem, and C identifier after validation/sanitization;
 - `file` is required and is resolved relative to the solution directory;
-- Python sources are exported for the selected target; `.pte` program files
-  are copied as already-exported target-specific inputs and are still
-  inspected for CPU operator requirements;
-- the presence of an empty `cpu:` key selects CPU-only export for that model;
+- the extension selects the `.py`, `.pt2`, or `.pte` workflow;
+- `.py` is exported, quantized, and lowered; `.pt2` is already quantized and is
+  lowered without requantization; `.pte` is structurally validated and
+  integrated unchanged;
+- the presence of an empty `cpu:` key selects CPU lowering for `.py` or `.pt2`;
   test key presence rather than truthiness because YAML loads the empty value as
   `None`. The CPU type comes from `processor.type`;
 - when `cpu:` is absent, the model is exported for the solution's NPU. If the
@@ -510,10 +524,10 @@ Requirements:
   NPU-targeted model. The converter shall reject a `.pte` program whose
   delegates/operators are inconsistent with that declaration or with the
   selected solution target;
-- `parameters` is a mapping passed to the model entry point; unknown parameters
-  fail with a model-qualified diagnostic rather than being silently ignored;
-- `optimize` is a per-model Vela setting. It supplements the target-wide
-  settings under `vela` and is rejected for resolved CPU-only execution;
+- `parameters` is valid only for `.py` and is passed to accepting workflow
+  functions; unknown parameters fail with an input-qualified diagnostic;
+- `optimize` is a per-input Vela setting for `.py` and `.pt2`. It supplements
+  the target-wide settings under `vela` and is rejected for CPU and `.pte`;
 - the existing scalar `model` form remains supported as the single-model
   compatibility form for one release cycle.
 
@@ -549,16 +563,16 @@ For each input `<name>` (using its validated file stem and identifier), generate
 
 `<name>_pte.c/.h` shall export unique `<name>_pte` and `<name>_pte_size`
 symbols. `<name>_REPORT.md` shall be a concise, reproducible summary of how the
-ML model was produced and optimized for execution on the target CPU/MCU and,
-when applicable, NPU. It shall identify the model input used, record the
-specific conversion parameters and effective optimization settings, list the
-model's CPU fallback operators and whether CMSIS-NN is required, and distinguish
-programs generated from Python model sources from imported `.pte` program
-inputs. For an Ethos-U model it shall additionally contain the effective
-accelerator, system configuration, memory mode, per-model Vela options, and
-Vela summary. A CPU-only model therefore has a report but no Vela section.
+input artifact was processed and validated for execution on the target CPU/MCU
+and, when applicable, NPU. It shall identify the input type and provenance,
+record applicable conversion parameters and effective optimization settings,
+list every method and its CPU fallback operators and whether CMSIS-NN is
+required, and distinguish generated programs from prebuilt `.pte` inputs. For
+an Ethos-U output it shall additionally contain the effective accelerator,
+system configuration, memory mode, per-input Vela options, and Vela summary. A
+CPU-only output therefore has a report but no Vela section.
 
-Generate these layer-wide files from the union across all models:
+Generate these layer-wide files from the union across all output programs:
 
 ```text
 ai_layer.clayer.yml
@@ -567,14 +581,14 @@ components.conf              # Zephyr only
 operators.conf               # Zephyr only
 ```
 
-The `*.clayer.yml` shall contain one group per model with that model's C and
+The `*.clayer.yml` shall contain one group per input with that input's C and
 header files, one shared runtime component set, the union of CPU operator
-components, and every backend required by at least one model. Thus a mixed
-layer can contain CPU-only and Ethos-U models while selecting the Ethos-U
-backend only once. Add `ARM::CMSIS-NN`/`CMSIS:NN Lib` if any selected CPU
-operator requires CMSIS-NN. All lists shall be de-duplicated and sorted so
-repeated generation is byte-for-byte stable. Zephyr shall attach all model C
-files to `app` exactly once.
+components, and every backend required by at least one output program. Thus a
+mixed layer can contain CPU-only and Ethos-U output programs while selecting
+the Ethos-U backend only once. Add `ARM::CMSIS-NN`/`CMSIS:NN Lib` if any
+selected CPU operator requires CMSIS-NN. All lists shall be de-duplicated and
+sorted so repeated generation is byte-for-byte stable. Zephyr shall attach all
+generated program C files to `app` exactly once.
 
 `ai_layer.clayer.yml` is the canonical CMSIS build description. When Zephyr
 output is requested, it and the Zephyr files shall be rendered from the same
@@ -591,20 +605,20 @@ files, or calculate another operator union. This guarantees that CMSIS and
 Zephyr builds represent the same calculated AI layer while keeping the two
 output renderers independent.
 
-## Full multi-model generation flow
+## Full multi-input generation flow
 
 ```mermaid
 flowchart TD
-    A[*.cbuild-mlops.yml] --> B[Validate model list and target]
-    B --> C{For each ML model}
+    A[*.cbuild-mlops.yml] --> B[Validate input list and one-CPU target]
+    B --> C{For each input artifact}
     C --> T{cpu key present or solution has no NPU?}
     T -- Yes --> T1[Select CPU-only lowering]
     T -- No --> T2[Select solution NPU lowering]
-    T1 --> D[Export Python model or validate imported .pte program]
+    T1 --> D[Process .py, lower .pt2, or validate .pte]
     T2 --> D
     D --> E[Write .pte program and embedded C data]
     D --> F[ExecuTorch gen_oplist in staging]
-    F --> G[Temporary per-model operator YAML]
+    F --> G[Temporary per-input operator YAML]
     D --> H[Build per-input report; add Vela summary for NPU input]
     G --> I[ExecuTorch gen_all_oplist in staging]
     I --> J[Temporary combined operator union]
@@ -621,10 +635,12 @@ flowchart TD
     Q --> P
 ```
 
-The per-model branch may execute repeatedly, but aggregation and layer
+The per-input branch may execute repeatedly, but aggregation and layer
 generation happen once. The combined operator list is an internal intermediate;
 its mapped operator components are written to `*.clayer.yml`. It does not
-combine the ML models into one `.pte` program file.
+combine separate input artifacts into one `.pte` program file. A single `.pt2`
+input may itself contain several named programs; those become methods in that
+input's one output `.pte` container.
 
 ## AI-layer and Zephyr relationship
 
@@ -680,8 +696,9 @@ flowchart LR
     C --> E[Regenerate Zephyr metadata if requested]
 ```
 
-Remove obsolete generated artifacts only when they are recorded in the
-previous generator manifest; do not delete untracked/user files.
+Replace the outputs produced by the current run, but do not automatically
+delete other files. Obsolete artifacts from removed inputs are left for
+explicit removal.
 
 ## Acceptance criteria
 

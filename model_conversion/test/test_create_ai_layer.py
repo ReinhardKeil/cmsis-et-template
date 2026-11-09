@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+import io
 import importlib.util
 from pathlib import Path
 import sys
@@ -35,6 +37,16 @@ class CreateAiLayerTests(unittest.TestCase):
                 "--system-config=Test_System",
                 "--memory-mode=Shared_Sram",
             ],
+        )
+
+    @staticmethod
+    def inspection(*methods: str, delegated: bool = False) -> generator.PteInspection:
+        return generator.PteInspection(
+            methods or ("forward",),
+            ("EthosUBackend",) if delegated else (),
+            ("ethos-u55-256",) if delegated else (),
+            ("Test_System",) if delegated else (),
+            ("Shared_Sram",) if delegated else (),
         )
 
     def test_workspace_is_parent_of_model_conversion_directory(self) -> None:
@@ -142,15 +154,129 @@ class CreateAiLayerTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "singular model.input"):
                 generator.model_inputs(mlops, root)
 
+    def test_model_inputs_accept_pt2_and_reject_inapplicable_properties(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "models.pt2").write_bytes(b"PT2")
+            (root / "program.pte").write_bytes(b"PTE")
+            mlops = {
+                "processor": {"type": "Cortex-M55"},
+                "npu": {"type": "Ethos-U55"},
+                "model": {"input": [{"name": "Models", "file": "models.pt2"}]},
+            }
+            inputs = generator.model_inputs(mlops, root)
+            self.assertEqual(inputs[0].input_type, ".pt2")
+
+            mlops["model"]["input"] = [
+                {"name": "Program", "file": "program.pte", "optimize": "size"}
+            ]
+            with self.assertRaisesRegex(SystemExit, "optimize is invalid for .pte"):
+                generator.model_inputs(mlops, root)
+
+            mlops["model"]["input"] = [
+                {"name": "Models", "file": "models.pt2", "parameters": {"shape": "1x4"}}
+            ]
+            with self.assertRaisesRegex(SystemExit, "parameters are valid only for .py"):
+                generator.model_inputs(mlops, root)
+
+    def test_input_case_requires_explicit_args_and_kwargs(self) -> None:
+        args, kwargs = generator._input_case(((1, 2), {"scale": 3}), "example")
+        self.assertEqual(args, (1, 2))
+        self.assertEqual(kwargs, {"scale": 3})
+        with self.assertRaisesRegex(SystemExit, r"must return \(args, kwargs\)"):
+            generator._input_case((1, 2, 3), "example")
+
     def test_imported_pte_must_match_declared_execution(self) -> None:
         cpu = generator.ModelInput("CPU", "CPU", Path("cpu.pte"), {}, True, None, True)
         npu = generator.ModelInput("NPU", "NPU", Path("npu.pte"), {}, False, None, True)
-        with self.assertRaisesRegex(SystemExit, "CPU-only input contains"):
-            generator.validate_pte_target(cpu, b"EthosUBackend ethos-u55-128", "ethos-u55-128")
+        delegated = generator.PteInspection(("forward",), ("EthosUBackend",), ("ethos-u55-128",), (), ())
+        portable = generator.PteInspection(("forward",), (), (), (), ())
+        mismatched = generator.PteInspection(("forward",), ("EthosUBackend",), ("ethos-u85-256",), (), ())
+        with mock.patch.object(generator, "inspect_pte", return_value=delegated), self.assertRaisesRegex(
+            SystemExit, "CPU-only input contains"
+        ):
+            generator.validate_pte_target(cpu, b"PTE", "ethos-u55-128")
+        with mock.patch.object(generator, "inspect_pte", return_value=portable), self.assertRaisesRegex(
+            SystemExit, "contains no Ethos-U delegate"
+        ):
+            generator.validate_pte_target(npu, b"PTE", "ethos-u55-128")
+        with mock.patch.object(generator, "inspect_pte", return_value=mismatched), self.assertRaisesRegex(
+            SystemExit, "not ethos-u55-128"
+        ):
+            generator.validate_pte_target(npu, b"PTE", "ethos-u55-128")
+        with mock.patch.object(generator, "inspect_pte", return_value=delegated), self.assertRaisesRegex(
+            SystemExit, "system-config"
+        ):
+            generator.validate_pte_target(
+                npu, b"PTE", "ethos-u55-128", {"system-config": "Other_System"}
+            )
+        unknown = generator.PteInspection(("forward",), ("XnnpackBackend",), (), (), ())
+        with mock.patch.object(generator, "inspect_pte", return_value=unknown), self.assertRaisesRegex(
+            SystemExit, "unsupported backend delegates"
+        ):
+            generator.validate_pte_target(npu, b"PTE", "ethos-u55-128")
+
+    @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
+    def test_real_pte_rejects_malformed_and_mismatched_programs(self) -> None:
+        import torch
+        from executorch.exir import to_edge
+
+        class PortableModel(torch.nn.Module):
+            def forward(self, value):
+                return value + 1
+
+        portable_export = torch.export.export(PortableModel(), (torch.ones(1),))
+        portable_pte = bytes(to_edge(portable_export).to_executorch().buffer)
+        npu = generator.ModelInput("NPU", "NPU", Path("npu.pte"), {}, False, None, True)
+        cpu = generator.ModelInput("CPU", "CPU", Path("cpu.pte"), {}, True, None, True)
+
+        with self.assertRaisesRegex(SystemExit, "invalid ExecuTorch program"):
+            generator.validate_pte_target(cpu, b"not a PTE", None)
         with self.assertRaisesRegex(SystemExit, "contains no Ethos-U delegate"):
-            generator.validate_pte_target(npu, b"portable operators", "ethos-u55-128")
-        with self.assertRaisesRegex(SystemExit, "does not target ethos-u55-128"):
-            generator.validate_pte_target(npu, b"EthosUBackend ethos-u85-256", "ethos-u55-128")
+            generator.validate_pte_target(npu, portable_pte, "ethos-u55-128")
+
+        mlops = {
+            "npu": {"type": "Ethos-U55", "macs": 128},
+            "model": {},
+            "vela": {
+                "options": (
+                    "--system-config Ethos_U55_High_End_Embedded "
+                    "--memory-mode Shared_Sram"
+                )
+            },
+        }
+        with redirect_stdout(io.StringIO()):
+            spec = generator.compile_spec(mlops, ROOT)
+            ethos_pte = generator.export_model(
+                spec,
+                ROOT / "model" / "TinyCNN" / "model.py",
+                {"calibration_samples": 1},
+                "TinyCNN",
+            )
+
+        inspection = generator.validate_pte_target(
+            npu,
+            ethos_pte,
+            "ethos-u55-128",
+            {
+                "system-config": "Ethos_U55_High_End_Embedded",
+                "memory-mode": "Shared_Sram",
+            },
+        )
+        self.assertEqual(inspection.methods, ("forward",))
+
+        with self.assertRaisesRegex(SystemExit, "CPU-only input contains"):
+            generator.validate_pte_target(cpu, ethos_pte, None)
+        with self.assertRaisesRegex(SystemExit, "not ethos-u85-256"):
+            generator.validate_pte_target(npu, ethos_pte, "ethos-u85-256")
+        with self.assertRaisesRegex(SystemExit, "system-config"):
+            generator.validate_pte_target(
+                npu, ethos_pte, "ethos-u55-128", {"system-config": "Other_System"}
+            )
+        with self.assertRaisesRegex(SystemExit, "memory-mode"):
+            generator.validate_pte_target(
+                npu, ethos_pte, "ethos-u55-128", {"memory-mode": "Other_Memory"}
+            )
 
     def test_executorch_version_prefers_exact_selected_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -282,6 +408,19 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual(existing.read_bytes(), b"old")
             self.assertFalse((layer / "bad").exists())
 
+    def test_replace_outputs_leaves_files_not_named_by_current_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            layer = Path(temporary) / "ai_layer"
+            layer.mkdir()
+            stale = layer / "RemovedModel.pte"
+            stale.write_bytes(b"stale")
+
+            generator.replace_outputs(layer, {"CurrentModel.pte": b"current"})
+
+            self.assertEqual((layer / "CurrentModel.pte").read_bytes(), b"current")
+            self.assertEqual(stale.read_bytes(), b"stale")
+            self.assertFalse((layer / ".ai_layer_manifest.json").exists())
+
     def test_zephyr_metadata_owns_model_once(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             pack = Path(temporary)
@@ -385,6 +524,8 @@ class CreateAiLayerTests(unittest.TestCase):
                 return_value=({"Network": ["aten::add.out"]}, ["aten::add.out"]),
             ), mock.patch.object(
                 generator, "operator_components", return_value=(["Portable add"], False)
+            ), mock.patch.object(
+                generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
             ):
                 generator.main()
 
@@ -443,6 +584,8 @@ class CreateAiLayerTests(unittest.TestCase):
                     "components.conf": generator.ZEPHYR_COMPONENTS,
                     "operators.conf": "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y\n",
                 },
+            ), mock.patch.object(
+                generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
             ):
                 generator.main()
 
@@ -490,6 +633,8 @@ class CreateAiLayerTests(unittest.TestCase):
                 return_value=({"Model": ["cortex_m::quantized_conv2d_nhwc"]}, ["cortex_m::quantized_conv2d_nhwc"]),
             ), mock.patch.object(
                 generator, "operator_components", return_value=(["Cortex-M quantized_conv2d"], True)
+            ), mock.patch.object(
+                generator, "validate_pte_target", return_value=self.inspection("forward")
             ):
                 generator.main()
 
@@ -588,6 +733,10 @@ class CreateAiLayerTests(unittest.TestCase):
                     "components.conf": "components\n",
                     "operators.conf": "operators\n",
                 },
+            ), mock.patch.object(
+                generator,
+                "validate_pte_target",
+                side_effect=[self.inspection("forward", delegated=True), self.inspection("forward")],
             ):
                 generator.main()
 
@@ -603,6 +752,85 @@ class CreateAiLayerTests(unittest.TestCase):
             cmake = (output / "CMakeLists.txt").read_text(encoding="utf-8")
             self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
             self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
+
+    def test_main_lowers_multi_program_pt2_to_one_pte(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            solution = Path(temporary)
+            (solution / "models.pt2").write_bytes(b"PT2")
+            mlops_file = solution / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump({
+                    "cbuild-mlops": {
+                        "processor": {"type": "Cortex-M55"},
+                        "model": {
+                            "clayer": "ai_layer/ai_layer.clayer.yml",
+                            "input": [{"name": "Models", "file": "models.pt2"}],
+                        },
+                    }
+                }),
+                encoding="utf-8",
+            )
+            inspection = self.inspection("detector", "classifier")
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
+                generator, "check_executorch_version"
+            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
+                generator, "compile_spec", return_value=None
+            ), mock.patch.object(generator, "cpu_target", return_value=mock.sentinel.target), mock.patch.object(
+                generator, "lower_pt2", return_value=(b"MULTI-PTE", ("detector", "classifier"))
+            ) as lower, mock.patch.object(
+                generator, "validate_pte_target", return_value=inspection
+            ), mock.patch.object(
+                generator, "generate_operator_lists", return_value=({"Models": []}, [])
+            ), mock.patch.object(generator, "operator_components", return_value=([], False)):
+                generator.main()
+
+            lower.assert_called_once_with(
+                None, mock.sentinel.target, (solution / "models.pt2").resolve(), "Models"
+            )
+            output = solution / "ai_layer"
+            self.assertEqual((output / "Models.pte").read_bytes(), b"MULTI-PTE")
+            report = (output / "Models_REPORT.md").read_text(encoding="utf-8")
+            self.assertIn("detector, classifier", report)
+
+    def test_prebuilt_pte_is_not_lowered(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "program.pte"
+            source.write_bytes(b"PTE")
+            mlops_file = root / "demo.cbuild-mlops.yml"
+            mlops_file.write_text(
+                yaml.safe_dump({
+                    "cbuild-mlops": {
+                        "npu": {"type": "Ethos-U55"},
+                        "model": {
+                            "clayer": "ai_layer/ai_layer.clayer.yml",
+                            "input": [{"name": "Program", "file": "program.pte"}],
+                        },
+                    }
+                }), encoding="utf-8"
+            )
+            argv = [str(SCRIPT), str(mlops_file)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                generator, "run_in_venv"
+            ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
+                generator, "check_executorch_version"
+            ), mock.patch.object(generator, "executorch_pack", return_value=root / "pack"), mock.patch.object(
+                generator, "compile_spec"
+            ) as compile_spec, mock.patch.object(
+                generator, "lower_pt2"
+            ) as lower, mock.patch.object(
+                generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
+            ), mock.patch.object(
+                generator, "generate_operator_lists", return_value=({"Program": []}, [])
+            ), mock.patch.object(generator, "operator_components", return_value=([], False)):
+                generator.main()
+
+            compile_spec.assert_not_called()
+            lower.assert_not_called()
+            self.assertEqual((root / "ai_layer" / "Program.pte").read_bytes(), b"PTE")
 
     def test_input_option_uses_unchanged_pte_for_operator_union(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -650,7 +878,7 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(generator, "generate_operator_lists", side_effect=operator_lists), mock.patch.object(
                 generator, "operator_components", return_value=(["Portable add"], False)
             ), mock.patch.object(
-                generator, "validate_pte_target"
+                generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
             ):
                 generator.main()
 
