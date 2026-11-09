@@ -4,7 +4,7 @@
 """Create a multi-program CMSIS AI layer and optional Zephyr projection.
 
 One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
-Each input artifact has its own .pte container, .c, and .h files; a .pt2 input
+Each input file has its own .pte container, .c, and .h files; a .pt2 input
 may contain several named programs that become methods in that .pte. The
 generated *.clayer.yml combines the CPU fallback operators required by all
 output programs. Optional Zephyr output and *.clayer.yml are rendered from the
@@ -978,9 +978,34 @@ def validate_pte_target(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("mlops_file")
-    parser.add_argument("--input")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Create a target-specific AI layer for CMSIS or Zephyr from the "
+            "model inputs declared in the MLOPS_FILE."
+        ),
+        epilog="""The input file extension in the MLOPS_FILE selects the workflow:
+  .pt2           Backend-lower and serialize as a .pte program
+  .pte           Validate and integrate an existing backend-lowered program
+  .py            Export, quantize, backend-lower, and serialize the model
+
+examples:
+  python model_conversion/create_ai_layer.py app.cbuild-mlops.yml
+  python model_conversion/create_ai_layer.py app.cbuild-mlops.yml --input TinyCNN""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "mlops_file",
+        metavar="MLOPS_FILE",
+        help="Path to the generated *.cbuild-mlops.yml file from CMSIS-Toolbox",
+    )
+    parser.add_argument(
+        "--input",
+        metavar="NAME",
+        help="Process only the named input; by default, process all inputs",
+    )
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        parser.exit(2, f"\n{parser.prog}: error: MLOPS_FILE is required\n")
     args = parser.parse_args()
     if not args.mlops_file.endswith(".cbuild-mlops.yml"):
         parser.error("mlops_file must end with .cbuild-mlops.yml")

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 import io
 import importlib.util
 from pathlib import Path
@@ -28,6 +28,37 @@ SPEC.loader.exec_module(generator)
 
 
 class CreateAiLayerTests(unittest.TestCase):
+    def test_help_describes_inputs_and_examples(self) -> None:
+        output = io.StringIO()
+        with mock.patch.object(sys, "argv", [str(SCRIPT), "--help"]), redirect_stdout(
+            output
+        ), self.assertRaises(SystemExit) as exit_context:
+            generator.main()
+
+        self.assertEqual(exit_context.exception.code, 0)
+        help_text = output.getvalue()
+        self.assertIn("MLOPS_FILE", help_text)
+        self.assertIn("--input NAME", help_text)
+        self.assertIn(
+            "The input file extension in the MLOPS_FILE selects the workflow:",
+            help_text,
+        )
+        self.assertIn(".pt2", help_text)
+        self.assertIn("examples:", help_text)
+
+    def test_no_arguments_prints_full_help_and_specific_error(self) -> None:
+        output = io.StringIO()
+        with mock.patch.object(sys, "argv", [str(SCRIPT)]), redirect_stderr(
+            output
+        ), self.assertRaises(SystemExit) as exit_context:
+            generator.main()
+
+        self.assertEqual(exit_context.exception.code, 2)
+        help_text = output.getvalue()
+        self.assertIn("Create a target-specific AI layer for CMSIS or Zephyr", help_text)
+        self.assertIn("--input NAME", help_text)
+        self.assertIn("error: MLOPS_FILE is required", help_text)
+
     @staticmethod
     def compile_spec() -> mock.Mock:
         return mock.Mock(

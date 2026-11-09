@@ -85,7 +85,7 @@ solution:
       memory: Shared_Sram
     model:
       clayer: ai_layer/ai_layer.clayer.yml
-      zephyr: {}
+      zephyr:
       input:
         - name: TinyCNN
           file: ../model/TinyCNN/model.py

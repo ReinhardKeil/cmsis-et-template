@@ -153,8 +153,8 @@ The file extension selects the processing workflow:
 | `.pte` | Optional: prebuilt deployment artifact | Inspect, validate, and integrate unchanged. |
 | `.py` | Convenience: model-production input | Export, quantize, backend-lower, serialize, and integrate. |
 
-An input file is a container boundary, not necessarily one model. Each
-input entry owns one output `.pte` container. A `.pt2` may contain several
+An input file is a container boundary, not necessarily one model. Each input
+file has its own output `.pte` container. A `.pt2` may contain several
 named, exported PyTorch programs; they become named methods in that output.
 Separate input entries are not implicitly combined.
 

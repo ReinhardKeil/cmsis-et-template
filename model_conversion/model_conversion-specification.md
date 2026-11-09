@@ -435,8 +435,8 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
 - The `.pt2`, `.pte`, and `.py` extensions select their specified workflows;
   unsupported extensions and inapplicable properties fail before output is
   replaced.
-- An input artifact is not limited to one model. Every input entry owns exactly
-  one backend-lowered, target-validated output `.pte` container. Multiple named
+- An input file is not limited to one model. Each input file has its own
+  backend-lowered, target-validated output `.pte` container. Multiple named
   models or programs in one `.pt2` become methods in that output without implicit
   bundling across separate inputs.
 - Without `--input`, every declared input is processed. With `--input <name>`,
