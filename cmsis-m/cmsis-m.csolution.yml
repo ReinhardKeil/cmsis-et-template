@@ -1,9 +1,9 @@
 solution:
   description: CMSIS ExecuTorch template for Cortex-M CPU-only inference.
 # Usage:
-#   cbuild setup cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55 --packs
-#   python model_conversion/create_ai_layer.py cmsis-m/cmsis-m.cbuild-mlops.yml
-#   cbuild cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55
+#   cbuild setup cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55 --packs      # create *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py cmsis-m/cmsis-m.cbuild-mlops.yml # create ExecuTorch programs
+#   cbuild cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55                   # build application
 
   created-for: CMSIS-Toolbox@2.15.0
   cdefault:

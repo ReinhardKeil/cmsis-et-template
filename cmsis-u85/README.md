@@ -80,10 +80,10 @@ for the matching accelerator, then rebuild the application.
 ### 3. Create the AI layer
 
 ```bash
-python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
+python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
 ```
 
-On Windows, use `python`. The conversion tool uses the shared `.venv/` and
+The conversion tool uses the shared `.venv/` and
 `model/`, then writes target-specific output to `cmsis-u85/ai_layer/`.
 
 ### 4. Build the application

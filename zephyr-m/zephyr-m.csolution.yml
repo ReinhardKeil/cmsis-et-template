@@ -1,9 +1,9 @@
 solution:
   description: Zephyr ExecuTorch template for Cortex-M CPU-only inference.
   # Usage:
-  #   cbuild setup zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
-  #   python model_conversion/create_ai_layer.py zephyr-m/zephyr-m.cbuild-mlops.yml
-  #   cbuild zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
+  #   cbuild setup zephyr-m/zephyr-m.csolution.yml --active AppKit-E8 --packs      # create *.cbuild-mlops.yml
+  #   python model_conversion/create_ai_layer.py zephyr-m/zephyr-m.cbuild-mlops.yml # create ExecuTorch programs
+  #   cbuild zephyr-m/zephyr-m.csolution.yml --active AppKit-E8                    # build application
   #
   # Replace AppKit-E8 with Corstone-300-FVP to build and run on the FVP.
 

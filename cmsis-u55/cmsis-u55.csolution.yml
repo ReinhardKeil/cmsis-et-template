@@ -1,8 +1,8 @@
 solution:
   description: CMSIS ExecuTorch template for Cortex-M with Ethos-U55/U65.
 # Usage:
-#   cbuild setup cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55              # generate *.cbuild-mlops.yml
-#   python model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml  # generate ai_layer
+#   cbuild setup cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55 --packs      # create *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml  # create ExecuTorch programs
 #   cbuild cmsis-u55/cmsis-u55.csolution.yml --active SSE-300-U55                    # build application
 #
 # See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration

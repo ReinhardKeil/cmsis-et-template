@@ -12,12 +12,23 @@
 This repository provides template applications for deploying ML models on
 Cortex-M targets using [ExecuTorch](https://github.com/pytorch/executorch).
 The templates support CMSIS and Zephyr applications on Cortex-M-only systems,
-where inference runs entirely on the CPU, and Cortex-M systems with an Arm
-Ethos-U NPU, where supported model operations run on the NPU and the remaining
-operations run on the CPU.
+where inference runs entirely on the CPU, and systems with an Arm Ethos-U NPU,
+where supported operations run on the NPU and the remaining operations run on
+the CPU.
 
-The templates support multiple ML models in one application and link only the
-runtime, backends, and operators those models need.
+## What you can do
+
+Use the templates to:
+
+- Adapt a supplied template to the target hardware and verify the integration
+  by running the TinyCNN example.
+- Generate an AI layer from one or more model inputs while linking only the
+  required ExecuTorch runtime, backends, and operators.
+- Adapt model inputs, outputs, and application processing for a product use
+  case.
+- Add repeatable CI tests using the
+  [Synchronous Data Stream (SDS) Framework](https://github.com/ARM-software/SDS-Framework),
+  including comparisons between hardware and FVP execution where useful.
 
 ## Software components
 
@@ -76,9 +87,31 @@ explains how to use them. Adapt the template to your target hardware.
 | [`zephyr-u85/`](zephyr-u85/README.md) | Cortex-M with Ethos-U85 |
 | [`zephyr-m/`](zephyr-m/README.md) | Cortex-M CPU only |
 
-## Convert models and build
+## Create the AI layer and build
 
-Define your target and model inputs in the `*.csolution.yml` file:
+`create_ai_layer.py` supports three input workflows:
+
+| Input | Role | Action |
+| --- | --- | --- |
+| `.pt2` | Recommended lowering input | Validate, backend-lower, serialize as `.pte`, and integrate. |
+| `.pte` | Optional prebuilt deployment artifact | Inspect, validate, and integrate unchanged. |
+| `.py` | Convenience model-production input | Export, quantize, backend-lower, serialize, and integrate. |
+
+A `.pt2` input contains one or more quantized `ExportedProgram`s. Model-specific
+preparation—including calibration, quantization, and accuracy validation—takes
+place before `create_ai_layer.py`; the tool applies target-specific lowering and
+Vela processing for Ethos-U. A `.pte` must already be backend-lowered and
+compatible with the selected target. The tool never runs Vela on `.pte` inputs
+and rejects portable, incompatible, or unverifiable programs.
+
+The `.py` convenience workflow performs the complete process for simple models
+and examples. Its Python workflow defines or loads the `torch.nn.Module` and
+provides separate example and calibration inputs. Use `.pt2` when a model
+requires custom quantization, QAT, specialized calibration, or model-specific
+accuracy validation.
+
+Define the target and inputs in the `*.csolution.yml` file. The file extension
+selects the workflow:
 
 ```yaml
 mlops:
@@ -95,15 +128,23 @@ mlops:
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
-#     - name: model-b
-#       ...
+      - name: vision
+        file: ../models/vision.pt2
+      - name: diagnostics
+        file: ../models/diagnostics.pte
 ```
 
+Every input requires `name` and `file`. The optional `parameters` mapping is
+valid only for `.py`. On a mixed CPU/NPU target, optional `cpu:` selects CPU
+lowering for a `.py` or `.pt2` input. A `.pte` accepts no conversion or lowering
+options because its backend and target compatibility are established by
+inspection.
+
 The [CMSIS-Toolbox MLOps integration](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
-has three steps. First, the toolbox writes the target and conversion settings
-to `*.cbuild-mlops.yml`. Next, the converter creates the AI layer: the model
-programs and their shared build configuration. Finally, the toolbox builds
-the application.
+has three steps. First, the toolbox writes the target and processing settings
+to `*.cbuild-mlops.yml`. Next, `create_ai_layer.py` creates the output programs
+and their shared build configuration. Finally, the toolbox builds the
+application.
 
 ```console
 cbuild setup <solution>.csolution.yml --active <target-set> --packs      # create *.cbuild-mlops.yml
@@ -120,10 +161,10 @@ and [model-conversion tools](model_conversion/README.md) for converter options.
 
 ## Adapting the template
 
-Add a subdirectory under `model/` for each model and list it under
-`mlops.model.input`. Adapt the CMSIS runner in `src/app_main.cpp` or the Zephyr
-runner in `src/executorch_test.cpp` to load the model and handle its inputs and
-outputs.
+List each input artifact under `mlops.model.input`. For the `.py` convenience
+workflow, add a subdirectory under `model/` for each model. Adapt the CMSIS
+runner in `src/app_main.cpp` or the Zephyr runner in
+`src/executorch_test.cpp` to load the model and handle its inputs and outputs.
 
 For an Ethos-U target, keep the NPU type, MAC count, Vela memory settings,
 driver configuration, memory layout, and FVP or hardware description

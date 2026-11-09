@@ -168,7 +168,7 @@ in order:
    ```bash
    ./model_conversion/setup_venv.sh --recreate
    cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs
-   python3 model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
+   python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml
    cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85
    ```
 

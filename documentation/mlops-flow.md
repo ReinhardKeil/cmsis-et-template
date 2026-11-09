@@ -8,7 +8,7 @@ propagate that information.
 
 ```mermaid
 flowchart TD
-    A["cmsis-u85/cmsis-u85.csolution.yml<br/><b>mlops:</b> node"] -->|"1. cbuild setup --active &lt;target&gt;"| B["cmsis-u85/cmsis-u85.cbuild-mlops.yml<br/>npu, vela.options, model.clayer"]
+    A["cmsis-u85/cmsis-u85.csolution.yml<br/><b>mlops:</b> node"] -->|"1. cbuild setup --active &lt;target-set&gt; --packs"| B["cmsis-u85/cmsis-u85.cbuild-mlops.yml<br/>npu, vela.options, model.clayer"]
     B -->|"2. create_ai_layer.py"| C["EthosUCompileSpec<br/>quantize, delegate, Vela"]
     D["model/TinyCNN/model.py<br/>TinyCNN"] --> C
     C --> E["cmsis-u85/ai_layer/TinyCNN_pte.c<br/>the program as a C array"]
@@ -45,7 +45,7 @@ CMSIS-Toolbox detects the `simulator:` target (and, for a board, the
 `hardware:` target) from the target-sets, and passes the extra keys under
 `model:` through unchanged.
 
-`cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85`
+`cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs`
 resolves it for the active target and writes
 `cmsis-u85/cmsis-u85.cbuild-mlops.yml`:
 

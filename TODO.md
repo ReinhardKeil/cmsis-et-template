@@ -116,11 +116,11 @@ References:
 
 Agree on and implement the supported `create_ai_layer` input workflows:
 
-| Input | `create_ai_layer` action |
-|---|---|
-| `.pt2` | Load the quantized exported program(s), partition and lower them for the selected target, serialize the result as `.pte`, inspect and validate it, and integrate it. |
-| `.pte` | Inspect the runtime program, validate its backends, operators, and recoverable configuration against the selected target, then copy and integrate it unchanged. Reject it if compatibility cannot be established. |
-| `.py` | Convenience workflow: instantiate or load the PyTorch model, obtain example and calibration inputs, export and quantize internally, lower for the selected backend and target, serialize as `.pte`, validate it, and integrate it. |
+| Input | Role | `create_ai_layer` action |
+|---|---|---|
+| `.pt2` | Recommended lowering input | Validate, backend-lower, serialize as `.pte`, and integrate. |
+| `.pte` | Optional prebuilt deployment artifact | Inspect, validate, and integrate unchanged. |
+| `.py` | Convenience model-production input | Export, quantize, backend-lower, serialize, and integrate. |
 
 ### `.pt2` input
 
@@ -152,15 +152,28 @@ unquantized, unsupported, or incompatible program.
 
 ### `.pte` input
 
-A `.pte` input is a candidate prebuilt output program that requires validation.
-Inspect every method and accept the file only when it is backend-lowered and
-compatible with the selected target:
+A `.pte` input is an optional prebuilt deployment artifact. It supports
+vendor-supplied programs, integration without the Python export toolchain, and
+reproducible builds that reuse the exact deployed program.
+
+`create_ai_layer` never runs Vela or another backend-lowering pass on a `.pte`.
+Inspect every method and accept the file only when it is already backend-lowered
+and compatible with the selected target:
 
 - For Cortex-M, validate the core and required operators.
 - For Ethos-U, validate the accelerator, system configuration, memory mode, and
   required CPU fallback operators.
 - Reject portable-only programs, unknown backends, and programs whose target
   compatibility cannot be established.
+
+Compatibility shall be established through structured program inspection and,
+where the program does not expose sufficient information, trusted producer
+metadata containing the backend, target configuration, ExecuTorch version,
+required operators, and program hash. If compatibility cannot be proven, require
+the corresponding quantized `.pt2` input instead.
+
+If reliable inspection or manifest validation cannot be implemented, `.pte` support
+should be removed rather than retained with byte-search heuristics.
 
 ### `.py` input
 

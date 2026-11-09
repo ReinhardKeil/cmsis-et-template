@@ -25,7 +25,7 @@ west zephyr-export
 From the workspace root:
 
 ```sh
-cbuild setup zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
+cbuild setup zephyr-m/zephyr-m.csolution.yml --active AppKit-E8 --packs
 python model_conversion/create_ai_layer.py zephyr-m/zephyr-m.cbuild-mlops.yml
 cbuild zephyr-m/zephyr-m.csolution.yml --active AppKit-E8
 ```

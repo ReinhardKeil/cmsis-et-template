@@ -1,8 +1,8 @@
 solution:
   description: Zephyr ExecuTorch template for Cortex-M with Ethos-U85.
 # Usage:
-#   cbuild setup zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP              # generate *.cbuild-mlops.yml
-#   python model_conversion/create_ai_layer.py zephyr-u85/zephyr-u85.cbuild-mlops.yml       # generate ai_layer
+#   cbuild setup zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP --packs      # create *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py zephyr-u85/zephyr-u85.cbuild-mlops.yml       # create ExecuTorch programs
 #   cbuild zephyr-u85/zephyr-u85.csolution.yml --active Corstone-320-FVP                    # build application
 #
 # See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration

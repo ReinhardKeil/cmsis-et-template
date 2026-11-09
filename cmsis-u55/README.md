@@ -69,10 +69,10 @@ so Vela compiles the command stream for the matching accelerator.
 ### 3. Create the AI layer
 
 ```bash
-python3 model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml
+python model_conversion/create_ai_layer.py cmsis-u55/cmsis-u55.cbuild-mlops.yml
 ```
 
-On Windows, use `python`. The conversion tool uses the shared `.venv/` and
+The conversion tool uses the shared `.venv/` and
 `model/`, then writes target-specific output to `cmsis-u55/ai_layer/`.
 
 ### 4. Build the application
