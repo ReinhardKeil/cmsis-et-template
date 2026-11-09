@@ -9,8 +9,8 @@ separate .pte program, .c, and .h files. The generated *.clayer.yml combines
 the CPU fallback operators required by all models. Optional Zephyr output and
 *.clayer.yml are rendered from the same validated layer-wide data.
 
-Without --model, this script converts all declared models. With --model NAME,
-it updates only the selected model and rebuilds the layer-wide metadata from
+Without --input, this script processes all declared inputs. With --input NAME,
+it updates only the selected input and rebuilds the layer-wide metadata from
 all current .pte program artifacts.
 
     python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
@@ -818,7 +818,7 @@ def validate_pte_target(model: ModelInput, pte: bytes, accelerator: str | None) 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("mlops_file")
-    parser.add_argument("--model")
+    parser.add_argument("--input")
     args = parser.parse_args()
     if not args.mlops_file.endswith(".cbuild-mlops.yml"):
         parser.error("mlops_file must end with .cbuild-mlops.yml")
@@ -849,10 +849,10 @@ def main() -> None:
     models = model_inputs(mlops, solution_dir)
     accelerator = expected_accelerator(mlops)
     selected = models
-    if args.model:
-        selected = [entry for entry in models if entry.name == args.model]
+    if args.input:
+        selected = [entry for entry in models if entry.name == args.input]
         if not selected:
-            sys.exit(f"unknown model {args.model!r}")
+            sys.exit(f"unknown input {args.input!r}")
 
     outputs: dict[str, bytes | str] = {}
     generated_pte: dict[str, bytes] = {}
@@ -938,7 +938,7 @@ def main() -> None:
     ) + "\n"
     replace_outputs(layer_dir, outputs)
 
-    print(f"[ai_layer] models: {[entry.name for entry in selected]}, operators: {operators}")
+    print(f"[ai_layer] inputs: {[entry.name for entry in selected]}, operators: {operators}")
     print(f"[ai_layer] wrote {layer_file}")
     if "zephyr" in model:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")

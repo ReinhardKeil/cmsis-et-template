@@ -27,12 +27,12 @@ specification for the complete directory contract.
 
 ### `create_ai_layer.py`
 
-This is the model converter and AI-layer generator. Invoke it with exactly one
-MLOps file and an optional model selection:
+This is the input processor and AI-layer generator. Invoke it with exactly one
+MLOps file and an optional input selection:
 
 ```console
 python model_conversion/create_ai_layer.py <solution-dir>/<solution>.cbuild-mlops.yml
-python model_conversion/create_ai_layer.py <solution-dir>/<solution>.cbuild-mlops.yml --model <name>
+python model_conversion/create_ai_layer.py <solution-dir>/<solution>.cbuild-mlops.yml --input <name>
 ```
 
 It shall locate `.venv` in the workspace directory and restart itself with
@@ -204,13 +204,13 @@ The installed ExecuTorch Python package version shall match the resolved
 `PyTorch::ExecuTorch` pack version. A mismatch shall fail before model export or
 operator inspection.
 
-Without `--model`, the converter shall convert every declared model and rebuild
-all layer-wide metadata. With `--model <name>`, it shall convert only the named
-model. It shall use the newly staged `.pte` program for that model and the
-existing `.pte` program artifacts for all unchanged models, run `gen_oplist`
-on every one, and rebuild the selected model's report, the operator union,
+Without `--input`, the generator shall process every declared input and rebuild
+all layer-wide metadata. With `--input <name>`, it shall process only the named
+input. It shall use the newly staged `.pte` program for that input and the
+existing `.pte` program artifacts for all unchanged inputs, run `gen_oplist`
+on every one, and rebuild the selected input's report, the operator union,
 `*.clayer.yml`, and the optional Zephyr metadata. Reports and other per-model
-artifacts belonging to unchanged models shall be retained. An unknown model
+artifacts belonging to unchanged inputs shall be retained. An unknown input
 name is an error. Partial generation shall fail if another declared `.pte`
 program is missing or cannot be inspected.
 
@@ -292,9 +292,9 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   selected solution's files correctly.
 - Multiple solutions in workspace subdirectories share `.venv` while keeping
   their models, configuration, metadata, and output independent.
-- Without `--model`, every declared model is converted. With `--model <name>`,
-  only that model is converted while the layer-wide operator union and metadata
-  continue to include every declared model.
+- Without `--input`, every declared input is processed. With `--input <name>`,
+  only that input is processed while the layer-wide operator union and metadata
+  continue to include every declared input.
 - Two models with overlapping CPU fallback operators produce one copy of each
   runtime and operator component in CMSIS and Zephyr metadata.
 - A CPU-only model and an Ethos-U model can share one layer; it selects their

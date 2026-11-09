@@ -70,25 +70,229 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 - Zephyr: use target/source `target_compile_options` with language/compiler expressions; do not mute application or unrelated modules.
 - Every warning suppression needs scope, reason, owner, upstream issue, removal condition, and CMSIS/Zephyr documentation.
 
+## TODO: AI Input
 
-# TODO: Multiple models in one AI layer
+Use these terms for the `create_ai_layer` interface:
 
-End-to-end multi-model acceptance: unit tests verify multiple generated artifacts and combined operators
+- **Input artifact**: a file supplied through `model.input`. A quantized `.pt2`
+  exported program still requires backend lowering; a `.pte` is a candidate
+  prebuilt program that must already be backend-lowered; and a `.py` file uses
+  the convenience workflow to define or load a `torch.nn.Module`, supply
+  its example and calibration inputs, and still requires export, quantization,
+  and backend lowering.
+- **Output program artifact**: a deployment-ready `.pte` produced or accepted
+  by `create_ai_layer`. It is backend-lowered for, and validated against, the
+  selected target. It may contain portable CPU fallback operators.
+- **AI layer**: the generated `*.clayer.yml` and its integrated output program
+  artifacts, C arrays, dependency metadata, reports, and optional Zephyr files.
+  Every `.pte` in the AI layer satisfies the output-program invariant above.
 
-## DONE - all that is below
+A typical flow is:
+
+```text
+.py workflow
+    -> instantiate or load a PyTorch model (torch.nn.Module)
+    -> provide example and calibration inputs
+    -> torch.export to an ExportedProgram
+    -> quantize and validate the model
+    -> save the quantized ExportedProgram(s) in a .pt2 archive
+    -> partition and lower for the selected backend and target
+    -> serialize the ExecuTorch runtime program as .pte
+    -> validate and integrate the .pte into the AI layer
+```
+
+The PyTorch model is the in-memory `torch.nn.Module`, not the `.py` file. The
+`.py` file contains Python source for the model and conversion workflow; `.pt2`
+and `.pte` are serialized artifacts at later stages of that workflow.
+
+References:
+
+- [PyTorch `torch.export`](https://docs.pytorch.org/docs/stable/export)
+- [PyTorch export serialization](https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export.html#serialization)
+- [PT2 Archive Specification](https://docs.pytorch.org/docs/main/user_guide/torch_compiler/export/pt2_archive.html)
+- [ExecuTorch model export and lowering](https://docs.pytorch.org/executorch/stable/using-executorch-export.html)
+- [ExecuTorch quantization overview](https://docs.pytorch.org/executorch/stable/quantization-overview.html)
+- [ExecuTorch Ethos-U quantization](https://docs.pytorch.org/executorch/stable/backends/arm-ethos-u/arm-ethos-u-quantization.html)
+
+Agree on and implement the supported `create_ai_layer` input workflows:
+
+| Input | `create_ai_layer` action |
+|---|---|
+| `.pt2` | Load the quantized exported program(s), partition and lower them for the selected target, serialize the result as `.pte`, inspect and validate it, and integrate it. |
+| `.pte` | Inspect the runtime program, validate its backends, operators, and recoverable configuration against the selected target, then copy and integrate it unchanged. Reject it if compatibility cannot be established. |
+| `.py` | Convenience workflow: instantiate or load the PyTorch model, obtain example and calibration inputs, export and quantize internally, lower for the selected backend and target, serialize as `.pte`, validate it, and integrate it. |
+
+### `.pt2` input
+
+A `.pt2` input defines the boundary between model-specific preparation and
+target-specific deployment. It contains one or more quantized
+`ExportedProgram`s and their input signatures, but no target-specific backend
+lowering.
+
+The model-owned workflow is responsible for:
+
+- Defining or loading the model and its named programs.
+- Providing example and calibration inputs, including multiple inputs.
+- Selecting and applying the quantization scheme, including PTQ or QAT.
+- Validating model accuracy after quantization.
+- Saving the quantized `ExportedProgram` or programs in the `.pt2` archive.
+
+`create_ai_layer` is responsible for:
+
+- Loading the archive and validating its programs, signatures, quantization,
+  and compatibility with the selected backend.
+- Partitioning and lowering every program for the selected target, including
+  the target-specific Vela configuration for Ethos-U.
+- Preserving program names and input signatures when serializing the output
+  `.pte`.
+- Validating the generated `.pte` and integrating it into the AI layer.
+
+`create_ai_layer` does not quantize or requantize a `.pt2` input. It rejects an
+unquantized, unsupported, or incompatible program.
+
+### `.pte` input
+
+A `.pte` input is a candidate prebuilt output program that requires validation.
+Inspect every method and accept the file only when it is backend-lowered and
+compatible with the selected target:
+
+- For Cortex-M, validate the core and required operators.
+- For Ethos-U, validate the accelerator, system configuration, memory mode, and
+  required CPU fallback operators.
+- Reject portable-only programs, unknown backends, and programs whose target
+  compatibility cannot be established.
+
+### `.py` input
+
+A `.py` input provides a convenience workflow in which `create_ai_layer`
+performs the complete model-processing flow for simple models and examples. The
+Python workflow defines or loads the `torch.nn.Module` and supplies its example
+and calibration inputs;
+`create_ai_layer` exports, quantizes, lowers, validates, and integrates the
+resulting `.pte`.
+
+Benefits:
+
+- Generates a deployable AI layer from Python source with one command.
+- Avoids a separate `.pt2` generation step for straightforward models.
+- Provides a simple starting point for template users and demonstrations.
+- Keeps the built-in export and quantization flow reproducible across examples.
+- Supports quick experimentation when custom quantization is unnecessary.
+
+Use `.pt2` instead when the model needs a custom quantization scheme, QAT,
+specialized calibration or accuracy validation, or another model-specific
+preparation step.
+
+### MLOps input
+
+Extend `mlops.model.input` sequence.
+
+```yaml
+mlops:
+  model:
+    clayer: $AI-Layer$
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/model.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+      - name: vision
+        file: ../MyModels/vision.pt2
+      - name: MyModel1
+        file: ../model1/model.py
+        cpu:              # run on CPU only
+      - name: MyModel2
+        file: ../model2/MyModel.pte    # input is a *.pte program file
+```
+
+The file extension selects the workflow; no `format`, `process`, or equivalent
+property is needed. Reject unsupported extensions.
+
+- `name` and `file` are required for every input.
+- `parameters` is valid only for `.py`. It supplies arguments to the Python
+  model and calibration workflow; `.pt2` and `.pte` already contain their
+  program signatures.
+- `.pt2` requires no additional property. Backend, target, and Vela configuration
+  come from the generated MLOps data. On a mixed target, optional `cpu:` selects
+  CPU lowering for a `.py` or `.pt2` input.
+- `.pte` accepts no conversion or lowering options. Its existing backend and
+  target compatibility are established by inspection and validation.
+
+### Command-Line option
+
+Use `--input <name>` because the selector identifies a
+named `model.input` entry, which may be a `.py`, `.pt2`, or `.pte` artifact.
+
+- Without `--input`, `create_ai_layer.py` processes every declared input and
+  creates or updates the AI layer.
+- With `--input <name>`, it processes only the selected input, then rebuilds the
+  layer-wide metadata from the current validated `.pte` output of every input.
+- "Process" means export, quantize, and lower for `.py`; lower for `.pt2`; and
+  inspect and validate for `.pte`. Therefore, not every input is converted.
+
+## Generated artifacts
+
+The generated AI-layer directory is the complete output of
+`create_ai_layer.py`:
+
+```text
+ai_layer/
+|-- ai_layer.clayer.yml              # canonical build description
+|-- <input-a>.pte                    # backend-lowered program validated for target
+|-- <input-a>_pte.c                  # embedded program data
+|-- <input-a>_pte.h                  # program data declarations
+|-- <input-a>_REPORT.md              # processing, lowering, and validation summary
+|-- <input-b>.pte
+|-- <input-b>_pte.c
+|-- <input-b>_pte.h
+|-- <input-b>_REPORT.md
+|-- CMakeLists.txt                   # Zephyr: model sources and include directory
+|-- components.conf                  # Zephyr: runtime and backend Kconfig settings
+`-- operators.conf                   # Zephyr: required CPU operator Kconfig settings
+```
+
+### Validation
+
+Validation has separate inputs and stages:
+
+- **Example inputs** define each exported program's positional arguments,
+  keyword arguments, tensor shapes, and dtypes. The `.py` convenience workflow
+  shall obtain them from `get_example_inputs`; it shall not infer them from the
+  first calibration sample.
+- **Calibration inputs** are representative samples used only for PTQ. The
+  `.py` workflow obtains them from `get_calibration_inputs`; `.pt2` producers
+  own their calibration process.
+- **Validation inputs** are held-out cases used to check quantized-model
+  accuracy and shall not be reused as calibration data. Model-specific
+  validation belongs to the `.pt2` producer or `.py` workflow.
+- **Artifact validation** checks every generated or supplied `.pte` for its
+  methods, backend lowering, operators, and selected-target compatibility.
+- **Application validation** uses the
+  [SDS Framework](https://github.com/ARM-software/SDS-Framework) to replay
+  deterministic model-boundary inputs and record raw model outputs and
+  post-processed results on FVP and hardware. SDS metadata shall describe the
+  method, shape, dtype, layout, preprocessing, expected result, and comparison
+  tolerance.
+
+End-to-end multi-input acceptance tests verify multiple generated artifacts,
+combined operators, positional and keyword example inputs, and SDS replay of
+the same validation case on FVP and hardware.
+
+## DONE: Multiple models in one AI layer
 
 ## Summary
 
 - One AI layer contains all ML models that run on a single CPU (processor),
   optionally with NPU acceleration.
-- Each ML model is stored with its individual artifacts and separate `.pte`
-  program, `.c`, and `.h` files.
+- Each input produces or supplies an individual, backend-lowered `.pte` output
+  program with corresponding `.c` and `.h` files.
 - The fallback operators that execute on the CPU are combined across all ML
   models in the generated `*.clayer.yml`.
 - Zephyr export is optional and is rendered from the same validated layer data
   as the generated `*.clayer.yml`.
-- `create_ai_layer.py` creates the AI layer. Without `--model`, it converts all
-  models; with `--model`, it updates only the selected model in that layer.
+- `create_ai_layer.py` creates the AI layer. Without `--input`, it processes all
+  inputs; with `--input`, it updates only the selected input in that layer.
 
 ## Intended ownership and execution model
 
@@ -111,7 +315,7 @@ The following artifacts have different purposes and shall not be conflated:
 - the generated `*.clayer.yml` is the persistent operator selection: every CPU
   operator is represented by one ExecuTorch operator component, together with
   the required runtime, backend, and CMSIS-NN components;
-- per-model reports identify the CPU fallback operators required by each model
+- per-input reports identify the CPU fallback operators required by each output
   and contain the Vela summary where applicable;
 - Zephyr `CMakeLists.txt`, `operators.conf`, and `components.conf` are rendered
   from the same validated layer data as `*.clayer.yml`, not from an independent
@@ -308,20 +512,20 @@ The generated AI-layer directory is the complete output of
 ```text
 ai_layer/
 |-- ai_layer.clayer.yml              # canonical build description
-|-- <model-a>.pte                    # serialized ExecuTorch program
-|-- <model-a>_pte.c                  # embedded program data
-|-- <model-a>_pte.h                  # program data declarations
-|-- <model-a>_REPORT.md              # model conversion and optimization summary
-|-- <model-b>.pte
-|-- <model-b>_pte.c
-|-- <model-b>_pte.h
-|-- <model-b>_REPORT.md
+|-- <input-a>.pte                    # backend-lowered program validated for target
+|-- <input-a>_pte.c                  # embedded program data
+|-- <input-a>_pte.h                  # program data declarations
+|-- <input-a>_REPORT.md              # processing, lowering, and validation summary
+|-- <input-b>.pte
+|-- <input-b>_pte.c
+|-- <input-b>_pte.h
+|-- <input-b>_REPORT.md
 |-- CMakeLists.txt                    # Zephyr projection, when requested
 |-- components.conf                  # Zephyr projection, when requested
 `-- operators.conf                   # Zephyr projection, when requested
 ```
 
-For each model `<name>` (using its validated file stem and identifier), generate:
+For each input `<name>` (using its validated file stem and identifier), generate:
 
 ```text
 <name>.pte
@@ -388,7 +592,7 @@ flowchart TD
     D --> E[Write .pte program and embedded C data]
     D --> F[ExecuTorch gen_oplist in staging]
     F --> G[Temporary per-model operator YAML]
-    D --> H[Build per-model report; add Vela summary for NPU model]
+    D --> H[Build per-input report; add Vela summary for NPU input]
     G --> I[ExecuTorch gen_all_oplist in staging]
     I --> J[Temporary combined operator union]
     J --> K[Map operators to pack components]
@@ -439,11 +643,11 @@ flowchart LR
 
 ```text
 python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
-python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml --model <name>
+python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml --input <name>
 ```
 
-Without `--model`, regenerate every declared model and all layer-wide metadata.
-With `--model`, regenerate only that model's per-model artifacts, then rebuild
+Without `--input`, process every declared input and all layer-wide metadata.
+With `--input`, process only that input's artifacts, then rebuild
 the layer-wide union by running `gen_oplist` again on **all** declared `.pte`
 program artifacts. No persistent operator-list cache is required. Partial
 generation shall fail when another declared `.pte` program is missing or cannot
@@ -452,9 +656,9 @@ needed by another model.
 
 ```mermaid
 flowchart LR
-    A[--model B] --> B[Regenerate model B artifacts]
-    X[Existing valid model A .pte program] --> X1[gen_oplist in staging]
-    B --> Y[New model B .pte program]
+    A[--input B] --> B[Process input B]
+    X[Existing valid input A .pte program] --> X1[gen_oplist in staging]
+    B --> Y[New input B .pte program]
     Y --> Y1[gen_oplist in staging]
     X1 --> U[gen_all_oplist in staging]
     Y1 --> U
@@ -474,7 +678,7 @@ previous generator manifest; do not delete untracked/user files.
   the Ethos-U backend, and both program arrays.
 - Two program arrays link without symbol collisions and can be selected by the
   application at run time.
-- `--model <name>` retains the other models' operator requirements.
+- `--input <name>` retains the other inputs' operator requirements.
 - Unknown model names, duplicate names, invalid identifiers, missing inputs,
   unsupported file types, and target-incompatible imported `.pte` program
   files fail before replacing the complete layer.

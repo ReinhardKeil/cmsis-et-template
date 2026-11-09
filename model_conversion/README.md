@@ -82,16 +82,16 @@ For a solution in a workspace subdirectory:
 python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml
 ```
 
-Without additional options, every declared model is converted. To update one
-model while retaining the others, use:
+Without additional options, every declared input is processed. To update one
+input while retaining the others, use:
 
 ```console
-python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml --model TinyCNN
+python model_conversion/create_ai_layer.py solutions/demo/demo.cbuild-mlops.yml --input TinyCNN
 ```
 
-The selected model is converted again. The generator then inspects every
+The selected input is processed again. The generator then inspects every
 declared `.pte` program file and rebuilds the layer-wide fallback-operator
-union and metadata. A per-model report is output only; it is never
+union and metadata. A per-input report is output only; it is never
 operator-selection input.
 
 ## Input
@@ -154,7 +154,7 @@ The script uses the parent folder of the `*.clayer.yml` path specified by
 `clayer: ai_layer/ai_layer.clayer.yml`, generated files are written to
 `ai_layer/`.
 
-For each model `<name>`, the script creates:
+For each input `<name>`, the script creates:
 
 - `<name>.pte`, the serialized ExecuTorch program;
 - `<name>_pte.c` and `<name>_pte.h`, exporting unique embedded-array symbols;
@@ -163,7 +163,7 @@ For each model `<name>`, the script creates:
   CPU fallback operators, CMSIS-NN requirement, and applicable Vela output.
 
 The internal `.ai_layer_manifest.json` records generator-owned files so a
-later full conversion can remove obsolete model artifacts without deleting
+later full run can remove obsolete input artifacts without deleting
 untracked or user-owned files.
 
 The script also creates the `*.clayer.yml` file specified by `model.clayer`.

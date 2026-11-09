@@ -604,7 +604,7 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
             self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
 
-    def test_model_option_uses_unchanged_pte_for_operator_union(self) -> None:
+    def test_input_option_uses_unchanged_pte_for_operator_union(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             solution = Path(temporary)
             (solution / "a-source.pte").write_bytes(b"SOURCE-A")
@@ -640,7 +640,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 return ({"A": ["aten::add.out"], "B": ["aten::mul.out"]},
                         ["aten::add.out", "aten::mul.out"])
 
-            argv = [str(SCRIPT), str(mlops_file), "--model", "B"]
+            argv = [str(SCRIPT), str(mlops_file), "--input", "B"]
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(

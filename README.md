@@ -111,9 +111,9 @@ python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml   # creat
 cbuild <solution>.csolution.yml --active <target-set>                    # build application
 ```
 
-By default, `create_ai_layer.py` converts every model declared in the
-solution. Use `--model <name>` to update one model; the script then regenerates
-the layer-wide metadata for all models.
+By default, `create_ai_layer.py` processes every input declared in the
+solution. Use `--input <name>` to update one input; the script then regenerates
+the layer-wide metadata from all current validated output programs.
 
 See [the MLOps integration](documentation/mlops-flow.md) for a detailed walkthrough
 and [model-conversion tools](model_conversion/README.md) for converter options.
@@ -148,22 +148,29 @@ and optimization, see
 ```text
 ai_layer/
 |-- ai_layer.clayer.yml              # shared build description
-|-- <model-a>.pte                    # serialized ExecuTorch program
-|-- <model-a>_pte.c                  # embedded program data
-|-- <model-a>_pte.h                  # program data declarations
-|-- <model-a>_REPORT.md              # conversion and optimization summary
-|-- <model-b>.pte
-|-- <model-b>_pte.c
-|-- <model-b>_pte.h
-|-- <model-b>_REPORT.md
-|-- CMakeLists.txt                   # Zephyr, when requested
-|-- components.conf                  # Zephyr, when requested
-`-- operators.conf                   # Zephyr, when requested
+|-- <input-a>.pte                    # backend-lowered program validated for target
+|-- <input-a>_pte.c                  # embedded program data
+|-- <input-a>_pte.h                  # program data declarations
+|-- <input-a>_REPORT.md              # processing, lowering, and validation summary
+|-- <input-b>.pte
+|-- <input-b>_pte.c
+|-- <input-b>_pte.h
+|-- <input-b>_REPORT.md
+|-- CMakeLists.txt                   # Zephyr: model sources and include directory
+|-- components.conf                  # Zephyr: runtime and backend Kconfig settings
+`-- operators.conf                   # Zephyr: required CPU operator Kconfig settings
 ```
 
 `ai_layer.clayer.yml` records the shared ExecuTorch runtime, required backends,
-and combined CPU fallback operators for all programs. The optional Zephyr files
-are generated from the same layer data.
+and combined CPU fallback operators for all programs. When Zephyr output is
+requested, the generator also creates:
+
+- `CMakeLists.txt` to add the generated model C files and their header directory
+  to the application build.
+- `components.conf` to enable the ExecuTorch runtime, kernel utilities,
+  registration code, and required backends through Kconfig.
+- `operators.conf` to enable the CPU operators required by the models, including
+  operations that are not delegated to an NPU.
 
 ## Continuous integration
 
