@@ -108,9 +108,8 @@ jobs:
           west update --narrow -o=--depth=1 cmsis cmsis_6 cmsis-dsp cmsis-nn hal_ethos_u
           west zephyr-export
 
-      # The repository conversion environment uses ExecuTorch 1.5.1 for the
-      # CMSIS examples. Zephyr uses the committed artifacts generated with the
-      # 1.6.0 preview package until the final 1.6.0 Python package is available.
+      # Build the committed, target-validated AI artifacts without regenerating
+      # them in this workflow.
       - name: Check committed Zephyr AI layer
         run: |
           test -f "${{ matrix.example }}/ai_layer/TinyCNN.pte"
@@ -118,15 +117,16 @@ jobs:
           test -f "${{ matrix.example }}/ai_layer/TinyCNN_pte.h"
           test -f "${{ matrix.example }}/ai_layer/TinyCNN_REPORT.md"
 
+      # Override local solution compiler selections for this GCC-only workflow.
       - name: Generate MLOps information
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
-        run: cbuild setup ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs
+        run: cbuild setup ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs --toolchain GCC
 
       - name: Build ${{ matrix.target }}
         env:
           ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
-        run: cbuild ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs
+        run: cbuild ${{ matrix.example }}/${{ matrix.example }}.csolution.yml --active ${{ matrix.target }} --packs --toolchain GCC
 
       - name: Run ${{ matrix.target }}
         working-directory: ${{ matrix.example }}
