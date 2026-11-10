@@ -71,7 +71,7 @@ solution:
         app-path: .
         board: $west-board$
         west-defs:
-          - EXTRA_ZEPHYR_MODULES: ${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1
+          - EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$
 
   # model.cpu selects the Cortex-M backend even when the device pack adds NPU
   # information for the M55_HP target to the generated MLOps file.

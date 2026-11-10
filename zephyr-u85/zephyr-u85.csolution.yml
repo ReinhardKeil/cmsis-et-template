@@ -73,7 +73,7 @@ solution:
         app-path: .
         board: $west-board$
         west-defs:
-          - EXTRA_ZEPHYR_MODULES: ${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1
+          - EXTRA_ZEPHYR_MODULES: $Pack(PyTorch::ExecuTorch)$
 
   mlops:
     description: TinyCNN for an Ethos-U85-256 target
