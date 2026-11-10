@@ -412,6 +412,92 @@ class CreateAiLayerTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "portable_custom_ops_aot_lib"):
                 generator.load_pt2_programs(Path("unused.pt2"), "Model")
 
+    def test_pt2_constant_metadata_validation(self) -> None:
+        program = mock.Mock()
+        program.graph_module.graph.nodes = [mock.Mock(target="quantized_decomposed.quantize_per_tensor")]
+        cases = (
+            ("{", "invalid constant_methods.json"),
+            ("[]", "must contain a mapping"),
+            ('{"filter": 1}', "invalid or duplicate constant method name"),
+            ('{"bad-name": 1}', "invalid or duplicate constant method name"),
+            ('{"shape": null}', "unsupported constant method value"),
+            ('{"shape": []}', "unsupported constant method value"),
+            ('{"shape": [1, "2"]}', "unsupported constant method value"),
+            ('{"shape": [[1, 2]]}', "unsupported constant method value"),
+            ('{"shape": {"height": 16}}', "unsupported constant method value"),
+        )
+        for contents, message in cases:
+            archive = mock.Mock(exported_programs={"filter": program},
+                                extra_files={"constant_methods.json": contents})
+            with self.subTest(contents=contents), mock.patch.object(
+                generator, "register_operator_libraries"
+            ), mock.patch("torch.export.pt2_archive._package.load_pt2", return_value=archive), self.assertRaisesRegex(
+                SystemExit, message
+            ):
+                generator.load_pt2_artifact(Path("unused.pt2"), "Model")
+
+    @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
+    def test_multiple_example_preserves_mixed_precision_and_constant_methods(self) -> None:
+        import torch
+        from executorch.backends.arm.ethosu import EthosUCompileSpec
+        from executorch.backends.cortex_m.target_config import CortexMTargetConfig
+        from executorch.runtime import Runtime
+
+        producer_spec = importlib.util.spec_from_file_location(
+            "multiple_quantizer", ROOT / "model" / "TinyCNN" / "quantize_multiple_models.py"
+        )
+        assert producer_spec is not None and producer_spec.loader is not None
+        producer = importlib.util.module_from_spec(producer_spec)
+        producer_spec.loader.exec_module(producer)
+        with tempfile.TemporaryDirectory() as temporary:
+            checkpoint = Path(temporary) / "TinyCNNMultiple.pt2"
+            with mock.patch.object(producer, "OUTPUT_PATH", checkpoint):
+                producer.quantize_models()
+            programs, constants = generator.load_pt2_artifact(checkpoint, "Multiple")
+            self.assertEqual(set(programs), {"filter", "classify"})
+            for name, dtype in (("filter", torch.int16), ("classify", torch.int8)):
+                dtypes = {
+                    arg for node in programs[name].graph.nodes
+                    if str(node.target).startswith("quantized_decomposed.quantize_per_tensor")
+                    for arg in node.args if isinstance(arg, torch.dtype)
+                }
+                self.assertEqual(dtypes, {dtype})
+            expected_constants = {
+                "IMAGE_WIDTH": producer.IMAGE_WIDTH,
+                "IMAGE_HEIGHT": producer.IMAGE_HEIGHT,
+                "INPUT_CHANNELS": producer.INPUT_CHANNELS,
+                "NUM_CLASSES": producer.NUM_CLASSES,
+            }
+            self.assertEqual(constants, expected_constants)
+            self.assertTrue(all(type(value) is int for value in constants.values()))
+            image = torch.full(producer.INPUT_SHAPE, 0.25)
+            with torch.no_grad():
+                filtered = programs["filter"].module(check_guards=False)(image)
+                logits = programs["classify"].module(check_guards=False)(filtered)
+            reference = torch.tensor([[
+                -0.0255408380, 0.0706129074, 0.0540864803, -0.0525840782,
+                0.0390624590, 0.0270432401, -0.0360576548, -0.0555888824,
+                -0.1397234052, 0.0015024022,
+            ]])
+            torch.testing.assert_close(logits, reference, atol=1e-6, rtol=0)
+            for backend in ("ethos-u55-128", "ethos-u85-256", "cortex-m55"):
+                with self.subTest(backend=backend):
+                    cpu = backend.startswith("cortex")
+                    pte, methods = generator.lower_pt2(
+                        None if cpu else EthosUCompileSpec(target=backend),
+                        CortexMTargetConfig.from_target_string(backend) if cpu else None,
+                        checkpoint, "Multiple",
+                    )
+                    self.assertEqual(set(methods), set(programs))
+                    inspection = generator.inspect_pte(pte)
+                    self.assertEqual(set(inspection.methods), set(programs) | set(constants))
+                    self.assertEqual(inspection.delegates, () if cpu else ("EthosUBackend",))
+                    runtime_program = Runtime.get().load_program(pte)
+                    for name, value in constants.items():
+                        getter = runtime_program.load_method(name)
+                        self.assertIsNotNone(getter)
+                        self.assertEqual(getter.execute(()), [value])
+
     def test_executorch_version_prefers_exact_selected_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

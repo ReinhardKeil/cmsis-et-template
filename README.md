@@ -7,7 +7,7 @@
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
-[![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
+[![ExecuTorch: 1.6.0](https://img.shields.io/badge/ExecuTorch-1.6.0-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
 This repository provides template applications for deploying ML models on
 Cortex-M targets using [ExecuTorch](https://github.com/pytorch/executorch).

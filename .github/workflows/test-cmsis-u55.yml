@@ -58,6 +58,9 @@ jobs:
           key: model-export-${{ runner.os }}-${{ hashFiles('model_conversion/requirements*.txt', 'model_conversion/setup_venv.py') }}
           path: .venv
 
+      - name: Install repository ExecuTorch pack
+        run: cpackget add --agree-embedded-license Pack/*.pack
+
       - name: Create model-export environment
         run: ./model_conversion/setup_venv.sh
 

@@ -193,3 +193,11 @@ detects ArmClang:
 These settings complement `CONFIG_COMMON_LIBC_MALLOC`, C++17, hard-float, and
 the Zephyr-managed heaps in `prj.conf`. They are build integration requirements,
 not model-generation settings.
+
+## Multiple-network example
+
+The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
+A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+constants. This solution includes a commented model input and an alternative
+test selection. Follow the linked steps to generate it, select the test, and
+compare the filter-then-classify output against a fixed reference.

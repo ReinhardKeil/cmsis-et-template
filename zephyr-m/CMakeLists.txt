@@ -87,8 +87,12 @@ endif()
 target_sources(app PRIVATE
   src/main.c
   ../zephyr-u55/src/arm_embedded_module.cpp
-  ../zephyr-u55/src/executorch_test.cpp
 )
+if(CONFIG_EXECUTORCH_MULTIPLE_TEST)
+  target_sources(app PRIVATE src/executorch_multiple_test.cpp)
+else()
+  target_sources(app PRIVATE ../zephyr-u55/src/executorch_test.cpp)
+endif()
 
 target_include_directories(app PRIVATE ../zephyr-u55/src)
 target_compile_definitions(app PRIVATE EXECUTORCH_TARGET_NAME="Cortex-M55")

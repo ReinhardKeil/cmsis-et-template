@@ -97,3 +97,11 @@ FVP_Corstone_SSE-300_Ethos-U55 \
 For more background, see the workspace documentation for the
 [MLOps flow](../documentation/mlops-flow.md) and
 [model-conversion tools](../model_conversion/README.md).
+
+## Multiple-network example
+
+The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
+A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+constants. This solution includes a commented model input and an alternative
+test selection. Follow the linked steps to generate it, select the test, and
+compare the filter-then-classify output against a fixed reference.

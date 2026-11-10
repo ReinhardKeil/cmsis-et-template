@@ -198,6 +198,59 @@ Vela. Supply the archive as a `.pt2` input to `create_ai_layer.py` for subsequen
 Ethos-U55 lowering and Vela compilation. Different networks or preparation
 requirements belong in their own scripts.
 
+#### Constant metadata convention for `.pt2` producers
+
+An optional UTF-8 JSON file named **`constant_methods.json`**, stored through
+`package_pt2(..., extra_files=...)`, carries producer-owned runtime metadata.
+Its top-level object maps **method names** to constant return values. The
+converter reads this file and passes the decoded dictionary as
+`constant_methods=` to `to_edge_transform_and_lower` for both Ethos-U and
+Cortex-M. It does not quantize or lower these constants as networks. Archives
+without the file have no extra constant methods.
+
+```python
+import json
+from torch.export.pt2_archive._package import package_pt2
+
+constant_methods = {
+    "IMAGE_WIDTH": IMAGE_WIDTH,
+    "IMAGE_HEIGHT": IMAGE_HEIGHT,
+    "INPUT_CHANNELS": INPUT_CHANNELS,
+    "NUM_CLASSES": NUM_CLASSES,
+}
+package_pt2(
+    "TinyCNNMultiple.pt2",
+    exported_programs={"filter": filter_program, "classify": classify_program},
+    extra_files={"constant_methods.json": json.dumps(constant_methods)},
+)
+```
+
+The convention requires:
+
+- Method names must be C identifiers and must not collide with exported network
+  names. The example exports the four uppercase integer names above.
+- Each value must be a JSON Boolean, integer, floating-point number, string,
+  or a non-empty homogeneous list of one of those scalar types. Objects,
+  nested lists, mixed lists, and `null` are rejected by this converter.
+- The TinyCNN example exports only positive integers. Batch is always 1,
+  the filter preserves the image dimensions, and the classifier returns
+  `NUM_CLASSES` logits. No shape lists or metadata tensors are exported.
+- Constants become zero-input methods in the `.pte`. In the C++ runtime,
+  `module.execute("IMAGE_WIDTH", std::vector<EValue>{})` returns a vector
+  containing one integer `EValue`; read it with `values->front().toInt()`.
+
+Each solution's C++ runner (for example,
+[zephyr-u85/src/executorch_multiple_test.cpp](../zephyr-u85/src/executorch_multiple_test.cpp))
+reads these four integers, derives NHWC image shape
+`[1, IMAGE_HEIGHT, IMAGE_WIDTH, INPUT_CHANNELS]` and output shape
+`[1, NUM_CLASSES]`, then verifies those shapes against the runtime tensor
+metadata before running the pipeline. Other `extra_files` entries are left
+uninterpreted. These are application constants,
+not trainable weights or parameters passed to the Python model constructor.
+
+See the [multi-network example](../model/TinyCNN/README.md) for its standalone
+producer, A16W8 filter, INT8 classifier, reference check, and project selection.
+
 ### `.pte` input
 
 This optional workflow integrates a prebuilt deployment artifact. The program

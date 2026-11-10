@@ -1,0 +1,17 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+mainmenu "ExecuTorch example"
+
+choice EXECUTORCH_EXAMPLE
+    prompt "ExecuTorch test"
+    default EXECUTORCH_SINGLE_TEST
+
+config EXECUTORCH_SINGLE_TEST
+    bool "Single TinyCNN forward method"
+
+config EXECUTORCH_MULTIPLE_TEST
+    bool "Filter then classify with runtime shape constants"
+
+endchoice
+
+source "Kconfig.zephyr"

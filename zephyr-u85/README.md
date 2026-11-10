@@ -229,3 +229,11 @@ not model-generation settings.
 
 Do not add `ARM::CMSIS-Ethos-U` to this solution. That pack is used only by the
 CMSIS workflow templates in this repository.
+
+## Multiple-network example
+
+The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
+A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+constants. This solution includes a commented model input and an alternative
+test selection. Follow the linked steps to generate it, select the test, and
+compare the filter-then-classify output against a fixed reference.

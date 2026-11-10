@@ -496,11 +496,17 @@ def export_model_cpu(target, source: Path, params: dict, model_name: str) -> byt
 
 def load_pt2_programs(source: Path, input_name: str) -> dict:
     """Load and validate every named ExportedProgram in a PT2 archive."""
+    return load_pt2_artifact(source, input_name)[0]
+
+
+def load_pt2_artifact(source: Path, input_name: str) -> tuple[dict, dict]:
+    """Load quantized networks and optional JSON-encoded constant methods."""
     register_operator_libraries()
     from torch.export.pt2_archive._package import load_pt2
 
     try:
-        programs = dict(load_pt2(source).exported_programs)
+        archive = load_pt2(source)
+        programs = dict(archive.exported_programs)
     except Exception as error:
         # Some wheels omit this optional AOT library and its import only logs
         # the failure. Explain the missing package artifact when it is needed.
@@ -528,19 +534,36 @@ def load_pt2_programs(source: Path, input_name: str) -> dict:
             for target in targets
         ):
             sys.exit(f"input {input_name!r}: program {name!r} is not quantized")
-    return programs
+    try:
+        constants = json.loads(archive.extra_files.get("constant_methods.json", "{}"))
+    except (ValueError, TypeError) as error:
+        sys.exit(f"input {input_name!r}: invalid constant_methods.json: {error}")
+    if not isinstance(constants, dict):
+        sys.exit(f"input {input_name!r}: constant_methods.json must contain a mapping")
+    for name, value in constants.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or name in programs:
+            sys.exit(f"input {input_name!r}: invalid or duplicate constant method name {name!r}")
+        # JSON scalars and homogeneous lists are supported by ExecuTorch's
+        # constant-method emitter. Reject objects and nested lists explicitly.
+        scalars = value if isinstance(value, list) else [value]
+        if not scalars or type(scalars[0]) not in (bool, int, float, str) or any(
+            type(item) is not type(scalars[0]) for item in scalars
+        ):
+            sys.exit(f"input {input_name!r}: unsupported constant method value for {name!r}")
+    return programs, constants
 
 
 def lower_pt2(spec, target, source: Path, input_name: str) -> tuple[bytes, tuple[str, ...]]:
     """Lower all programs in one quantized PT2 archive into one PTE container."""
     from executorch.exir import EdgeCompileConfig, ExecutorchBackendConfig, to_edge_transform_and_lower
 
-    programs = load_pt2_programs(source, input_name)
+    programs, constants = load_pt2_artifact(source, input_name)
     if spec is not None:
         from executorch.backends.arm.ethosu import EthosUPartitioner
 
         edge = to_edge_transform_and_lower(
             programs,
+            constant_methods=constants,
             partitioner=[EthosUPartitioner(spec)],
             compile_config=EdgeCompileConfig(_check_ir_validity=False),
         )
@@ -549,7 +572,7 @@ def lower_pt2(spec, target, source: Path, input_name: str) -> tuple[bytes, tuple
         from executorch.backends.cortex_m.passes.cortex_m_pass_manager import CortexMPassManager
 
         edge = to_edge_transform_and_lower(
-            programs, compile_config=cortex_m_edge_compile_config()
+            programs, constant_methods=constants, compile_config=cortex_m_edge_compile_config()
         )
         for method in edge.methods:
             edge._edge_programs[method] = CortexMPassManager(

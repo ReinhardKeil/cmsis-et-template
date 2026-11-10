@@ -86,13 +86,18 @@ solution:
     model:
       zephyr:
       input:
+        # Alternative: comment the active input below and uncomment this entry.
+        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
+         - name: TinyCNNMultiple
+           file: ../model/TinyCNN/TinyCNNMultiple.pt2
+        # Generate it with model/TinyCNN/quantize_model.py first.
         #- name: TinyCNN
         #  file: ../model/TinyCNN/TinyCNN.pt2
-        - name: TinyCNN
-          file: ../model/TinyCNN/model.py
-          parameters:
-            input-shape: 1x16x16x3
-            calibration-samples: 2
+        #- name: TinyCNN
+        #  file: ../model/TinyCNN/model.py
+        #  parameters:
+        #    input-shape: 1x16x16x3
+        #    calibration-samples: 2
 
-  compiler: GCC
+  compiler: AC6
   created-for: CMSIS-Toolbox@2.15.0

@@ -1,0 +1,83 @@
+# Input report: TinyCNNMultiple
+
+- input: `model/TinyCNN/TinyCNNMultiple.pt2`
+- input type: `.pt2`
+- execution: `CPU with Ethos-U acceleration`
+- parameters: `{}`
+- optimization: `default`
+- CMSIS-NN required: `no`
+- methods: `classify, filter, IMAGE_WIDTH, IMAGE_HEIGHT, INPUT_CHANNELS, NUM_CLASSES`
+
+## CPU fallback operators
+
+- `quantized_decomposed::dequantize_per_tensor.out`
+- `quantized_decomposed::quantize_per_tensor.out`
+
+## Vela
+
+- accelerator: `ethos-u85-256`
+- system config: `RTSS_HP_SRAM_MRAM`
+- memory mode: `Shared_Sram`
+
+```text
+Network summary for out
+Accelerator configuration               Ethos_U85_256
+System configuration                RTSS_HP_SRAM_MRAM
+Memory mode                               Shared_Sram
+Accelerator clock                                 400 MHz
+Design peak SRAM bandwidth                       4.54 GB/s
+Design peak Off-chip Flash bandwidth             0.72 GB/s
+
+Total SRAM used                                  3.00 KiB
+Total Off-chip Flash used                        0.19 KiB
+
+CPU operators = 0 (0.0%)
+NPU operators = 1 (100.0%)
+
+Average SRAM bandwidth                           0.10 GB/s
+Input   SRAM bandwidth                           0.00 MB/batch
+Weight  SRAM bandwidth                           0.00 MB/batch
+Output  SRAM bandwidth                           0.00 MB/batch
+Total   SRAM bandwidth                           0.00 MB/batch
+Total   SRAM bandwidth            per input      0.00 MB/inference (batch size 1)
+
+Average Off-chip Flash bandwidth                 0.02 GB/s
+Input   Off-chip Flash bandwidth                 0.00 MB/batch
+Weight  Off-chip Flash bandwidth                 0.00 MB/batch
+Output  Off-chip Flash bandwidth                 0.00 MB/batch
+Total   Off-chip Flash bandwidth                 0.00 MB/batch
+Total   Off-chip Flash bandwidth  per input      0.00 MB/inference (batch size 1)
+
+Neural network macs                              6912 MACs/batch
+
+
+Network summary for out
+Accelerator configuration               Ethos_U85_256
+System configuration                RTSS_HP_SRAM_MRAM
+Memory mode                               Shared_Sram
+Accelerator clock                                 400 MHz
+Design peak SRAM bandwidth                       4.54 GB/s
+Design peak Off-chip Flash bandwidth             0.72 GB/s
+
+Total SRAM used                                  5.00 KiB
+Total Off-chip Flash used                        5.25 KiB
+
+CPU operators = 0 (0.0%)
+NPU operators = 5 (100.0%)
+
+Average SRAM bandwidth                           0.07 GB/s
+Input   SRAM bandwidth                           0.01 MB/batch
+Weight  SRAM bandwidth                           0.00 MB/batch
+Output  SRAM bandwidth                           0.01 MB/batch
+Total   SRAM bandwidth                           0.02 MB/batch
+Total   SRAM bandwidth            per input      0.02 MB/inference (batch size 1)
+
+Average Off-chip Flash bandwidth                 0.02 GB/s
+Input   Off-chip Flash bandwidth                 0.00 MB/batch
+Weight  Off-chip Flash bandwidth                 0.01 MB/batch
+Output  Off-chip Flash bandwidth                 0.00 MB/batch
+Total   Off-chip Flash bandwidth                 0.01 MB/batch
+Total   Off-chip Flash bandwidth  per input      0.01 MB/inference (batch size 1)
+
+Neural network macs                            134656 MACs/batch
+```

@@ -1,0 +1,43 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+project:
+  packs:
+    - pack: ARM::CMSIS
+
+  add-path:
+    - ../cmsis-u55/src
+
+  misc:
+    - CPP:
+        - -std=gnu++17
+        - -Wno-deprecated-declarations
+    - for-compiler: AC6
+      CPP:
+        - -Wno-nan-infinity-disabled
+    - for-compiler: GCC
+      C:
+        - -Wno-psabi
+      CPP:
+        - -Wno-psabi
+      Link:
+        - -Wl,-u,_printf_float
+
+  groups:
+    - group: App
+      files:
+        - file: ./src/app_multiple_main.c
+        - file: ./src/executorch_multiple_test.cpp
+        - file: ../cmsis-u55/src/arm_embedded_module.cpp
+        - file: ../cmsis-u55/src/arm_embedded_module.hpp
+
+  layers:
+    - layer: $Board-Layer$
+      type: Board
+    - layer: $AI-Layer$
+      type: AI
+
+  output:
+    type:
+      - elf
+      - hex
+      - map

@@ -80,6 +80,10 @@ solution:
     model:
       zephyr:
       input:
+        # Alternative: comment the active input below and uncomment this entry.
+        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
+        # - name: TinyCNNMultiple
+        #   file: ../model/TinyCNN/TinyCNNMultiple.pt2
         - name: TinyCNN
           file: ../model/TinyCNN/model.py
           cpu:

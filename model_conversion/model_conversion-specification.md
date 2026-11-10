@@ -149,6 +149,29 @@ inputs, PTQ or QAT configuration, quantization, and post-quantization accuracy
 validation. The producer shall save the resulting quantized program or programs
 in the `.pt2` archive.
 
+The producer may include UTF-8 `constant_methods.json` via `package_pt2`'s
+`extra_files` argument. Its top-level object maps unique C-identifier method
+names to JSON scalars or non-empty homogeneous lists of scalars (Boolean,
+integer, float, string). Names shall not collide with network methods. Invalid
+JSON, other top-level types, nested objects/lists, mixed lists, and `null`
+values shall be rejected. Other extra files shall not be interpreted.
+
+The generator shall pass this dictionary as `constant_methods` to
+`to_edge_transform_and_lower` for either backend. These zero-input methods
+shall survive serialization unchanged and shall not be quantized or run through
+the network lowering passes. A missing metadata file shall mean an empty
+constant-method dictionary. Native runtime list results are flattened into
+individual primitive outputs.
+
+The TinyCNN multiple-model example shall export `filter` with A16W8
+quantization and `classify` with INT8 quantization, plus four positive integer
+constants: `IMAGE_WIDTH`, `IMAGE_HEIGHT`, `INPUT_CHANNELS`, and `NUM_CLASSES`.
+Batch shall always be 1 for inference. The firmware shall derive image shape
+`[1, IMAGE_HEIGHT, IMAGE_WIDTH, INPUT_CHANNELS]` and classifier output shape
+`[1, NUM_CLASSES]`, check them against actual tensor metadata, allocate buffers
+from their element counts, execute filter then classify, and
+compare every final logit with an independent hardcoded reference.
+
 The generator shall:
 
 - load the archive and validate every named program, signature, quantization,
