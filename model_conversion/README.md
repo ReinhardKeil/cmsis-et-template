@@ -131,9 +131,13 @@ mlops:
 
 | `model:` | | Content |
 |---|---|---|
-| `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
-| `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
+| `clayer:` | CMSIS only | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
+| `zephyr:` | Zephyr only | Generates Zephyr integration files and program artifacts in `ai_layer/` relative to the solution directory. A plain empty node and `zephyr: {}` are equivalent. |
 | `input:` | Required | Generated sequence of input-artifact definitions. |
+
+Exactly one of `clayer:` or `zephyr:` is required. Configurations containing
+both keys or neither key are rejected. For Zephyr, replace the `clayer:` line
+in the example above with `zephyr:`; no `*.clayer.yml` is generated.
 
 The `input:` node contains a list of named input artifacts.
 
@@ -166,6 +170,33 @@ their input signatures, but no target-specific lowering. `create_ai_layer`
 validates every named program, lowers all of them for the selected CPU or
 Ethos-U configuration, and serializes them into one `.pte`. It never quantizes
 or requantizes `.pt2`.
+
+Before loading an archive, the exporter imports the Python registration modules
+for the pack's ATen, portable custom, dimension-order, device-copy, quantized,
+and Cortex-M operator families. These imports also provide the `.out` variants
+needed for ExecuTorch serialization. Operator components are selected from the
+finished `.pte` after backend lowering.
+
+Some ExecuTorch wheels omit `portable_custom_ops_aot_lib`, which registers
+`aten::allclose.Tensor` and `aten::allclose.out`. An archive using these variants
+requires an ExecuTorch build containing that library; the exporter reports this
+missing dependency when loading such an archive. It does not substitute a local
+implementation. The CMSIS pack's target kernels do not register Python AOT ops.
+
+TinyCNN includes a standalone producer that uses the same Ethos-U symmetric
+INT8, per-channel-weight quantization as the Python conversion workflow:
+
+```powershell
+.venv/Scripts/python.exe model/TinyCNN/quantize_model.py
+```
+
+It writes `model/TinyCNN/TinyCNN.pt2` with a quantized `forward` program. The
+script defines the TinyCNN network, its fixed NHWC input shape `(1, 16, 16, 3)`,
+two calibration samples, and the `ethos-u55-256` quantization target itself.
+It has no command-line options and does not read MLOps configuration or invoke
+Vela. Supply the archive as a `.pt2` input to `create_ai_layer.py` for subsequent
+Ethos-U55 lowering and Vela compilation. Different networks or preparation
+requirements belong in their own scripts.
 
 ### `.pte` input
 
@@ -200,14 +231,15 @@ producer-owned accuracy validation.
 
 ## Output
 
-The script writes generated files to the directory containing the
-`*.clayer.yml` file specified by `model.clayer`. For example, with
-`clayer: ai_layer/ai_layer.clayer.yml`, generated files are written to
+With `model.clayer`, the script writes generated files to the directory
+containing the specified `*.clayer.yml`. With `model.zephyr`, it writes to
+`ai_layer/` relative to the solution directory. For example, either
+`clayer: ai_layer/ai_layer.clayer.yml` or `zephyr:` writes program artifacts to
 `ai_layer/`.
 
 ```text
 ai_layer/
-|-- ai_layer.clayer.yml              # canonical build description
+|-- ai_layer.clayer.yml              # CMSIS only: build description
 |-- <input-a>.pte                    # backend-lowered program validated for target
 |-- <input-a>_pte.c                  # embedded program data
 |-- <input-a>_pte.h                  # program data declarations
@@ -233,16 +265,16 @@ The generator replaces the files produced by the current run. It does not
 delete other files from the output directory; obsolete artifacts from removed
 inputs can be deleted by the user explicitly.
 
-The script also creates the `*.clayer.yml` file specified by `model.clayer`.
-This canonical file contains one group per input and selects the shared
+For CMSIS, the script creates the `*.clayer.yml` file specified by
+`model.clayer`. This file contains one group per input and selects the shared
 ExecuTorch runtime, required backends, and the union of CPU fallback-operator
 components extracted from all `.pte` program files. CPU-only layers omit `Backend
 EthosU`; CMSIS-NN is selected when any fallback operator requires it.
 
-When the `zephyr:` node is present, the script additionally creates
+For Zephyr, the script creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
-application. These files and `*.clayer.yml` are rendered from the same
-validated layer data.
+application. It does not create a `*.clayer.yml` file. Both integration formats
+use the same validated layer data.
 
 Add the generated configuration fragments before Zephyr processes the
 configuration, then add the AI-layer directory after creating the application:

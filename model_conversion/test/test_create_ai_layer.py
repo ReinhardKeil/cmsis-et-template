@@ -11,6 +11,7 @@ import io
 import importlib.util
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -309,6 +310,108 @@ class CreateAiLayerTests(unittest.TestCase):
                 npu, ethos_pte, "ethos-u55-128", {"memory-mode": "Other_Memory"}
             )
 
+    @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
+    def test_pt2_lowering_registers_quantized_kernels_in_fresh_process(self) -> None:
+        producer_spec = importlib.util.spec_from_file_location(
+            "tinycnn_quantizer", ROOT / "model" / "TinyCNN" / "quantize_model.py"
+        )
+        assert producer_spec is not None and producer_spec.loader is not None
+        producer = importlib.util.module_from_spec(producer_spec)
+        producer_spec.loader.exec_module(producer)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            checkpoint = Path(temporary) / "TinyCNN.pt2"
+            with mock.patch.object(producer, "OUTPUT_PATH", checkpoint):
+                producer.quantize_model()
+
+            # The producer and .py exporter register kernels as an import side
+            # effect. A fresh interpreter must lower .pt2 without either of them.
+            code = "\n".join([
+                "import sys",
+                "from pathlib import Path",
+                "from executorch.backends.arm.ethosu import EthosUCompileSpec",
+                "from model_conversion import create_ai_layer as generator",
+                "pte, methods = generator.lower_pt2(",
+                "    EthosUCompileSpec(target='ethos-u85-256'), None,",
+                "    Path(sys.argv[1]), 'TinyCNN')",
+                "assert methods == ('forward',), methods",
+                "inspection = generator.inspect_pte(pte)",
+                "assert inspection.methods == ('forward',), inspection",
+                "assert inspection.delegates == ('EthosUBackend',), inspection",
+                "assert inspection.accelerators == ('ethos-u85-256',), inspection",
+            ])
+            completed = subprocess.run(
+                [sys.executable, "-c", code, str(checkpoint)],
+                cwd=ROOT, capture_output=True, text=True, timeout=120,
+            )
+            self.assertEqual(
+                completed.returncode, 0, completed.stdout + completed.stderr
+            )
+
+    @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
+    def test_pt2_loads_cortex_m_operators_in_fresh_process(self) -> None:
+        import torch
+        from torch.export.pt2_archive._package import package_pt2
+
+        generator.register_operator_libraries()
+
+        class CortexMModel(torch.nn.Module):
+            def forward(self, value):
+                quantized = torch.ops.cortex_m.quantize_per_tensor.default(
+                    value, 0.1, 0, -128, 127, torch.int8
+                )
+                return torch.ops.cortex_m.dequantize_per_tensor.default(
+                    quantized, 0.1, 0, -128, 127, torch.int8
+                )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            checkpoint = Path(temporary) / "cortex_m.pt2"
+            program = torch.export.export(CortexMModel(), (torch.zeros(1, 4),))
+            package_pt2(checkpoint, exported_programs={"forward": program})
+            code = "\n".join([
+                "import sys",
+                "from pathlib import Path",
+                "import torch",
+                "from model_conversion import create_ai_layer as generator",
+                "programs = generator.load_pt2_programs(Path(sys.argv[1]), 'CPU')",
+                "assert tuple(programs) == ('forward',), programs",
+                "expected = {'aten': ['add.out'],",
+                "    'dim_order_ops': ['_clone_dim_order.out'],",
+                "    'et_copy': ['_h2d_copy.out', '_d2h_copy.out'],",
+                "    'quantized_decomposed': ['quantize_per_tensor.out', 'embedding_4bit.out'],",
+                "    'cortex_m': ['quantized_conv2d.out', 'dequantize_per_tensor.out']}",
+                "for namespace, names in expected.items():",
+                "    for name in names:",
+                "        op, overload = name.split('.')",
+                "        getattr(getattr(getattr(torch.ops, namespace), op), overload)",
+                "from executorch.backends.cortex_m.target_config import CortexMTargetConfig",
+                "pte, methods = generator.lower_pt2(None,",
+                "    CortexMTargetConfig.from_target_string('cortex-m55'),",
+                "    Path(sys.argv[1]), 'CPU')",
+                "assert methods == ('forward',), methods",
+                "inspection = generator.inspect_pte(pte)",
+                "assert inspection.methods == ('forward',), inspection",
+                "assert inspection.delegates == (), inspection",
+            ])
+            completed = subprocess.run(
+                [sys.executable, "-c", code, str(checkpoint)],
+                cwd=ROOT, capture_output=True, text=True, timeout=120,
+            )
+            self.assertEqual(
+                completed.returncode, 0, completed.stdout + completed.stderr
+            )
+
+    @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
+    def test_pt2_reports_missing_portable_allclose_library(self) -> None:
+        import torch
+
+        with mock.patch.object(generator, "register_operator_libraries"), mock.patch(
+            "torch.export.pt2_archive._package.load_pt2",
+            side_effect=RuntimeError("cannot resolve aten.allclose.Tensor"),
+        ), mock.patch.object(torch.ops.aten, "allclose", object()):
+            with self.assertRaisesRegex(SystemExit, "portable_custom_ops_aot_lib"):
+                generator.load_pt2_programs(Path("unused.pt2"), "Model")
+
     def test_executorch_version_prefers_exact_selected_version(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -361,6 +464,35 @@ class CreateAiLayerTests(unittest.TestCase):
         )
         self.assertEqual(operators, ["Portable add", "Quantized dequantize"])
         self.assertFalse(cmsis_nn)
+
+    def test_pack_component_mapping_covers_operator_aliases(self) -> None:
+        cases = {
+            "aten::_native_batch_norm_legit.no_stats_out": "Portable native_batch_norm",
+            "aten::_native_batch_norm_legit_no_training.out": "Portable native_batch_norm",
+            "aten::copy_": "Portable copy",
+            "aten::index_put_": "Portable index_put",
+            "et_copy::_h2d_copy.out": "Portable device_copy",
+            "et_copy::_d2h_copy.out": "Portable device_copy",
+            "quantized_decomposed::choose_qparams_per_token_asymmetric.out": "Quantized choose_qparams",
+            "quantized_decomposed::quantize_per_token.out": "Quantized quantize",
+            "quantized_decomposed::dequantize_per_token.out": "Quantized dequantize",
+            "quantized_decomposed::embedding_2bit.out": "Quantized embedding2b",
+            "quantized_decomposed::embedding_4bit.dtype_out": "Quantized embedding4b",
+            "cortex_m::quantized_depthwise_conv2d.out": "Cortex-M quantized_depthwise_conv2d",
+            "cortex_m::quantized_transpose_conv2d.out": "Cortex-M quantized_transpose_conv2d",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            pack = Path(temporary)
+            declarations = "".join(
+                f'<component Cgroup="ExecuTorch Operators" Csub="{name}"/>'
+                for name in sorted(set(cases.values()))
+            )
+            (pack / "ExecuTorch.pdsc").write_text(
+                f"<package><components>{declarations}</components></package>",
+                encoding="utf-8",
+            )
+            components, _ = generator.operator_components(list(cases), pack)
+        self.assertEqual(components, sorted(set(cases.values())))
 
     def test_cpu_components_select_cmsis_nn_without_ethosu_backend(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -571,6 +703,9 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "model_pte.h").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
             self.assertTrue((output / "model_REPORT.md").is_file())
+            self.assertFalse((output / "CMakeLists.txt").exists())
+            self.assertFalse((output / "components.conf").exists())
+            self.assertFalse((output / "operators.conf").exists())
 
     def test_main_accepts_empty_zephyr_and_writes_module_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -584,7 +719,6 @@ class CreateAiLayerTests(unittest.TestCase):
                             "description": "Demo",
                             "npu": {"type": "Ethos-U55"},
                             "model": {
-                                "clayer": "generated/ai_layer.clayer.yml",
                                 # Equivalent to a plain ``zephyr:`` YAML node.
                                 "zephyr": None,
                             },
@@ -615,16 +749,18 @@ class CreateAiLayerTests(unittest.TestCase):
                     "components.conf": generator.ZEPHYR_COMPONENTS,
                     "operators.conf": "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y\n",
                 },
-            ), mock.patch.object(
+            ), mock.patch.object(generator, "clayer") as render_clayer, mock.patch.object(
                 generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
             ):
                 generator.main()
 
-            output = solution_dir / "generated"
+            render_clayer.assert_not_called()
+            output = solution_dir / "ai_layer"
+            self.assertEqual((output / "model.pte").read_bytes(), b"PTE")
             self.assertTrue((output / "CMakeLists.txt").is_file())
             self.assertTrue((output / "components.conf").is_file())
             self.assertTrue((output / "operators.conf").is_file())
-            self.assertTrue((output / "ai_layer.clayer.yml").is_file())
+            self.assertFalse(list(output.glob("*.clayer.yml")))
 
     def test_main_generates_cpu_layer_without_vela_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -688,7 +824,6 @@ class CreateAiLayerTests(unittest.TestCase):
                     {
                         "cbuild-mlops": {
                             "model": {
-                                "clayer": "ai_layer/ai_layer.clayer.yml",
                                 "zephyr": True,
                             }
                         }
@@ -702,7 +837,40 @@ class CreateAiLayerTests(unittest.TestCase):
             ), self.assertRaisesRegex(SystemExit, "model.zephyr must be empty or a mapping"):
                 generator.main()
 
+    def test_main_requires_exactly_one_output_format(self) -> None:
+        for model in ({}, {"clayer": "ai_layer/ai_layer.clayer.yml", "zephyr": None}):
+            with self.subTest(model=model), tempfile.TemporaryDirectory() as temporary:
+                mlops_file = Path(temporary) / "demo.cbuild-mlops.yml"
+                mlops_file.write_text(
+                    yaml.safe_dump({"cbuild-mlops": {"model": model}}), encoding="utf-8"
+                )
+                with mock.patch.object(sys, "argv", [str(SCRIPT), str(mlops_file)]), mock.patch.object(
+                    generator, "run_in_venv"
+                ), mock.patch.object(generator, "check_executorch_version") as check_version, self.assertRaisesRegex(
+                    SystemExit, "model must contain exactly one of clayer or zephyr"
+                ):
+                    generator.main()
+                check_version.assert_not_called()
+                self.assertEqual(list(Path(temporary).iterdir()), [mlops_file])
+
+    def test_main_rejects_invalid_clayer_path(self) -> None:
+        for value in (None, "", " ", True, {}):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as temporary:
+                mlops_file = Path(temporary) / "demo.cbuild-mlops.yml"
+                mlops_file.write_text(
+                    yaml.safe_dump({"cbuild-mlops": {"model": {"clayer": value}}}), encoding="utf-8"
+                )
+                with mock.patch.object(sys, "argv", [str(SCRIPT), str(mlops_file)]), mock.patch.object(
+                    generator, "run_in_venv"
+                ), self.assertRaisesRegex(SystemExit, "model.clayer must be a non-empty file path"):
+                    generator.main()
+
     def test_main_generates_multiple_models_and_combined_layer(self) -> None:
+        for integration in ("clayer", "zephyr"):
+            with self.subTest(integration=integration):
+                self._check_multiple_models(integration)
+
+    def _check_multiple_models(self, integration: str) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             solution = Path(temporary)
             for name in ("npu.py", "cpu.py"):
@@ -714,8 +882,8 @@ class CreateAiLayerTests(unittest.TestCase):
                         "processor": {"type": "Cortex-M55"},
                         "npu": {"type": "Ethos-U55"},
                         "model": {
-                            "clayer": "ai_layer/ai_layer.clayer.yml",
-                            "zephyr": {},
+                            **({"clayer": "ai_layer/ai_layer.clayer.yml"}
+                               if integration == "clayer" else {"zephyr": {}}),
                             "input": [
                                 {"name": "NpuModel", "file": "npu.py"},
                                 {"name": "CpuModel", "file": "cpu.py", "cpu": None},
@@ -776,13 +944,17 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual((output / "CpuModel.pte").read_bytes(), b"CPU")
             self.assertTrue((output / "NpuModel_REPORT.md").is_file())
             self.assertTrue((output / "CpuModel_REPORT.md").is_file())
-            layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
-            self.assertIn("group: NpuModel", layer)
-            self.assertIn("group: CpuModel", layer)
-            self.assertEqual(layer.count("Backend EthosU"), 1)
-            cmake = (output / "CMakeLists.txt").read_text(encoding="utf-8")
-            self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
-            self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
+            if integration == "clayer":
+                layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
+                self.assertIn("group: NpuModel", layer)
+                self.assertIn("group: CpuModel", layer)
+                self.assertEqual(layer.count("Backend EthosU"), 1)
+                self.assertFalse((output / "CMakeLists.txt").exists())
+            else:
+                self.assertFalse(list(output.glob("*.clayer.yml")))
+                cmake = (output / "CMakeLists.txt").read_text(encoding="utf-8")
+                self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
+                self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
 
     def test_main_lowers_multi_program_pt2_to_one_pte(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

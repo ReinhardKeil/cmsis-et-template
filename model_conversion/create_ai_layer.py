@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # Copyright 2026 Arm Limited and/or its affiliates.
 # SPDX-License-Identifier: Apache-2.0
-"""Create a multi-program CMSIS AI layer and optional Zephyr projection.
+"""Create a multi-program AI layer for CMSIS or Zephyr.
 
 One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
 Each input file has its own .pte container, .c, and .h files; a .pt2 input
 may contain several named programs that become methods in that .pte. The
-generated *.clayer.yml combines the CPU fallback operators required by all
-output programs. Optional Zephyr output and *.clayer.yml are rendered from the
-same validated layer-wide data.
+generated CMSIS or Zephyr metadata combines the CPU fallback operators required
+by all output programs. Exactly one of model.clayer and model.zephyr selects
+the build integration format.
 
 Without --input, this script processes all declared inputs. With --input NAME,
 it updates only the selected input and rebuilds the layer-wide metadata from
@@ -361,10 +361,27 @@ def _input_case(value, description: str) -> tuple[tuple, dict]:
     return args, kwargs
 
 
+def register_operator_libraries() -> None:
+    """Register the Python operator families supplied by the ExecuTorch pack.
+
+    Import before model capture or PT2 deserialization: archives contain
+    operator names, not the Python code or native libraries that define them.
+    ATen operators come from torch; ExecuTorch adds portable custom, dimension
+    order, device copy, quantized, and Cortex-M operators.
+    """
+    import torch  # noqa: F401
+    import executorch.kernels.quantized  # noqa: F401
+    import executorch.kernels.portable  # noqa: F401
+    import executorch.backends.cortex_m.ops.operators  # noqa: F401
+    import executorch.exir.passes.dim_order_ops_registry  # noqa: F401
+    import executorch.exir.passes._device_copy_ops_registry  # noqa: F401
+
+
 def load_model(source: Path, params: dict, model_name: str):
     """Load one Python workflow and return graph, calibration, and example inputs."""
     import torch
 
+    register_operator_libraries()
     module_name = f"ai_layer_model_{re.sub(r'[^A-Za-z0-9_]', '_', model_name)}_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, source)
     if spec is None or spec.loader is None:
@@ -379,7 +396,10 @@ def load_model(source: Path, params: dict, model_name: str):
         sys.exit(f"model {model_name!r}: {source} must define {error.name}")
     functions = (get_model, get_example_inputs, get_calibration_inputs)
     accepted = [_accepted_parameter_names(function) for function in functions]
-    known = set(params) if any(names is None for names in accepted) else set().union(*accepted)
+    known = (
+        set(params) if any(names is None for names in accepted) else
+        {name for names in accepted if names is not None for name in names}
+    )
     unknown = sorted(set(params) - known)
     if unknown:
         sys.exit(f"model {model_name!r}: unknown parameters {unknown}")
@@ -476,11 +496,24 @@ def export_model_cpu(target, source: Path, params: dict, model_name: str) -> byt
 
 def load_pt2_programs(source: Path, input_name: str) -> dict:
     """Load and validate every named ExportedProgram in a PT2 archive."""
+    register_operator_libraries()
     from torch.export.pt2_archive._package import load_pt2
 
     try:
         programs = dict(load_pt2(source).exported_programs)
     except Exception as error:
+        # Some wheels omit this optional AOT library and its import only logs
+        # the failure. Explain the missing package artifact when it is needed.
+        if re.search(r"aten(?:::|\.)allclose\.(?:Tensor|out)\b", str(error)):
+            import torch
+            if not all(hasattr(torch.ops.aten.allclose, name) for name in ("Tensor", "out")):
+                sys.exit(
+                    f"input {input_name!r}: the PT2 archive needs the portable custom "
+                    "allclose operators, but the installed ExecuTorch wheel did not "
+                    "register aten::allclose.Tensor and aten::allclose.out. "
+                    "Install an ExecuTorch build containing portable_custom_ops_aot_lib; "
+                    "the runtime pack alone does not provide Python AOT registration."
+                )
         sys.exit(f"input {input_name!r}: cannot load PT2 archive: {error}")
     if not programs:
         sys.exit(f"input {input_name!r}: PT2 archive contains no exported programs")
@@ -636,10 +669,22 @@ def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
 FAMILY = {
     "aten": "Portable",
     "dim_order_ops": "Portable",
+    "et_copy": "Portable",
     "quantized_decomposed": "Quantized",
     "cortex_m": "Cortex-M",
 }
 ALIASES = {
+    "_native_batch_norm_legit": "native_batch_norm",
+    "_native_batch_norm_legit_no_training": "native_batch_norm",
+    "copy_": "copy",
+    "index_put_": "index_put",
+    "_h2d_copy": "device_copy",
+    "_d2h_copy": "device_copy",
+    "choose_qparams_per_token_asymmetric": "choose_qparams",
+    "quantize_per_token": "quantize",
+    "dequantize_per_token": "dequantize",
+    "embedding_2bit": "embedding2b",
+    "embedding_4bit": "embedding4b",
     "quantized_depthwise_conv2d": "quantized_dw_conv2d",
     "quantized_transpose_conv2d": "quantized_tr_conv2d",
 }
@@ -663,9 +708,10 @@ def pack_components(pack: Path) -> tuple[set[str], set[str]]:
         )
 
     operators = {
-        component.get("Csub"): component.get("condition")
+        name: component.get("condition")
         for component in root.iter("component")
         if component.get("Cgroup") == "ExecuTorch Operators"
+        and (name := component.get("Csub")) is not None
     }
     return set(operators), {
         name for name, condition in operators.items() if needs_cmsis_nn(condition)
@@ -682,8 +728,10 @@ def operator_components(operator_names: list[str], pack: Path) -> tuple[list[str
             unknown.append(operator)
             continue
         op = op.split(".", 1)[0]
+        exact = f"{FAMILY[ns]} {op}"
         op = ALIASES.get(op, op)
         candidates = [
+            exact,
             f"{FAMILY[ns]} {op}",
             f"{FAMILY[ns]} {op.lstrip('_')}",
             f"{FAMILY[ns]} {re.sub(r'_(per_tensor|per_channel|byte|copy|nhwc)$', '', op)}",
@@ -1021,6 +1069,9 @@ examples:
 
     mlops = yaml.safe_load(mlops_file.read_text())["cbuild-mlops"]
     model = mlops["model"]
+    if ("clayer" in model) == ("zephyr" in model):
+        sys.exit("model must contain exactly one of clayer or zephyr")
+    layer_file = None
     if "zephyr" in model:
         # YAML loads an empty ``zephyr:`` node as None. Treat it as the empty
         # mapping so the concise form and ``zephyr: {}`` have identical meaning.
@@ -1028,8 +1079,12 @@ examples:
             model["zephyr"] = {}
         elif not isinstance(model["zephyr"], dict):
             sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
-    layer_file = solution_dir / model["clayer"]
-    layer_dir = layer_file.parent
+        layer_dir = solution_dir / "ai_layer"
+    else:
+        if not isinstance(model["clayer"], str) or not model["clayer"].strip():
+            sys.exit("model.clayer must be a non-empty file path")
+        layer_file = solution_dir / model["clayer"]
+        layer_dir = layer_file.parent
     version = executorch_version(mlops_file)
     check_executorch_version(version)
     pack = executorch_pack(version)
@@ -1110,16 +1165,18 @@ examples:
             entry, per_input_ops[entry.name], input_cmsis_nn,
             specs[entry.name], vela_reports[entry.name], inspections[entry.name]
         )
-    outputs[layer_file.name] = clayer(
-        mlops, runtime, operators, cmsis_nn, mlops_file, version, models
-    )
-    if "zephyr" in model:
+    if layer_file is not None:
+        outputs[layer_file.name] = clayer(
+            mlops, runtime, operators, cmsis_nn, mlops_file, version, models
+        )
+    else:
         outputs.update(zephyr_metadata(operators, pack, delegated, models))
     replace_outputs(layer_dir, outputs)
 
     print(f"[ai_layer] inputs: {[entry.name for entry in selected]}, operators: {operators}")
-    print(f"[ai_layer] wrote {layer_file}")
-    if "zephyr" in model:
+    if layer_file is not None:
+        print(f"[ai_layer] wrote {layer_file}")
+    else:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")
 
 

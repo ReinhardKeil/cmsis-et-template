@@ -41,7 +41,7 @@ solution:
       west-defs:
         - DTC_OVERLAY_FILE: fvp.overlay
         - FVP_SHUTDOWN_ON_EOT: ON
-        - CMAKE_CXX_FLAGS: -include stddef.h
+        - CMAKE_CXX_FLAGS: -includestddef.h
       target-set:
         - set:
           debugger:
@@ -83,7 +83,6 @@ solution:
       system: RTSS_HP_SRAM_MRAM
       memory: Shared_Sram
     model:
-      clayer: ai_layer/ai_layer.clayer.yml
       zephyr:
       input:
         - name: TinyCNN

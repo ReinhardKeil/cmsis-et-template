@@ -40,7 +40,7 @@ solution:
       west-defs:
         - FVP_SHUTDOWN_ON_EOT: ON
         # ExecuTorch tag.h uses size_t without including <stddef.h>.
-        - CMAKE_CXX_FLAGS: -include stddef.h
+        - CMAKE_CXX_FLAGS: -includestddef.h
       target-set:
         - set:
           debugger:
@@ -78,7 +78,6 @@ solution:
   mlops:
     description: TinyCNN int8 image classifier for Cortex-M55
     model:
-      clayer: ai_layer/ai_layer.clayer.yml
       zephyr:
       input:
         - name: TinyCNN

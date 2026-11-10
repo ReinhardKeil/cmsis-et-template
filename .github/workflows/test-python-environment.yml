@@ -68,5 +68,5 @@ jobs:
             PY=.venv/bin/python
           fi
           "${PY}" -m pip list | grep -iE "torch|executorch|vela|tosa|flatbuffers"
-          "${PY}" -m pip show flatbuffers | grep "Version: 24.3.25" \
+          "${PY}" -m pip show flatbuffers | grep "Version: 25.2.10" \
             || { echo "::error::flatbuffers pin regressed"; exit 1; }

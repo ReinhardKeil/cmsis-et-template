@@ -145,7 +145,7 @@ west:
 | `west-board` | Selects `mps3/corstone300/fvp` for the FVP or `ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp` for the AppKit. The project-level `board: $west-board$` passes the selected value to west. |
 | `DTC_OVERLAY_FILE` | Selects the target-specific devicetree overlay: `fvp.overlay` or `app.overlay`. |
 | `EXTRA_CONF_FILE: app.conf` | Adds the AppKit-only Kconfig fragment. It is intentionally absent from the FVP target. |
-| `CMAKE_CXX_FLAGS: -include stddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. |
+| `CMAKE_CXX_FLAGS: -includestddef.h` | Applies the current ExecuTorch header compatibility workaround to the FVP build. The single argument keeps the header attached to `-include` when CMSIS-Toolbox invokes CMake. |
 | Debug `CONFIG_*` definitions | Enable Zephyr debug information, thread information, and debug optimization for the `Debug` build type. |
 | Release `CONFIG_SPEED_OPTIMIZATIONS` | Selects Zephyr's speed optimization for the `Release` build type. |
 | `EXTRA_ZEPHYR_MODULES: ${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1` | Makes the installed ExecuTorch pack root an external Zephyr module. This exposes the pack's Kconfig symbols, CMake sources, runtime, operators, and Ethos-U backend. |
@@ -168,7 +168,6 @@ requires regenerating the AI layer before rebuilding.
 | `ai_layer/components.conf` | Generated Kconfig fragment enabling only the ExecuTorch runtime, support libraries, kernel registration, and Ethos-U backend required by the generated layer. |
 | `ai_layer/operators.conf` | Generated Kconfig fragment enabling only the operators detected in the lowered model. |
 | `ai_layer/CMakeLists.txt` | Generated CMake fragment that attaches `TinyCNN_pte.c` and its include directory directly to Zephyr's `app` target. Direct ownership prevents the model from being compiled twice during AC6 pre-link. |
-| `ai_layer/ai_layer.clayer.yml` | Generated CMSIS layer metadata recording the pack, components, operators, definitions, and embedded program sources. |
 | `ai_layer/VELA_SUMMARY.md` | Generated record of the effective Vela configuration and Vela's textual compilation report. |
 
 The two generated `ai_layer/*.conf` files must be appended to
