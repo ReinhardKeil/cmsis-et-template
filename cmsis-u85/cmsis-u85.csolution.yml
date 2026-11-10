@@ -41,7 +41,11 @@ solution:
   build-types:
     - type: Debug
       debug: on
-      optimize: debug
+      optimize: none
+      misc:
+        - for-compiler: AC6
+          C-CPP:
+            - -O0
 
   projects:
     - project: ./cmsis-u85.cproject.yml

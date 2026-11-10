@@ -18,7 +18,7 @@ solution:
       board: V2M-MPS3-SSE-300-FVP
       device: SSE-300-MPS3
       variables:
-        - Board-Layer: $SolutionDir()$/../cmsis-u55/board/Corstone-300/Board.clayer.yml
+        - Board-Layer: $SolutionDir()$/board/Corstone-300/Board.clayer.yml
         - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
       target-set:
         - set:
@@ -34,7 +34,11 @@ solution:
   build-types:
     - type: Debug
       debug: on
-      optimize: debug
+      optimize: none
+      misc:
+        - for-compiler: AC6
+          C-CPP:
+            - -O0
 
   projects:
     - project: ./cmsis-m.cproject.yml

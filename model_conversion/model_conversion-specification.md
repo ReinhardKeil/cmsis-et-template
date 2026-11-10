@@ -254,6 +254,22 @@ tokens shall also be rejected.
 The matching `<solution>.cbuild-pack.yml` shall be read from the solution
 directory. Its selected `PyTorch::ExecuTorch` version determines the pack used
 to map the serialized program's CPU operators to CMSIS components.
+The generated `<solution>.cbuild-idx.yml` shall locate the active `.cbuild.yml`
+files. Their `build.packs` entries shall determine the ExecuTorch version used,
+which must also be present in the pack lock file. Older versions retained in
+the lock file shall not override the active build selection. The converter
+shall not parse source `.csolution.yml` or existing `.clayer.yml` files for
+version selection. Missing build files, absent active ExecuTorch packs, or
+inconsistent lock-file resolutions shall require setup to be rerun. Without a
+build index, prefer a unique exact lock-file resolution, otherwise a unique
+remaining resolution. Multiple remaining versions shall fail with an ambiguity
+diagnostic.
+For CMSIS output with an existing generated clayer, pack-resolution errors and
+Python/runtime version mismatches shall explain that the old clayer may pin a
+previous ExecuTorch pack. The diagnostic shall identify the generated clayer
+and suggest removing it, rerunning setup for the target, and rerunning the
+converter. The converter shall not remove the clayer automatically. Zephyr
+output and a missing Python package shall not receive this clayer-specific hint.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
@@ -493,7 +509,9 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
-- The resolved pack version follows the exact selector when available and
+- The resolved pack version follows the generated build's pack selection even
+  when the lock file retains an older version. Source solution/layer files are
+  not parsed. Missing, inconsistent or ambiguous generated metadata and
   mismatches with the installed ExecuTorch package are rejected.
 - `.py` parameters are converted to the types expected by each accepting
   workflow function; parameters on `.pt2` or `.pte` are rejected.

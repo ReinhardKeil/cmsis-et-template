@@ -113,27 +113,59 @@ def pack_root() -> Path:
 
 
 def executorch_version(mlops_file: Path) -> str:
-    """The PyTorch::ExecuTorch pack version cbuild setup resolved, from <solution>.cbuild-pack.yml.
+    """Read ExecuTorch's version from CMSIS-Toolbox's generated build metadata.
 
-    The file is a lock file that keeps earlier resolutions, so an unversioned
-    selector can still point at an older pack; the entry selected by the
-    csolution's exact pin (PyTorch::ExecuTorch@<version>) is the one in use.
+    The pack lock file can retain versions from an old generated AI layer.
+    The active .cbuild.yml files record the packs actually used by the build;
+    the .cbuild-idx.yml locates them. No source solution or layer is parsed.
     """
     import yaml
 
     pack_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-pack.yml"))
-    fallback = None
+    resolved: dict[str, set[str]] = {}
     for entry in yaml.safe_load(pack_file.read_text())["cbuild-pack"]["resolved-packs"]:
         name, _, version = entry["resolved-pack"].partition("@")
         selectors = entry.get("selected-by-pack", [])
         if name != PACK or not selectors:
             continue
-        if f"{PACK}@{version}" in selectors:
-            return version
-        fallback = fallback or version
-    if fallback:
-        return fallback
-    sys.exit(f"{pack_file}: {PACK} is not among the resolved packs")
+        resolved.setdefault(version, set()).update(selectors)
+    if not resolved:
+        sys.exit(f"{pack_file}: {PACK} is not among the resolved packs")
+
+    index_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-idx.yml"))
+    if index_file.is_file():
+        index = yaml.safe_load(index_file.read_text())["build-idx"]
+        versions: set[str] = set()
+        for context in index.get("cbuilds", []):
+            build_file = index_file.parent / context["cbuild"]
+            if not build_file.is_file():
+                sys.exit(f"{build_file}: missing generated build file. Re-run cbuild setup.")
+            build = yaml.safe_load(build_file.read_text())["build"]
+            for entry in build.get("packs", []):
+                name, _, version = entry["pack"].partition("@")
+                if name == PACK:
+                    versions.add(version)
+        if not versions:
+            sys.exit(
+                f"{index_file}: no active build uses {PACK}. Re-run cbuild setup."
+            )
+        if not versions.issubset(resolved):
+            sys.exit(
+                f"{index_file}: active {PACK} version is not resolved in {pack_file}. "
+                "Re-run cbuild setup."
+            )
+    else:
+        # Support standalone MLOps/pack artifacts with an unambiguous resolution.
+        versions = {
+            version for version, selectors in resolved.items()
+            if f"{PACK}@{version}" in selectors
+        } or set(resolved)
+    if len(versions) != 1:
+        sys.exit(
+            f"{pack_file}: ambiguous {PACK} versions: {', '.join(sorted(versions))}. "
+            "Re-run cbuild setup to generate an unambiguous active build selection."
+        )
+    return next(iter(versions))
 
 
 def executorch_pack(version: str) -> Path:
@@ -940,7 +972,7 @@ def generate_operator_lists(pte_paths: dict[str, Path], stage: Path) -> tuple[di
     return per_input, _operator_names(combined_dir / "selected_operators.yaml")
 
 
-def check_executorch_version(expected: str) -> None:
+def check_executorch_version(expected: str, *, recovery_hint: str = "") -> None:
     """Require the Python exporter to match the runtime pack's base version.
 
     CMSIS pack versions may add a pack-specific prerelease suffix, for example
@@ -955,7 +987,7 @@ def check_executorch_version(expected: str) -> None:
     if installed != python_version:
         sys.exit(
             f"ExecuTorch Python package {installed} does not match "
-            f"{PACK}@{expected}"
+            f"{PACK}@{expected}{recovery_hint}"
         )
 
 
@@ -1108,8 +1140,21 @@ examples:
             sys.exit("model.clayer must be a non-empty file path")
         layer_file = solution_dir / model["clayer"]
         layer_dir = layer_file.parent
-    version = executorch_version(mlops_file)
-    check_executorch_version(version)
+    recovery_hint = ""
+    if layer_file is not None and layer_file.is_file():
+        recovery_hint = (
+            "\n\nAn old generated AI clayer may still pin the previous ExecuTorch pack. "
+            f"Removing the generated clayer '{layer_file}' may resolve this issue. "
+            "Then rerun cbuild setup for your target and rerun create_ai_layer.py "
+            "to regenerate the AI layer."
+        )
+    try:
+        version = executorch_version(mlops_file)
+    except SystemExit as error:
+        if recovery_hint:
+            sys.exit(f"{error}{recovery_hint}")
+        raise
+    check_executorch_version(version, recovery_hint=recovery_hint)
     pack = executorch_pack(version)
     models = model_inputs(mlops, solution_dir)
     accelerator = expected_accelerator(mlops)

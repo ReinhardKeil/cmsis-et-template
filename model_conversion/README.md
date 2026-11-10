@@ -50,6 +50,20 @@ selected by the solution because that runtime consumes the generated `.pte`
 program files. `gen_oplist` and `gen_all_oplist` are included with ExecuTorch;
 TorchGen is included with PyTorch.
 
+The converter uses CMSIS-Toolbox's generated metadata: `cbuild-idx.yml` locates
+the active `.cbuild.yml` files, whose `build.packs` entries identify the
+ExecuTorch runtime version. It verifies that version against `cbuild-pack.yml`.
+Older versions retained in the pack lock file do not override the active build.
+The converter does not parse `.csolution.yml` or the existing `.clayer.yml`.
+Standalone MLOps/pack artifacts without a build index must have an unambiguous
+pack resolution. Missing, inconsistent, or ambiguous build metadata requires
+setup to be rerun before export.
+
+For CMSIS projects, an existing generated AI clayer can retain an old
+ExecuTorch pack pin during an upgrade. Version mismatch and pack-resolution
+errors identify that clayer and suggest removing it, rerunning setup for the
+target, and rerunning `create_ai_layer.py` to regenerate it.
+
 Use `--recreate` to rebuild an existing environment. The optional `--uv` and
 `--python VERSION` arguments select uv and a supported Python version:
 

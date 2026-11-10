@@ -7,6 +7,9 @@ Vela compilation.
 The supplied configuration runs TinyCNN on the Cortex-M55 of the
 Corstone-300 FVP.
 
+Application sources are in `src/`. The local `board/Corstone-300/` directory
+contains this solution's board layer, startup, linker, and UART configuration.
+
 Commands below run from the workspace root.
 
 ## Generate, build, and run

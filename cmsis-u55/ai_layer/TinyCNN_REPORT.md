@@ -1,11 +1,12 @@
-# Model report: TinyCNN
+# Input report: TinyCNN
 
 - input: `model/TinyCNN/model.py`
-- input type: `Python model source`
+- input type: `.py`
 - execution: `CPU with Ethos-U acceleration`
 - parameters: `{"calibration_samples": 2, "input_shape": [1, 16, 16, 3]}`
 - optimization: `default`
 - CMSIS-NN required: `no`
+- methods: `forward`
 
 ## CPU fallback operators
 
@@ -27,20 +28,20 @@ Accelerator clock                                 500 MHz
 Design peak SRAM bandwidth                       3.73 GB/s
 Design peak Off-chip Flash bandwidth             0.47 GB/s
 
-Total SRAM used                                  6.48 KiB
+Total SRAM used                                  5.14 KiB
 Total Off-chip Flash used                        4.98 KiB
 
 CPU operators = 0 (0.0%)
 NPU operators = 7 (100.0%)
 
-Average SRAM bandwidth                           1.03 GB/s
+Average SRAM bandwidth                           1.12 GB/s
 Input   SRAM bandwidth                           0.01 MB/batch
 Weight  SRAM bandwidth                           0.00 MB/batch
 Output  SRAM bandwidth                           0.01 MB/batch
-Total   SRAM bandwidth                           0.03 MB/batch
-Total   SRAM bandwidth            per input      0.03 MB/inference (batch size 1)
+Total   SRAM bandwidth                           0.02 MB/batch
+Total   SRAM bandwidth            per input      0.02 MB/inference (batch size 1)
 
-Average Off-chip Flash bandwidth                 0.20 GB/s
+Average Off-chip Flash bandwidth                 0.25 GB/s
 Input   Off-chip Flash bandwidth                 0.00 MB/batch
 Weight  Off-chip Flash bandwidth                 0.00 MB/batch
 Output  Off-chip Flash bandwidth                 0.00 MB/batch

@@ -78,6 +78,11 @@ Choose a template for your software stack and processor/NPU combination.
 Each template README lists the supplied board and FVP configurations and
 explains how to use them. Adapt the template to your target hardware.
 
+Each solution keeps its application sources, headers, compatibility support,
+and board files inside its own directory. Build files must not reference
+sources from another solution. CMSIS packs and Zephyr modules provide external
+dependencies.
+
 | Template | Target |
 | --- | --- |
 | [`cmsis-u55/`](cmsis-u55/README.md) | Cortex-M with Ethos-U55/U65 |

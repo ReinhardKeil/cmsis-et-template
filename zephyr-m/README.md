@@ -7,6 +7,9 @@ Ethos-U NPU or Vela compilation.
 The supplied configurations run TinyCNN on a Cortex-M55 using the Alif
 Ensemble E8 AI/ML AppKit or the Corstone-300 FVP.
 
+All application sources, headers, and AC6 compatibility support are in this
+solution's `src/` directory.
+
 ## Prepare Zephyr 4.5
 
 Create or select a Zephyr 4.5 workspace and fetch the modules required by the

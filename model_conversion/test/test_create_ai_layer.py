@@ -524,6 +524,78 @@ class CreateAiLayerTests(unittest.TestCase):
             )
             self.assertEqual(generator.executorch_version(mlops), "1.5.1")
 
+    def test_executorch_version_uses_generated_build_selection(self) -> None:
+        for active_version in ("1.5.1", "1.6.0-zephyrpreview1"):
+            for reverse in (False, True):
+                with self.subTest(version=active_version, reverse=reverse), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    # These source files deliberately cannot be parsed. Only
+                    # CMSIS-Toolbox's generated build selection is authoritative.
+                    (root / "demo.csolution.yml").write_text("invalid: [yaml")
+                    (root / "ai_layer.clayer.yml").write_text("invalid: [yaml")
+                    entries = [
+                        {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
+                         "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
+                        for version in ("1.5.1", "1.6.0-zephyrpreview1")
+                    ]
+                    (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
+                        "cbuild-pack": {"resolved-packs": entries[::-1] if reverse else entries},
+                    }))
+                    (root / "out").mkdir()
+                    (root / "out/demo.cbuild.yml").write_text(yaml.safe_dump({
+                        "build": {"packs": [{"pack": f"PyTorch::ExecuTorch@{active_version}"}]},
+                    }))
+                    (root / "demo.cbuild-idx.yml").write_text(yaml.safe_dump({
+                        "build-idx": {"cbuilds": [{"cbuild": "out/demo.cbuild.yml"}]},
+                    }))
+                    self.assertEqual(generator.executorch_version(root / "demo.cbuild-mlops.yml"),
+                                     active_version)
+
+    def test_executorch_version_rejects_inconsistent_generated_builds(self) -> None:
+        cases = (
+            (None, "missing generated build file"),
+            (["1.7.0"], "not resolved"),
+            (["1.5.1", "1.6.0"], "ambiguous PyTorch::ExecuTorch versions"),
+            ([], "no active build uses"),
+        )
+        for active_versions, message in cases:
+            with self.subTest(versions=active_versions), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
+                    "cbuild-pack": {"resolved-packs": [
+                        {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
+                         "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
+                        for version in ("1.5.1", "1.6.0")
+                    ]},
+                }))
+                builds = [{"cbuild": "missing.cbuild.yml"}]
+                if active_versions is not None:
+                    builds = []
+                    for index, version in enumerate(active_versions):
+                        name = f"demo{index}.cbuild.yml"
+                        builds.append({"cbuild": name})
+                        (root / name).write_text(yaml.safe_dump({
+                            "build": {"packs": [{"pack": f"PyTorch::ExecuTorch@{version}"}]},
+                        }))
+                (root / "demo.cbuild-idx.yml").write_text(yaml.safe_dump({
+                    "build-idx": {"cbuilds": builds},
+                }))
+                with self.assertRaisesRegex(SystemExit, message):
+                    generator.executorch_version(root / "demo.cbuild-mlops.yml")
+
+    def test_executorch_version_rejects_ambiguous_pins_without_build_index(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
+                "cbuild-pack": {"resolved-packs": [
+                    {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
+                     "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
+                    for version in ("1.5.1", "1.6.0")
+                ]},
+            }))
+            with self.assertRaisesRegex(SystemExit, "ambiguous PyTorch::ExecuTorch versions"):
+                generator.executorch_version(root / "demo.cbuild-mlops.yml")
+
     def test_pack_prerelease_suffix_uses_base_python_version(self) -> None:
         with mock.patch.object(
             generator.importlib.metadata, "version", return_value="1.6.0"
