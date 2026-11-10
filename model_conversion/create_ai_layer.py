@@ -6,9 +6,9 @@
 One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
 Each input file has its own .pte container, .c, and .h files; a .pt2 input
 may contain several named programs that become methods in that .pte. The
-generated CMSIS or Zephyr metadata combines the CPU fallback operators required
-by all output programs. Exactly one of model.clayer and model.zephyr selects
-the build integration format.
+generated CMSIS layer combines the CPU fallback operators required by all
+output programs. model.clayer names the layer file; model.zephyr enables
+additional Zephyr integration files in the same directory.
 
 Without --input, this script processes all declared inputs. With --input NAME,
 it updates only the selected input and rebuilds the layer-wide metadata from
@@ -1124,9 +1124,10 @@ examples:
 
     mlops = yaml.safe_load(mlops_file.read_text())["cbuild-mlops"]
     model = mlops["model"]
-    if ("clayer" in model) == ("zephyr" in model):
-        sys.exit("model must contain exactly one of clayer or zephyr")
-    layer_file = None
+    if not isinstance(model.get("clayer"), str) or not model["clayer"].strip():
+        sys.exit("model.clayer must be a non-empty file path")
+    layer_file = solution_dir / model["clayer"]
+    layer_dir = layer_file.parent
     if "zephyr" in model:
         # YAML loads an empty ``zephyr:`` node as None. Treat it as the empty
         # mapping so the concise form and ``zephyr: {}`` have identical meaning.
@@ -1134,14 +1135,8 @@ examples:
             model["zephyr"] = {}
         elif not isinstance(model["zephyr"], dict):
             sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
-        layer_dir = solution_dir / "ai_layer"
-    else:
-        if not isinstance(model["clayer"], str) or not model["clayer"].strip():
-            sys.exit("model.clayer must be a non-empty file path")
-        layer_file = solution_dir / model["clayer"]
-        layer_dir = layer_file.parent
     recovery_hint = ""
-    if layer_file is not None and layer_file.is_file():
+    if layer_file.is_file():
         recovery_hint = (
             "\n\nAn old generated AI clayer may still pin the previous ExecuTorch pack. "
             f"Removing the generated clayer '{layer_file}' may resolve this issue. "
@@ -1233,18 +1228,16 @@ examples:
             entry, per_input_ops[entry.name], input_cmsis_nn,
             specs[entry.name], vela_reports[entry.name], inspections[entry.name]
         )
-    if layer_file is not None:
-        outputs[layer_file.name] = clayer(
-            mlops, runtime, operators, cmsis_nn, mlops_file, version, models
-        )
-    else:
+    outputs[layer_file.name] = clayer(
+        mlops, runtime, operators, cmsis_nn, mlops_file, version, models
+    )
+    if "zephyr" in model:
         outputs.update(zephyr_metadata(operators, pack, delegated, models))
     replace_outputs(layer_dir, outputs)
 
     print(f"[ai_layer] inputs: {[entry.name for entry in selected]}, operators: {operators}")
-    if layer_file is not None:
-        print(f"[ai_layer] wrote {layer_file}")
-    else:
+    print(f"[ai_layer] wrote {layer_file}")
+    if "zephyr" in model:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")
 
 

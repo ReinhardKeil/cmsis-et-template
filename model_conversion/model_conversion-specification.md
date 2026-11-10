@@ -52,7 +52,7 @@ working directory.
   accepted by the generator. It is backend-lowered for, and validated against,
   the selected target. It may contain portable CPU fallback operators.
 - The **AI layer** comprises the output programs, embedded C arrays,
-  dependency metadata, reports, and either CMSIS `*.clayer.yml` or Zephyr files.
+  dependency metadata, reports, a `*.clayer.yml`, and optional Zephyr files.
   It targets exactly one CPU, optionally with Ethos-U acceleration; all output
   programs shall be compatible with that CPU and, when used, its shared Ethos-U
   configuration.
@@ -81,14 +81,15 @@ layer-wide properties:
 - `npu.macs`: optional MAC count, defaulting to 256;
 - `vela.ini`: optional path relative to the solution directory;
 - `vela.options`: generated command-line options;
-- `model.clayer`: CMSIS output file path relative to the solution directory;
-- `model.zephyr`: empty node or mapping selecting Zephyr integration output
-  in `ai_layer/` relative to the solution directory;
+- `model.clayer`: required output file path relative to the solution directory
+  for both CMSIS and Zephyr;
+- `model.zephyr`: optional empty node or mapping enabling additional Zephyr
+  integration output in the directory containing `model.clayer`;
 - `model.input`: generated sequence of input definitions described below.
 
-Exactly one of `model.clayer` or `model.zephyr` shall be present. The converter
-shall reject configurations containing both keys or neither key before model
-conversion. `model.clayer` shall be a non-empty string file path.
+`model.clayer` shall be present and contain a non-empty string file path. The
+converter shall reject missing or invalid paths before model conversion.
+Zephyr configurations shall also contain `model.zephyr`.
 
 The authored `mlops.model.input` sequence shall be emitted by CMSIS-Toolbox as
 `cbuild-mlops.model.input`. Each entry uses this contract:
@@ -264,12 +265,12 @@ inconsistent lock-file resolutions shall require setup to be rerun. Without a
 build index, prefer a unique exact lock-file resolution, otherwise a unique
 remaining resolution. Multiple remaining versions shall fail with an ambiguity
 diagnostic.
-For CMSIS output with an existing generated clayer, pack-resolution errors and
+For output with an existing generated clayer, pack-resolution errors and
 Python/runtime version mismatches shall explain that the old clayer may pin a
 previous ExecuTorch pack. The diagnostic shall identify the generated clayer
 and suggest removing it, rerunning setup for the target, and rerunning the
-converter. The converter shall not remove the clayer automatically. Zephyr
-output and a missing Python package shall not receive this clayer-specific hint.
+converter. The converter shall not remove the clayer automatically. A missing
+Python package shall not receive this clayer-specific hint.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
@@ -277,9 +278,8 @@ directly under `mlops`. A plain empty `zephyr:` node is equivalent to an empty
 mapping. A non-empty value shall be a mapping so that future Zephyr-specific
 parameters can be added without changing the node type.
 
-The output directory shall be the parent of `model.clayer` for CMSIS, or
-`ai_layer/` relative to the solution directory for Zephyr. It shall be created
-as needed. For every input it shall receive:
+The output directory shall be the parent of `model.clayer` for both CMSIS and
+Zephyr. It shall be created as needed. For every input it shall receive:
 
 ```text
 <name>.pte
@@ -302,8 +302,8 @@ configuration, and memory mode; the effective per-input Vela options; and the
 complete Vela textual report in a fenced code block. A CPU-only report shall
 have no Vela section. Reports shall use UTF-8 and LF line endings.
 
-With `model.clayer`, the directory shall also receive the named `*.clayer.yml`
-file. It is the CMSIS build description and shall contain one
+The directory shall always receive the named `*.clayer.yml` file, including
+for Zephyr so other tools can consume the layer. It shall contain one
 group per input with that input's C and header files, one shared ExecuTorch
 runtime component set, every backend needed by at least one output program, and
 the union of CPU fallback-operator components across all output `.pte` files.
@@ -312,8 +312,8 @@ once if any output program is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib`, and required defines when any selected CPU fallback operator
 requires CMSIS-NN.
 
-With `model.zephyr`, the directory shall receive `CMakeLists.txt`,
-`components.conf`, and `operators.conf`; no `*.clayer.yml` shall be generated.
+With `model.zephyr`, the directory shall additionally receive `CMakeLists.txt`,
+`components.conf`, and `operators.conf` alongside the `*.clayer.yml`.
 Both integration formats shall use the same validated in-memory layer,
 runtime, backend, and operator data. Zephyr generation shall not inspect `.pte`
 program files or independently calculate an operator union. The CMake file
@@ -519,11 +519,11 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   identical inputs and tool versions.
 - Both Ethos-U and CPU-only Cortex-M generation select their target-specific
   runtime and operator components.
-- Exactly one of `model.clayer` or `model.zephyr` is required; both keys or
-  neither key are rejected. Zephyr generates complete integration metadata in
-  `ai_layer/` and no `*.clayer.yml`. CMSIS generates the named `*.clayer.yml`
-  and no Zephyr metadata. Both formats use the same validated layer data and
-  do not recalculate the operator union.
+- `model.clayer` is required for both CMSIS and Zephyr. Zephyr also uses
+  `model.zephyr` to generate complete integration metadata alongside the named
+  `*.clayer.yml`. Without `model.zephyr`, no Zephyr metadata is generated.
+  Both formats use the same validated layer data and do not recalculate the
+  operator union.
 - Generation never removes untracked or user-owned files.
 - The complete unit-test suite passes without target hardware.
 

@@ -143,9 +143,11 @@ mlops:
         file: ../models/diagnostics.pte
 ```
 
-The model requires exactly one integration key: `clayer:` for CMSIS or
-`zephyr:` for Zephyr. For Zephyr, replace the example's `clayer:` line with an
-empty `zephyr:` node; output is written to `ai_layer/` without a `*.clayer.yml`.
+The model requires `clayer:` for both CMSIS and Zephyr. For Zephyr, add an
+empty `zephyr:` node alongside `clayer:` to generate the additional CMake and
+Kconfig files. All output is written to the directory containing the clayer.
+The Zephyr csolutions define `AI-Layer` in each target's variables and use
+`clayer: $AI-Layer$`, matching the CMSIS templates.
 
 Every input requires `name` and `file`. The optional `parameters` mapping is
 valid only for `.py`. On a mixed CPU/NPU target, optional `cpu:` selects CPU
@@ -201,7 +203,7 @@ and optimization, see
 
 ```text
 ai_layer/
-|-- ai_layer.clayer.yml              # CMSIS only: build description
+|-- ai_layer.clayer.yml              # layer description for CMSIS and other tools
 |-- <input-a>.pte                    # backend-lowered program validated for target
 |-- <input-a>_pte.c                  # embedded program data
 |-- <input-a>_pte.h                  # program data declarations
@@ -215,9 +217,9 @@ ai_layer/
 `-- operators.conf                   # Zephyr: required CPU operator Kconfig settings
 ```
 
-For CMSIS, `ai_layer.clayer.yml` records the shared ExecuTorch runtime, required
-backends, and combined CPU fallback operators for all programs. For Zephyr,
-the generator creates these integration files instead:
+`ai_layer.clayer.yml` records the shared ExecuTorch runtime, required backends,
+and combined CPU fallback operators for all programs. It is also generated for
+Zephyr so other tools can consume the layer. For Zephyr, the generator adds:
 
 - `CMakeLists.txt` to add the generated model C files and their header directory
   to the application build.
