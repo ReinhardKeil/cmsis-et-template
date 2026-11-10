@@ -90,6 +90,9 @@ sdsio.log
 # FVP output captured by CI and by the manual run in the README
 fvp_stdout.log
 
+# Local validation reports and build logs
+/test-logs/
+
 # Editor config. The CMSIS Solution extension regenerates tasks.json,
 # settings.json, cmsis.json and launch.json; only the macOS FVP wiring is kept:
 # the model shim + its Dockerfile, and launch.json.mac, an Arm-FVP launch
