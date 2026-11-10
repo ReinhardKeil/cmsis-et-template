@@ -7,6 +7,9 @@ Ethos-U NPU or Vela compilation.
 The supplied configurations run TinyCNN on a Cortex-M55 using the Alif
 Ensemble E8 AI/ML AppKit or the Corstone-300 FVP.
 
+All application sources, headers, and AC6 compatibility support are in this
+solution's `src/` directory.
+
 ## Prepare Zephyr 4.5
 
 Create or select a Zephyr 4.5 workspace and fetch the modules required by the
@@ -54,3 +57,11 @@ or Vela configuration on either target.
 With GCC 15, the application keeps CMSIS-NN's `int32_t*` versus MVE intrinsic
 `long*` compatibility diagnostic as a warning. Both types are 32-bit on this
 target; other compiler diagnostics remain unchanged.
+
+## Multiple-network example
+
+The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
+A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+constants. This solution includes a commented model input and an alternative
+test selection. Follow the linked steps to generate it, select the test, and
+compare the filter-then-classify output against a fixed reference.

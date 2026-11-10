@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # Copyright 2026 Arm Limited and/or its affiliates.
 # SPDX-License-Identifier: Apache-2.0
-"""Create a multi-program CMSIS AI layer and optional Zephyr projection.
+"""Create a multi-program AI layer for CMSIS or Zephyr.
 
 One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
 Each input file has its own .pte container, .c, and .h files; a .pt2 input
 may contain several named programs that become methods in that .pte. The
-generated *.clayer.yml combines the CPU fallback operators required by all
-output programs. Optional Zephyr output and *.clayer.yml are rendered from the
-same validated layer-wide data.
+generated CMSIS or Zephyr metadata combines the CPU fallback operators required
+by all output programs. Exactly one of model.clayer and model.zephyr selects
+the build integration format.
 
 Without --input, this script processes all declared inputs. With --input NAME,
 it updates only the selected input and rebuilds the layer-wide metadata from
@@ -113,27 +113,59 @@ def pack_root() -> Path:
 
 
 def executorch_version(mlops_file: Path) -> str:
-    """The PyTorch::ExecuTorch pack version cbuild setup resolved, from <solution>.cbuild-pack.yml.
+    """Read ExecuTorch's version from CMSIS-Toolbox's generated build metadata.
 
-    The file is a lock file that keeps earlier resolutions, so an unversioned
-    selector can still point at an older pack; the entry selected by the
-    csolution's exact pin (PyTorch::ExecuTorch@<version>) is the one in use.
+    The pack lock file can retain versions from an old generated AI layer.
+    The active .cbuild.yml files record the packs actually used by the build;
+    the .cbuild-idx.yml locates them. No source solution or layer is parsed.
     """
     import yaml
 
     pack_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-pack.yml"))
-    fallback = None
+    resolved: dict[str, set[str]] = {}
     for entry in yaml.safe_load(pack_file.read_text())["cbuild-pack"]["resolved-packs"]:
         name, _, version = entry["resolved-pack"].partition("@")
         selectors = entry.get("selected-by-pack", [])
         if name != PACK or not selectors:
             continue
-        if f"{PACK}@{version}" in selectors:
-            return version
-        fallback = fallback or version
-    if fallback:
-        return fallback
-    sys.exit(f"{pack_file}: {PACK} is not among the resolved packs")
+        resolved.setdefault(version, set()).update(selectors)
+    if not resolved:
+        sys.exit(f"{pack_file}: {PACK} is not among the resolved packs")
+
+    index_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-idx.yml"))
+    if index_file.is_file():
+        index = yaml.safe_load(index_file.read_text())["build-idx"]
+        versions: set[str] = set()
+        for context in index.get("cbuilds", []):
+            build_file = index_file.parent / context["cbuild"]
+            if not build_file.is_file():
+                sys.exit(f"{build_file}: missing generated build file. Re-run cbuild setup.")
+            build = yaml.safe_load(build_file.read_text())["build"]
+            for entry in build.get("packs", []):
+                name, _, version = entry["pack"].partition("@")
+                if name == PACK:
+                    versions.add(version)
+        if not versions:
+            sys.exit(
+                f"{index_file}: no active build uses {PACK}. Re-run cbuild setup."
+            )
+        if not versions.issubset(resolved):
+            sys.exit(
+                f"{index_file}: active {PACK} version is not resolved in {pack_file}. "
+                "Re-run cbuild setup."
+            )
+    else:
+        # Support standalone MLOps/pack artifacts with an unambiguous resolution.
+        versions = {
+            version for version, selectors in resolved.items()
+            if f"{PACK}@{version}" in selectors
+        } or set(resolved)
+    if len(versions) != 1:
+        sys.exit(
+            f"{pack_file}: ambiguous {PACK} versions: {', '.join(sorted(versions))}. "
+            "Re-run cbuild setup to generate an unambiguous active build selection."
+        )
+    return next(iter(versions))
 
 
 def executorch_pack(version: str) -> Path:
@@ -361,10 +393,27 @@ def _input_case(value, description: str) -> tuple[tuple, dict]:
     return args, kwargs
 
 
+def register_operator_libraries() -> None:
+    """Register the Python operator families supplied by the ExecuTorch pack.
+
+    Import before model capture or PT2 deserialization: archives contain
+    operator names, not the Python code or native libraries that define them.
+    ATen operators come from torch; ExecuTorch adds portable custom, dimension
+    order, device copy, quantized, and Cortex-M operators.
+    """
+    import torch  # noqa: F401
+    import executorch.kernels.quantized  # noqa: F401
+    import executorch.kernels.portable  # noqa: F401
+    import executorch.backends.cortex_m.ops.operators  # noqa: F401
+    import executorch.exir.passes.dim_order_ops_registry  # noqa: F401
+    import executorch.exir.passes._device_copy_ops_registry  # noqa: F401
+
+
 def load_model(source: Path, params: dict, model_name: str):
     """Load one Python workflow and return graph, calibration, and example inputs."""
     import torch
 
+    register_operator_libraries()
     module_name = f"ai_layer_model_{re.sub(r'[^A-Za-z0-9_]', '_', model_name)}_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, source)
     if spec is None or spec.loader is None:
@@ -379,7 +428,10 @@ def load_model(source: Path, params: dict, model_name: str):
         sys.exit(f"model {model_name!r}: {source} must define {error.name}")
     functions = (get_model, get_example_inputs, get_calibration_inputs)
     accepted = [_accepted_parameter_names(function) for function in functions]
-    known = set(params) if any(names is None for names in accepted) else set().union(*accepted)
+    known = (
+        set(params) if any(names is None for names in accepted) else
+        {name for names in accepted if names is not None for name in names}
+    )
     unknown = sorted(set(params) - known)
     if unknown:
         sys.exit(f"model {model_name!r}: unknown parameters {unknown}")
@@ -476,11 +528,30 @@ def export_model_cpu(target, source: Path, params: dict, model_name: str) -> byt
 
 def load_pt2_programs(source: Path, input_name: str) -> dict:
     """Load and validate every named ExportedProgram in a PT2 archive."""
+    return load_pt2_artifact(source, input_name)[0]
+
+
+def load_pt2_artifact(source: Path, input_name: str) -> tuple[dict, dict]:
+    """Load quantized networks and optional JSON-encoded constant methods."""
+    register_operator_libraries()
     from torch.export.pt2_archive._package import load_pt2
 
     try:
-        programs = dict(load_pt2(source).exported_programs)
+        archive = load_pt2(source)
+        programs = dict(archive.exported_programs)
     except Exception as error:
+        # Some wheels omit this optional AOT library and its import only logs
+        # the failure. Explain the missing package artifact when it is needed.
+        if re.search(r"aten(?:::|\.)allclose\.(?:Tensor|out)\b", str(error)):
+            import torch
+            if not all(hasattr(torch.ops.aten.allclose, name) for name in ("Tensor", "out")):
+                sys.exit(
+                    f"input {input_name!r}: the PT2 archive needs the portable custom "
+                    "allclose operators, but the installed ExecuTorch wheel did not "
+                    "register aten::allclose.Tensor and aten::allclose.out. "
+                    "Install an ExecuTorch build containing portable_custom_ops_aot_lib; "
+                    "the runtime pack alone does not provide Python AOT registration."
+                )
         sys.exit(f"input {input_name!r}: cannot load PT2 archive: {error}")
     if not programs:
         sys.exit(f"input {input_name!r}: PT2 archive contains no exported programs")
@@ -495,19 +566,36 @@ def load_pt2_programs(source: Path, input_name: str) -> dict:
             for target in targets
         ):
             sys.exit(f"input {input_name!r}: program {name!r} is not quantized")
-    return programs
+    try:
+        constants = json.loads(archive.extra_files.get("constant_methods.json", "{}"))
+    except (ValueError, TypeError) as error:
+        sys.exit(f"input {input_name!r}: invalid constant_methods.json: {error}")
+    if not isinstance(constants, dict):
+        sys.exit(f"input {input_name!r}: constant_methods.json must contain a mapping")
+    for name, value in constants.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or name in programs:
+            sys.exit(f"input {input_name!r}: invalid or duplicate constant method name {name!r}")
+        # JSON scalars and homogeneous lists are supported by ExecuTorch's
+        # constant-method emitter. Reject objects and nested lists explicitly.
+        scalars = value if isinstance(value, list) else [value]
+        if not scalars or type(scalars[0]) not in (bool, int, float, str) or any(
+            type(item) is not type(scalars[0]) for item in scalars
+        ):
+            sys.exit(f"input {input_name!r}: unsupported constant method value for {name!r}")
+    return programs, constants
 
 
 def lower_pt2(spec, target, source: Path, input_name: str) -> tuple[bytes, tuple[str, ...]]:
     """Lower all programs in one quantized PT2 archive into one PTE container."""
     from executorch.exir import EdgeCompileConfig, ExecutorchBackendConfig, to_edge_transform_and_lower
 
-    programs = load_pt2_programs(source, input_name)
+    programs, constants = load_pt2_artifact(source, input_name)
     if spec is not None:
         from executorch.backends.arm.ethosu import EthosUPartitioner
 
         edge = to_edge_transform_and_lower(
             programs,
+            constant_methods=constants,
             partitioner=[EthosUPartitioner(spec)],
             compile_config=EdgeCompileConfig(_check_ir_validity=False),
         )
@@ -516,7 +604,7 @@ def lower_pt2(spec, target, source: Path, input_name: str) -> tuple[bytes, tuple
         from executorch.backends.cortex_m.passes.cortex_m_pass_manager import CortexMPassManager
 
         edge = to_edge_transform_and_lower(
-            programs, compile_config=cortex_m_edge_compile_config()
+            programs, constant_methods=constants, compile_config=cortex_m_edge_compile_config()
         )
         for method in edge.methods:
             edge._edge_programs[method] = CortexMPassManager(
@@ -636,10 +724,22 @@ def replace_outputs(layer_dir: Path, outputs: dict[str, bytes | str]) -> None:
 FAMILY = {
     "aten": "Portable",
     "dim_order_ops": "Portable",
+    "et_copy": "Portable",
     "quantized_decomposed": "Quantized",
     "cortex_m": "Cortex-M",
 }
 ALIASES = {
+    "_native_batch_norm_legit": "native_batch_norm",
+    "_native_batch_norm_legit_no_training": "native_batch_norm",
+    "copy_": "copy",
+    "index_put_": "index_put",
+    "_h2d_copy": "device_copy",
+    "_d2h_copy": "device_copy",
+    "choose_qparams_per_token_asymmetric": "choose_qparams",
+    "quantize_per_token": "quantize",
+    "dequantize_per_token": "dequantize",
+    "embedding_2bit": "embedding2b",
+    "embedding_4bit": "embedding4b",
     "quantized_depthwise_conv2d": "quantized_dw_conv2d",
     "quantized_transpose_conv2d": "quantized_tr_conv2d",
 }
@@ -663,9 +763,10 @@ def pack_components(pack: Path) -> tuple[set[str], set[str]]:
         )
 
     operators = {
-        component.get("Csub"): component.get("condition")
+        name: component.get("condition")
         for component in root.iter("component")
         if component.get("Cgroup") == "ExecuTorch Operators"
+        and (name := component.get("Csub")) is not None
     }
     return set(operators), {
         name for name, condition in operators.items() if needs_cmsis_nn(condition)
@@ -682,8 +783,10 @@ def operator_components(operator_names: list[str], pack: Path) -> tuple[list[str
             unknown.append(operator)
             continue
         op = op.split(".", 1)[0]
+        exact = f"{FAMILY[ns]} {op}"
         op = ALIASES.get(op, op)
         candidates = [
+            exact,
             f"{FAMILY[ns]} {op}",
             f"{FAMILY[ns]} {op.lstrip('_')}",
             f"{FAMILY[ns]} {re.sub(r'_(per_tensor|per_channel|byte|copy|nhwc)$', '', op)}",
@@ -869,7 +972,7 @@ def generate_operator_lists(pte_paths: dict[str, Path], stage: Path) -> tuple[di
     return per_input, _operator_names(combined_dir / "selected_operators.yaml")
 
 
-def check_executorch_version(expected: str) -> None:
+def check_executorch_version(expected: str, *, recovery_hint: str = "") -> None:
     """Require the Python exporter to match the runtime pack's base version.
 
     CMSIS pack versions may add a pack-specific prerelease suffix, for example
@@ -884,7 +987,7 @@ def check_executorch_version(expected: str) -> None:
     if installed != python_version:
         sys.exit(
             f"ExecuTorch Python package {installed} does not match "
-            f"{PACK}@{expected}"
+            f"{PACK}@{expected}{recovery_hint}"
         )
 
 
@@ -1021,6 +1124,9 @@ examples:
 
     mlops = yaml.safe_load(mlops_file.read_text())["cbuild-mlops"]
     model = mlops["model"]
+    if ("clayer" in model) == ("zephyr" in model):
+        sys.exit("model must contain exactly one of clayer or zephyr")
+    layer_file = None
     if "zephyr" in model:
         # YAML loads an empty ``zephyr:`` node as None. Treat it as the empty
         # mapping so the concise form and ``zephyr: {}`` have identical meaning.
@@ -1028,10 +1134,27 @@ examples:
             model["zephyr"] = {}
         elif not isinstance(model["zephyr"], dict):
             sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
-    layer_file = solution_dir / model["clayer"]
-    layer_dir = layer_file.parent
-    version = executorch_version(mlops_file)
-    check_executorch_version(version)
+        layer_dir = solution_dir / "ai_layer"
+    else:
+        if not isinstance(model["clayer"], str) or not model["clayer"].strip():
+            sys.exit("model.clayer must be a non-empty file path")
+        layer_file = solution_dir / model["clayer"]
+        layer_dir = layer_file.parent
+    recovery_hint = ""
+    if layer_file is not None and layer_file.is_file():
+        recovery_hint = (
+            "\n\nAn old generated AI clayer may still pin the previous ExecuTorch pack. "
+            f"Removing the generated clayer '{layer_file}' may resolve this issue. "
+            "Then rerun cbuild setup for your target and rerun create_ai_layer.py "
+            "to regenerate the AI layer."
+        )
+    try:
+        version = executorch_version(mlops_file)
+    except SystemExit as error:
+        if recovery_hint:
+            sys.exit(f"{error}{recovery_hint}")
+        raise
+    check_executorch_version(version, recovery_hint=recovery_hint)
     pack = executorch_pack(version)
     models = model_inputs(mlops, solution_dir)
     accelerator = expected_accelerator(mlops)
@@ -1110,16 +1233,18 @@ examples:
             entry, per_input_ops[entry.name], input_cmsis_nn,
             specs[entry.name], vela_reports[entry.name], inspections[entry.name]
         )
-    outputs[layer_file.name] = clayer(
-        mlops, runtime, operators, cmsis_nn, mlops_file, version, models
-    )
-    if "zephyr" in model:
+    if layer_file is not None:
+        outputs[layer_file.name] = clayer(
+            mlops, runtime, operators, cmsis_nn, mlops_file, version, models
+        )
+    else:
         outputs.update(zephyr_metadata(operators, pack, delegated, models))
     replace_outputs(layer_dir, outputs)
 
     print(f"[ai_layer] inputs: {[entry.name for entry in selected]}, operators: {operators}")
-    print(f"[ai_layer] wrote {layer_file}")
-    if "zephyr" in model:
+    if layer_file is not None:
+        print(f"[ai_layer] wrote {layer_file}")
+    else:
         print(f"[ai_layer] wrote {layer_dir / 'CMakeLists.txt'}")
 
 

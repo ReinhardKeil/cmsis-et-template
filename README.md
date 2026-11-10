@@ -7,7 +7,7 @@
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
-[![ExecuTorch: 1.5.1](https://img.shields.io/badge/ExecuTorch-1.5.1-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
+[![ExecuTorch: 1.6.0](https://img.shields.io/badge/ExecuTorch-1.6.0-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
 This repository provides template applications for deploying ML models on
 Cortex-M targets using [ExecuTorch](https://github.com/pytorch/executorch).
@@ -78,6 +78,11 @@ Choose a template for your software stack and processor/NPU combination.
 Each template README lists the supplied board and FVP configurations and
 explains how to use them. Adapt the template to your target hardware.
 
+Each solution keeps its application sources, headers, compatibility support,
+and board files inside its own directory. Build files must not reference
+sources from another solution. CMSIS packs and Zephyr modules provide external
+dependencies.
+
 | Template | Target |
 | --- | --- |
 | [`cmsis-u55/`](cmsis-u55/README.md) | Cortex-M with Ethos-U55/U65 |
@@ -138,6 +143,10 @@ mlops:
         file: ../models/diagnostics.pte
 ```
 
+The model requires exactly one integration key: `clayer:` for CMSIS or
+`zephyr:` for Zephyr. For Zephyr, replace the example's `clayer:` line with an
+empty `zephyr:` node; output is written to `ai_layer/` without a `*.clayer.yml`.
+
 Every input requires `name` and `file`. The optional `parameters` mapping is
 valid only for `.py`. On a mixed CPU/NPU target, optional `cpu:` selects CPU
 lowering for a `.py` or `.pt2` input. A `.pte` accepts no conversion or lowering
@@ -192,7 +201,7 @@ and optimization, see
 
 ```text
 ai_layer/
-|-- ai_layer.clayer.yml              # shared build description
+|-- ai_layer.clayer.yml              # CMSIS only: build description
 |-- <input-a>.pte                    # backend-lowered program validated for target
 |-- <input-a>_pte.c                  # embedded program data
 |-- <input-a>_pte.h                  # program data declarations
@@ -206,9 +215,9 @@ ai_layer/
 `-- operators.conf                   # Zephyr: required CPU operator Kconfig settings
 ```
 
-`ai_layer.clayer.yml` records the shared ExecuTorch runtime, required backends,
-and combined CPU fallback operators for all programs. When Zephyr output is
-requested, the generator also creates:
+For CMSIS, `ai_layer.clayer.yml` records the shared ExecuTorch runtime, required
+backends, and combined CPU fallback operators for all programs. For Zephyr,
+the generator creates these integration files instead:
 
 - `CMakeLists.txt` to add the generated model C files and their header directory
   to the application build.

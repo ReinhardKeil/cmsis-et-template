@@ -1,11 +1,12 @@
-# Model report: TinyCNN
+# Input report: TinyCNN
 
 - input: `model/TinyCNN/model.py`
-- input type: `Python model source`
+- input type: `.py`
 - execution: `CPU only`
 - parameters: `{"calibration_samples": 2, "input_shape": [1, 16, 16, 3]}`
 - optimization: `default`
 - CMSIS-NN required: `yes`
+- methods: `forward`
 
 ## CPU fallback operators
 

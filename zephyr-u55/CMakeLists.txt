@@ -75,8 +75,13 @@ endif()
 target_sources(app PRIVATE
   src/main.c
   src/arm_embedded_module.cpp
-  src/executorch_test.cpp
 )
+target_include_directories(app PRIVATE src)
+if(CONFIG_EXECUTORCH_MULTIPLE_TEST)
+  target_sources(app PRIVATE src/executorch_multiple_test.cpp)
+else()
+  target_sources(app PRIVATE src/executorch_test.cpp)
+endif()
 
 # The Corstone FVP watches UART output for EOT (0x04). Physical targets must
 # not receive this control character, so enable it only from the FVP context.

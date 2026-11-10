@@ -60,7 +60,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
       "$<$<COMPILE_LANGUAGE:CXX>:${_ac6_libcxx}>")
   endif()
   zephyr_compile_options(
-    "$<$<COMPILE_LANGUAGE:CXX>:-include${CMAKE_CURRENT_SOURCE_DIR}/../zephyr-u55/src/zephyr_ac6_compat.hpp>")
+    "$<$<COMPILE_LANGUAGE:CXX>:-include${CMAKE_CURRENT_SOURCE_DIR}/src/zephyr_ac6_compat.hpp>")
 
   # Zephyr's CMake scatter generator disables CONFIG_STATIC_INIT_GNU,
   # omitting the constructor runner and the companion destructor handler.
@@ -69,7 +69,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
       INPUT ".init_array*" SORT NAME KEEP
       SYMBOLS __ac6_init_array_start __ac6_init_array_end)
     zephyr_link_libraries("--keep=*.o(.init_array*)")
-    target_sources(app PRIVATE ../zephyr-u55/src/zephyr_ac6_init.c
+    target_sources(app PRIVATE src/zephyr_ac6_init.c
       "${ZEPHYR_BASE}/lib/cpp/abi/cpp_dtors.c")
   endif()
 
@@ -86,11 +86,15 @@ endif()
 
 target_sources(app PRIVATE
   src/main.c
-  ../zephyr-u55/src/arm_embedded_module.cpp
-  ../zephyr-u55/src/executorch_test.cpp
+  src/arm_embedded_module.cpp
 )
+if(CONFIG_EXECUTORCH_MULTIPLE_TEST)
+  target_sources(app PRIVATE src/executorch_multiple_test.cpp)
+else()
+  target_sources(app PRIVATE src/executorch_test.cpp)
+endif()
 
-target_include_directories(app PRIVATE ../zephyr-u55/src)
+target_include_directories(app PRIVATE src)
 target_compile_definitions(app PRIVATE EXECUTORCH_TARGET_NAME="Cortex-M55")
 
 # Keep runtime logging consistent with the generated AI layer configuration.

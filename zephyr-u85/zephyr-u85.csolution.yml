@@ -42,7 +42,7 @@ solution:
         - DTC_OVERLAY_FILE: fvp.overlay
         - FVP_SHUTDOWN_ON_EOT: ON
         # ExecuTorch tag.h uses size_t without including <stddef.h>.
-        - CMAKE_CXX_FLAGS: -include stddef.h
+        - CMAKE_CXX_FLAGS: -includestddef.h
       target-set:
         - set:
           debugger:
@@ -84,14 +84,20 @@ solution:
       system: RTSS_HP_SRAM_MRAM
       memory: Shared_Sram
     model:
-      clayer: ai_layer/ai_layer.clayer.yml
       zephyr:
       input:
-        - name: TinyCNN
-          file: ../model/TinyCNN/model.py
-          parameters:
-            input-shape: 1x16x16x3
-            calibration-samples: 2
+        # Alternative: comment the active input below and uncomment this entry.
+        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
+         - name: TinyCNNMultiple
+           file: ../model/TinyCNN/TinyCNNMultiple.pt2
+        # Generate it with model/TinyCNN/quantize_model.py first.
+        #- name: TinyCNN
+        #  file: ../model/TinyCNN/TinyCNN.pt2
+        #- name: TinyCNN
+        #  file: ../model/TinyCNN/model.py
+        #  parameters:
+        #    input-shape: 1x16x16x3
+        #    calibration-samples: 2
 
-  compiler: GCC
+  compiler: AC6
   created-for: CMSIS-Toolbox@2.15.0

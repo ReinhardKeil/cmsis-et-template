@@ -50,6 +50,20 @@ selected by the solution because that runtime consumes the generated `.pte`
 program files. `gen_oplist` and `gen_all_oplist` are included with ExecuTorch;
 TorchGen is included with PyTorch.
 
+The converter uses CMSIS-Toolbox's generated metadata: `cbuild-idx.yml` locates
+the active `.cbuild.yml` files, whose `build.packs` entries identify the
+ExecuTorch runtime version. It verifies that version against `cbuild-pack.yml`.
+Older versions retained in the pack lock file do not override the active build.
+The converter does not parse `.csolution.yml` or the existing `.clayer.yml`.
+Standalone MLOps/pack artifacts without a build index must have an unambiguous
+pack resolution. Missing, inconsistent, or ambiguous build metadata requires
+setup to be rerun before export.
+
+For CMSIS projects, an existing generated AI clayer can retain an old
+ExecuTorch pack pin during an upgrade. Version mismatch and pack-resolution
+errors identify that clayer and suggest removing it, rerunning setup for the
+target, and rerunning `create_ai_layer.py` to regenerate it.
+
 Use `--recreate` to rebuild an existing environment. The optional `--uv` and
 `--python VERSION` arguments select uv and a supported Python version:
 
@@ -131,9 +145,13 @@ mlops:
 
 | `model:` | | Content |
 |---|---|---|
-| `clayer:` | Required | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
-| `zephyr:` | Optional | Enables generation of additional Zephyr integration files in the clayer path. A plain empty node and `zephyr: {}` are equivalent. |
+| `clayer:` | CMSIS only | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
+| `zephyr:` | Zephyr only | Generates Zephyr integration files and program artifacts in `ai_layer/` relative to the solution directory. A plain empty node and `zephyr: {}` are equivalent. |
 | `input:` | Required | Generated sequence of input-artifact definitions. |
+
+Exactly one of `clayer:` or `zephyr:` is required. Configurations containing
+both keys or neither key are rejected. For Zephyr, replace the `clayer:` line
+in the example above with `zephyr:`; no `*.clayer.yml` is generated.
 
 The `input:` node contains a list of named input artifacts.
 
@@ -166,6 +184,86 @@ their input signatures, but no target-specific lowering. `create_ai_layer`
 validates every named program, lowers all of them for the selected CPU or
 Ethos-U configuration, and serializes them into one `.pte`. It never quantizes
 or requantizes `.pt2`.
+
+Before loading an archive, the exporter imports the Python registration modules
+for the pack's ATen, portable custom, dimension-order, device-copy, quantized,
+and Cortex-M operator families. These imports also provide the `.out` variants
+needed for ExecuTorch serialization. Operator components are selected from the
+finished `.pte` after backend lowering.
+
+Some ExecuTorch wheels omit `portable_custom_ops_aot_lib`, which registers
+`aten::allclose.Tensor` and `aten::allclose.out`. An archive using these variants
+requires an ExecuTorch build containing that library; the exporter reports this
+missing dependency when loading such an archive. It does not substitute a local
+implementation. The CMSIS pack's target kernels do not register Python AOT ops.
+
+TinyCNN includes a standalone producer that uses the same Ethos-U symmetric
+INT8, per-channel-weight quantization as the Python conversion workflow:
+
+```powershell
+.venv/Scripts/python.exe model/TinyCNN/quantize_model.py
+```
+
+It writes `model/TinyCNN/TinyCNN.pt2` with a quantized `forward` program. The
+script defines the TinyCNN network, its fixed NHWC input shape `(1, 16, 16, 3)`,
+two calibration samples, and the `ethos-u55-256` quantization target itself.
+It has no command-line options and does not read MLOps configuration or invoke
+Vela. Supply the archive as a `.pt2` input to `create_ai_layer.py` for subsequent
+Ethos-U55 lowering and Vela compilation. Different networks or preparation
+requirements belong in their own scripts.
+
+#### Constant metadata convention for `.pt2` producers
+
+An optional UTF-8 JSON file named **`constant_methods.json`**, stored through
+`package_pt2(..., extra_files=...)`, carries producer-owned runtime metadata.
+Its top-level object maps **method names** to constant return values. The
+converter reads this file and passes the decoded dictionary as
+`constant_methods=` to `to_edge_transform_and_lower` for both Ethos-U and
+Cortex-M. It does not quantize or lower these constants as networks. Archives
+without the file have no extra constant methods.
+
+```python
+import json
+from torch.export.pt2_archive._package import package_pt2
+
+constant_methods = {
+    "IMAGE_WIDTH": IMAGE_WIDTH,
+    "IMAGE_HEIGHT": IMAGE_HEIGHT,
+    "INPUT_CHANNELS": INPUT_CHANNELS,
+    "NUM_CLASSES": NUM_CLASSES,
+}
+package_pt2(
+    "TinyCNNMultiple.pt2",
+    exported_programs={"filter": filter_program, "classify": classify_program},
+    extra_files={"constant_methods.json": json.dumps(constant_methods)},
+)
+```
+
+The convention requires:
+
+- Method names must be C identifiers and must not collide with exported network
+  names. The example exports the four uppercase integer names above.
+- Each value must be a JSON Boolean, integer, floating-point number, string,
+  or a non-empty homogeneous list of one of those scalar types. Objects,
+  nested lists, mixed lists, and `null` are rejected by this converter.
+- The TinyCNN example exports only positive integers. Batch is always 1,
+  the filter preserves the image dimensions, and the classifier returns
+  `NUM_CLASSES` logits. No shape lists or metadata tensors are exported.
+- Constants become zero-input methods in the `.pte`. In the C++ runtime,
+  `module.execute("IMAGE_WIDTH", std::vector<EValue>{})` returns a vector
+  containing one integer `EValue`; read it with `values->front().toInt()`.
+
+Each solution's C++ runner (for example,
+[zephyr-u85/src/executorch_multiple_test.cpp](../zephyr-u85/src/executorch_multiple_test.cpp))
+reads these four integers, derives NHWC image shape
+`[1, IMAGE_HEIGHT, IMAGE_WIDTH, INPUT_CHANNELS]` and output shape
+`[1, NUM_CLASSES]`, then verifies those shapes against the runtime tensor
+metadata before running the pipeline. Other `extra_files` entries are left
+uninterpreted. These are application constants,
+not trainable weights or parameters passed to the Python model constructor.
+
+See the [multi-network example](../model/TinyCNN/README.md) for its standalone
+producer, A16W8 filter, INT8 classifier, reference check, and project selection.
 
 ### `.pte` input
 
@@ -200,14 +298,15 @@ producer-owned accuracy validation.
 
 ## Output
 
-The script writes generated files to the directory containing the
-`*.clayer.yml` file specified by `model.clayer`. For example, with
-`clayer: ai_layer/ai_layer.clayer.yml`, generated files are written to
+With `model.clayer`, the script writes generated files to the directory
+containing the specified `*.clayer.yml`. With `model.zephyr`, it writes to
+`ai_layer/` relative to the solution directory. For example, either
+`clayer: ai_layer/ai_layer.clayer.yml` or `zephyr:` writes program artifacts to
 `ai_layer/`.
 
 ```text
 ai_layer/
-|-- ai_layer.clayer.yml              # canonical build description
+|-- ai_layer.clayer.yml              # CMSIS only: build description
 |-- <input-a>.pte                    # backend-lowered program validated for target
 |-- <input-a>_pte.c                  # embedded program data
 |-- <input-a>_pte.h                  # program data declarations
@@ -233,16 +332,16 @@ The generator replaces the files produced by the current run. It does not
 delete other files from the output directory; obsolete artifacts from removed
 inputs can be deleted by the user explicitly.
 
-The script also creates the `*.clayer.yml` file specified by `model.clayer`.
-This canonical file contains one group per input and selects the shared
+For CMSIS, the script creates the `*.clayer.yml` file specified by
+`model.clayer`. This file contains one group per input and selects the shared
 ExecuTorch runtime, required backends, and the union of CPU fallback-operator
 components extracted from all `.pte` program files. CPU-only layers omit `Backend
 EthosU`; CMSIS-NN is selected when any fallback operator requires it.
 
-When the `zephyr:` node is present, the script additionally creates
+For Zephyr, the script creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
-application. These files and `*.clayer.yml` are rendered from the same
-validated layer data.
+application. It does not create a `*.clayer.yml` file. Both integration formats
+use the same validated layer data.
 
 Add the generated configuration fragments before Zephyr processes the
 configuration, then add the AI-layer directory after creating the application:

@@ -10,7 +10,7 @@ solution:
   compiler: AC6
 
   packs:
-    - pack: PyTorch::ExecuTorch@1.5.1
+    - pack: PyTorch::ExecuTorch@1.6.0-zephyrpreview1
     - pack: ARM::Cortex_DFP
 
   target-types:
@@ -18,12 +18,13 @@ solution:
       board: V2M-MPS3-SSE-300-FVP
       device: SSE-300-MPS3
       variables:
-        - Board-Layer: $SolutionDir()$/../cmsis-u55/board/Corstone-300/Board.clayer.yml
+        - Board-Layer: $SolutionDir()$/board/Corstone-300/Board.clayer.yml
         - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
       target-set:
         - set:
           images:
             - project-context: cmsis-m.Debug
+            # - project-context: cmsis-m-multiple.Debug
           debugger:
             name: Arm-FVP
             model: FVP_Corstone_SSE-300
@@ -33,10 +34,17 @@ solution:
   build-types:
     - type: Debug
       debug: on
-      optimize: debug
+      optimize: none
+      misc:
+        - for-compiler: AC6
+          C-CPP:
+            - -O0
 
   projects:
     - project: ./cmsis-m.cproject.yml
+    # Multiple-model alternative: comment the project above and uncomment this.
+    # Also use cmsis-m-multiple.Debug in target-set.images.project-context.
+    # - project: ./cmsis-m-multiple.cproject.yml
 
   # No npu: node: create_ai_layer.py selects the Cortex-M backend from the
   # processor information generated for this target.
@@ -45,6 +53,10 @@ solution:
     model:
       clayer: $AI-Layer$
       input:
+        # Alternative: comment the active input below and uncomment this entry.
+        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
+        # - name: TinyCNNMultiple
+        #   file: ../model/TinyCNN/TinyCNNMultiple.pt2
         - name: TinyCNN
           file: ../model/TinyCNN/model.py
           parameters:

@@ -22,9 +22,9 @@ project:
   groups:
     - group: App
       files:
-        - file: ../cmsis-u55/src/app_main.cpp
-        - file: ../cmsis-u55/src/arm_embedded_module.cpp
-        - file: ../cmsis-u55/src/arm_embedded_module.hpp
+        - file: ./src/app_main.cpp
+        - file: ./src/arm_embedded_module.cpp
+        - file: ./src/arm_embedded_module.hpp
 
   layers:
     - layer: $Board-Layer$

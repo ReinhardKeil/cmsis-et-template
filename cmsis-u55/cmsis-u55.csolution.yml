@@ -14,7 +14,7 @@ solution:
   packs:
     # The PyTorch::ExecuTorch pack version must match the ExecuTorch Python
     # exporter in requirements.txt because its runtime consumes the generated .pte.
-    - pack: PyTorch::ExecuTorch@1.5.1
+    - pack: PyTorch::ExecuTorch@1.6.0-zephyrpreview1
     - pack: ARM::Cortex_DFP
 
   target-types:
@@ -29,6 +29,7 @@ solution:
         - set:
           images:
             - project-context: cmsis-u55.Debug
+            # - project-context: cmsis-u55-multiple.Debug
           debugger:
             name: Arm-FVP
             # See: https://github.com/Arm-Examples/FVPs-on-Mac/tree/main/skills/fvp-debug-setup
@@ -40,7 +41,7 @@ solution:
   build-types:
     - type: Debug
       debug: on
-      optimize: debug
+      optimize: none
       misc:
         - for-compiler: AC6
           C-CPP:
@@ -48,6 +49,9 @@ solution:
 
   projects:
     - project: ./cmsis-u55.cproject.yml
+    # Multiple-model alternative: comment the project above and uncomment this.
+    # Also use cmsis-u55-multiple.Debug in target-set.images.project-context.
+    # - project: ./cmsis-u55-multiple.cproject.yml
 
   # Target and model settings consumed by create_ai_layer.py.
   mlops:
@@ -61,6 +65,10 @@ solution:
     model:
       clayer: $AI-Layer$
       input:
+        # Alternative: comment the active input below and uncomment this entry.
+        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
+        # - name: TinyCNNMultiple
+        #   file: ../model/TinyCNN/TinyCNNMultiple.pt2
         - name: TinyCNN
           file: ../model/TinyCNN/model.py
           parameters:

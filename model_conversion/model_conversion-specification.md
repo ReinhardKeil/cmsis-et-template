@@ -51,8 +51,8 @@ working directory.
 - An **output program artifact** is a deployment-ready `.pte` produced or
   accepted by the generator. It is backend-lowered for, and validated against,
   the selected target. It may contain portable CPU fallback operators.
-- The **AI layer** is the generated `*.clayer.yml` and its output programs,
-  embedded C arrays, dependency metadata, reports, and optional Zephyr files.
+- The **AI layer** comprises the output programs, embedded C arrays,
+  dependency metadata, reports, and either CMSIS `*.clayer.yml` or Zephyr files.
   It targets exactly one CPU, optionally with Ethos-U acceleration; all output
   programs shall be compatible with that CPU and, when used, its shared Ethos-U
   configuration.
@@ -81,10 +81,14 @@ layer-wide properties:
 - `npu.macs`: optional MAC count, defaulting to 256;
 - `vela.ini`: optional path relative to the solution directory;
 - `vela.options`: generated command-line options;
-- `model.clayer`: required output path relative to the solution directory;
-- `model.zephyr`: optional empty node or mapping whose presence enables
-  additional Zephyr integration output;
+- `model.clayer`: CMSIS output file path relative to the solution directory;
+- `model.zephyr`: empty node or mapping selecting Zephyr integration output
+  in `ai_layer/` relative to the solution directory;
 - `model.input`: generated sequence of input definitions described below.
+
+Exactly one of `model.clayer` or `model.zephyr` shall be present. The converter
+shall reject configurations containing both keys or neither key before model
+conversion. `model.clayer` shall be a non-empty string file path.
 
 The authored `mlops.model.input` sequence shall be emitted by CMSIS-Toolbox as
 `cbuild-mlops.model.input`. Each entry uses this contract:
@@ -144,6 +148,29 @@ The producer owns model definition, named programs, example and calibration
 inputs, PTQ or QAT configuration, quantization, and post-quantization accuracy
 validation. The producer shall save the resulting quantized program or programs
 in the `.pt2` archive.
+
+The producer may include UTF-8 `constant_methods.json` via `package_pt2`'s
+`extra_files` argument. Its top-level object maps unique C-identifier method
+names to JSON scalars or non-empty homogeneous lists of scalars (Boolean,
+integer, float, string). Names shall not collide with network methods. Invalid
+JSON, other top-level types, nested objects/lists, mixed lists, and `null`
+values shall be rejected. Other extra files shall not be interpreted.
+
+The generator shall pass this dictionary as `constant_methods` to
+`to_edge_transform_and_lower` for either backend. These zero-input methods
+shall survive serialization unchanged and shall not be quantized or run through
+the network lowering passes. A missing metadata file shall mean an empty
+constant-method dictionary. Native runtime list results are flattened into
+individual primitive outputs.
+
+The TinyCNN multiple-model example shall export `filter` with A16W8
+quantization and `classify` with INT8 quantization, plus four positive integer
+constants: `IMAGE_WIDTH`, `IMAGE_HEIGHT`, `INPUT_CHANNELS`, and `NUM_CLASSES`.
+Batch shall always be 1 for inference. The firmware shall derive image shape
+`[1, IMAGE_HEIGHT, IMAGE_WIDTH, INPUT_CHANNELS]` and classifier output shape
+`[1, NUM_CLASSES]`, check them against actual tensor metadata, allocate buffers
+from their element counts, execute filter then classify, and
+compare every final logit with an independent hardcoded reference.
 
 The generator shall:
 
@@ -227,6 +254,22 @@ tokens shall also be rejected.
 The matching `<solution>.cbuild-pack.yml` shall be read from the solution
 directory. Its selected `PyTorch::ExecuTorch` version determines the pack used
 to map the serialized program's CPU operators to CMSIS components.
+The generated `<solution>.cbuild-idx.yml` shall locate the active `.cbuild.yml`
+files. Their `build.packs` entries shall determine the ExecuTorch version used,
+which must also be present in the pack lock file. Older versions retained in
+the lock file shall not override the active build selection. The converter
+shall not parse source `.csolution.yml` or existing `.clayer.yml` files for
+version selection. Missing build files, absent active ExecuTorch packs, or
+inconsistent lock-file resolutions shall require setup to be rerun. Without a
+build index, prefer a unique exact lock-file resolution, otherwise a unique
+remaining resolution. Multiple remaining versions shall fail with an ambiguity
+diagnostic.
+For CMSIS output with an existing generated clayer, pack-resolution errors and
+Python/runtime version mismatches shall explain that the old clayer may pin a
+previous ExecuTorch pack. The diagnostic shall identify the generated clayer
+and suggest removing it, rerunning setup for the target, and rerunning the
+converter. The converter shall not remove the clayer automatically. Zephyr
+output and a missing Python package shall not receive this clayer-specific hint.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
@@ -234,8 +277,9 @@ directly under `mlops`. A plain empty `zephyr:` node is equivalent to an empty
 mapping. A non-empty value shall be a mapping so that future Zephyr-specific
 parameters can be added without changing the node type.
 
-The directory containing `model.clayer` shall be created as needed. For every
-input it shall receive:
+The output directory shall be the parent of `model.clayer` for CMSIS, or
+`ai_layer/` relative to the solution directory for Zephyr. It shall be created
+as needed. For every input it shall receive:
 
 ```text
 <name>.pte
@@ -258,8 +302,8 @@ configuration, and memory mode; the effective per-input Vela options; and the
 complete Vela textual report in a fenced code block. A CPU-only report shall
 have no Vela section. Reports shall use UTF-8 and LF line endings.
 
-The directory shall also receive the `*.clayer.yml` file named by
-`model.clayer`. It is the canonical build description and shall contain one
+With `model.clayer`, the directory shall also receive the named `*.clayer.yml`
+file. It is the CMSIS build description and shall contain one
 group per input with that input's C and header files, one shared ExecuTorch
 runtime component set, every backend needed by at least one output program, and
 the union of CPU fallback-operator components across all output `.pte` files.
@@ -268,9 +312,9 @@ once if any output program is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib`, and required defines when any selected CPU fallback operator
 requires CMSIS-NN.
 
-When `model.zephyr` is present, the directory shall additionally receive
-`CMakeLists.txt`, `components.conf`, and `operators.conf`. These files and
-`*.clayer.yml` shall be rendered from the same validated in-memory layer,
+With `model.zephyr`, the directory shall receive `CMakeLists.txt`,
+`components.conf`, and `operators.conf`; no `*.clayer.yml` shall be generated.
+Both integration formats shall use the same validated in-memory layer,
 runtime, backend, and operator data. Zephyr generation shall not inspect `.pte`
 program files or independently calculate an operator union. The CMake file
 shall add every embedded-program C file directly and exactly once to Zephyr's
@@ -295,7 +339,7 @@ per-input list shall supply the fallback operators recorded in that input's
 report. The converter shall pass all per-input lists to `gen_all_oplist`, which
 produces a temporary combined `selected_operators.yaml`. It shall map the
 combined YAML operator keys to components in the resolved pack PDSC and write
-the resulting union to the canonical `*.clayer.yml`.
+the resulting union to the selected CMSIS or Zephyr integration metadata.
 
 The converter shall not search raw `.pte` program bytes or use kernel-definition
 `merge_yaml` as a multi-program union. An operator with no matching pack
@@ -311,7 +355,7 @@ all layer-wide metadata. With `--input <name>`, it shall process only the named
 input. It shall use the newly staged `.pte` program for that input and the
 existing `.pte` program artifacts for all unchanged inputs, run `gen_oplist`
 on every one, and rebuild the selected input's report, the operator union,
-`*.clayer.yml`, and the optional Zephyr metadata. Reports and other per-input
+and the selected CMSIS or Zephyr metadata. Reports and other per-input
 artifacts belonging to unchanged inputs shall be retained. An unknown input
 name is an error. Partial generation shall fail if another declared `.pte`
 program is missing or cannot be inspected.
@@ -465,7 +509,9 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
-- The resolved pack version follows the exact selector when available and
+- The resolved pack version follows the generated build's pack selection even
+  when the lock file retains an older version. Source solution/layer files are
+  not parsed. Missing, inconsistent or ambiguous generated metadata and
   mismatches with the installed ExecuTorch package are rejected.
 - `.py` parameters are converted to the types expected by each accepting
   workflow function; parameters on `.pt2` or `.pte` are rejected.
@@ -473,9 +519,11 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   identical inputs and tool versions.
 - Both Ethos-U and CPU-only Cortex-M generation select their target-specific
   runtime and operator components.
-- A present `model.zephyr` node generates complete Zephyr metadata; without it,
-  no Zephyr metadata is generated. The Zephyr metadata and `*.clayer.yml` use
-  the same validated layer data and do not recalculate the operator union.
+- Exactly one of `model.clayer` or `model.zephyr` is required; both keys or
+  neither key are rejected. Zephyr generates complete integration metadata in
+  `ai_layer/` and no `*.clayer.yml`. CMSIS generates the named `*.clayer.yml`
+  and no Zephyr metadata. Both formats use the same validated layer data and
+  do not recalculate the operator union.
 - Generation never removes untracked or user-owned files.
 - The complete unit-test suite passes without target hardware.
 
