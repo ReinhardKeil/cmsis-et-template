@@ -19,6 +19,7 @@ solution:
       board: AppKit-E8-AIML
       device: AE822FA0E5597BS0:M55_HP
       variables:
+        - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
         - west-board: ensemble_e8_ak/ae822fa0e5597bs0/rtss_hp
       west-defs:
         - DTC_OVERLAY_FILE: app.overlay
@@ -37,6 +38,7 @@ solution:
       board: ARM::SSE-320
       device: ARM::SSE-320-FVP
       variables:
+        - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
         - west-board: mps4/corstone320/fvp
       west-defs:
         - DTC_OVERLAY_FILE: fvp.overlay
@@ -84,6 +86,7 @@ solution:
       system: RTSS_HP_SRAM_MRAM
       memory: Shared_Sram
     model:
+      clayer: $AI-Layer$
       zephyr:
       input:
         # Alternative: comment the active input below and uncomment this entry.

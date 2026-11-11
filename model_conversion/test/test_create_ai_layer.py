@@ -877,6 +877,7 @@ class CreateAiLayerTests(unittest.TestCase):
                             "description": "Demo",
                             "npu": {"type": "Ethos-U55"},
                             "model": {
+                                "clayer": "generated/network.clayer.yml",
                                 # Equivalent to a plain ``zephyr:`` YAML node.
                                 "zephyr": None,
                             },
@@ -907,20 +908,33 @@ class CreateAiLayerTests(unittest.TestCase):
                     "components.conf": generator.ZEPHYR_COMPONENTS,
                     "operators.conf": "CONFIG_CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE=y\n",
                 },
-            ), mock.patch.object(generator, "clayer") as render_clayer, mock.patch.object(
+            ), mock.patch.object(
                 generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
             ):
                 generator.main()
 
-            render_clayer.assert_not_called()
-            output = solution_dir / "ai_layer"
+            output = solution_dir / "generated"
             self.assertEqual((output / "model.pte").read_bytes(), b"PTE")
             self.assertTrue((output / "CMakeLists.txt").is_file())
             self.assertTrue((output / "components.conf").is_file())
             self.assertTrue((output / "operators.conf").is_file())
-            self.assertFalse(list(output.glob("*.clayer.yml")))
+            layer = yaml.safe_load((output / "network.clayer.yml").read_text())["layer"]
+            self.assertIn({"pack": "PyTorch::ExecuTorch@1.6.0"}, layer["packs"])
+            self.assertIn(
+                {"component": "Machine Learning:ExecuTorch:Backend EthosU"}, layer["components"]
+            )
+            self.assertIn(
+                {"component": "Machine Learning:ExecuTorch Operators:Quantized dequantize"},
+                layer["components"],
+            )
+            self.assertFalse((solution_dir / "ai_layer").exists())
 
     def test_main_generates_cpu_layer_without_vela_summary(self) -> None:
+        for zephyr in (False, True):
+            with self.subTest(zephyr=zephyr):
+                self._check_cpu_layer(zephyr)
+
+    def _check_cpu_layer(self, zephyr: bool) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             solution_dir = Path(temporary) / "cmsis-m"
             solution_dir.mkdir()
@@ -935,6 +949,7 @@ class CreateAiLayerTests(unittest.TestCase):
                             "model": {
                                 "clayer": "ai_layer/ai_layer.clayer.yml",
                                 "cpu": "Cortex-M55",
+                                **({"zephyr": {}} if zephyr else {}),
                             },
                         }
                     }
@@ -960,7 +975,9 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator, "operator_components", return_value=(["Cortex-M quantized_conv2d"], True)
             ), mock.patch.object(
                 generator, "validate_pte_target", return_value=self.inspection("forward")
-            ):
+            ), mock.patch.object(
+                generator, "zephyr_metadata", return_value={"components.conf": "cpu components\n"}
+            ) as zephyr_metadata:
                 generator.main()
 
             export_cpu.assert_called_once_with(
@@ -972,6 +989,14 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "model_REPORT.md").exists())
             layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
             self.assertIn("pack: ARM::CMSIS-NN", layer)
+            self.assertNotIn("Backend EthosU", layer)
+            if zephyr:
+                zephyr_metadata.assert_called_once_with(
+                    ["Cortex-M quantized_conv2d"], solution_dir / "pack", False, mock.ANY
+                )
+                self.assertTrue((output / "components.conf").is_file())
+            else:
+                zephyr_metadata.assert_not_called()
 
     def test_main_rejects_non_mapping_zephyr_setting(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -982,6 +1007,7 @@ class CreateAiLayerTests(unittest.TestCase):
                     {
                         "cbuild-mlops": {
                             "model": {
+                                "clayer": "ai_layer/ai_layer.clayer.yml",
                                 "zephyr": True,
                             }
                         }
@@ -995,8 +1021,8 @@ class CreateAiLayerTests(unittest.TestCase):
             ), self.assertRaisesRegex(SystemExit, "model.zephyr must be empty or a mapping"):
                 generator.main()
 
-    def test_main_requires_exactly_one_output_format(self) -> None:
-        for model in ({}, {"clayer": "ai_layer/ai_layer.clayer.yml", "zephyr": None}):
+    def test_main_requires_clayer_with_or_without_zephyr(self) -> None:
+        for model in ({}, {"zephyr": None}, {"zephyr": {}}):
             with self.subTest(model=model), tempfile.TemporaryDirectory() as temporary:
                 mlops_file = Path(temporary) / "demo.cbuild-mlops.yml"
                 mlops_file.write_text(
@@ -1005,7 +1031,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 with mock.patch.object(sys, "argv", [str(SCRIPT), str(mlops_file)]), mock.patch.object(
                     generator, "run_in_venv"
                 ), mock.patch.object(generator, "check_executorch_version") as check_version, self.assertRaisesRegex(
-                    SystemExit, "model must contain exactly one of clayer or zephyr"
+                    SystemExit, "model.clayer must be a non-empty file path"
                 ):
                     generator.main()
                 check_version.assert_not_called()
@@ -1040,8 +1066,8 @@ class CreateAiLayerTests(unittest.TestCase):
                         "processor": {"type": "Cortex-M55"},
                         "npu": {"type": "Ethos-U55"},
                         "model": {
-                            **({"clayer": "ai_layer/ai_layer.clayer.yml"}
-                               if integration == "clayer" else {"zephyr": {}}),
+                            "clayer": "ai_layer/ai_layer.clayer.yml",
+                            **({"zephyr": {}} if integration == "zephyr" else {}),
                             "input": [
                                 {"name": "NpuModel", "file": "npu.py"},
                                 {"name": "CpuModel", "file": "cpu.py", "cpu": None},
@@ -1057,10 +1083,10 @@ class CreateAiLayerTests(unittest.TestCase):
                 return None if cpu_only else npu_spec
 
             def map_components(names, _pack):
-                if any(name.startswith("cortex_m::") for name in names):
-                    return ["Cortex-M quantized_conv2d"], True
                 if len(names) > 1:
                     return ["Cortex-M quantized_conv2d", "Portable add"], True
+                if any(name.startswith("cortex_m::") for name in names):
+                    return ["Cortex-M quantized_conv2d"], True
                 return ["Portable add"], False
 
             argv = [str(SCRIPT), str(mlops_file)]
@@ -1102,14 +1128,16 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual((output / "CpuModel.pte").read_bytes(), b"CPU")
             self.assertTrue((output / "NpuModel_REPORT.md").is_file())
             self.assertTrue((output / "CpuModel_REPORT.md").is_file())
+            layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
+            self.assertIn("group: NpuModel", layer)
+            self.assertIn("group: CpuModel", layer)
+            self.assertEqual(layer.count("Backend EthosU"), 1)
+            self.assertIn("Cortex-M quantized_conv2d", layer)
+            self.assertIn("Portable add", layer)
+            self.assertIn("pack: ARM::CMSIS-NN", layer)
             if integration == "clayer":
-                layer = (output / "ai_layer.clayer.yml").read_text(encoding="utf-8")
-                self.assertIn("group: NpuModel", layer)
-                self.assertIn("group: CpuModel", layer)
-                self.assertEqual(layer.count("Backend EthosU"), 1)
                 self.assertFalse((output / "CMakeLists.txt").exists())
             else:
-                self.assertFalse(list(output.glob("*.clayer.yml")))
                 cmake = (output / "CMakeLists.txt").read_text(encoding="utf-8")
                 self.assertEqual(cmake.count("NpuModel_pte.c"), 1)
                 self.assertEqual(cmake.count("CpuModel_pte.c"), 1)
@@ -1194,6 +1222,11 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual((root / "ai_layer" / "Program.pte").read_bytes(), b"PTE")
 
     def test_input_option_uses_unchanged_pte_for_operator_union(self) -> None:
+        for zephyr in (False, True):
+            with self.subTest(zephyr=zephyr):
+                self._check_input_option(zephyr)
+
+    def _check_input_option(self, zephyr: bool) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             solution = Path(temporary)
             (solution / "a-source.pte").write_bytes(b"SOURCE-A")
@@ -1209,6 +1242,7 @@ class CreateAiLayerTests(unittest.TestCase):
                         "npu": {"type": "Ethos-U55"},
                         "model": {
                             "clayer": "ai_layer/ai_layer.clayer.yml",
+                            **({"zephyr": {}} if zephyr else {}),
                             "input": [
                                 {"name": "A", "file": "a-source.pte"},
                                 {"name": "B", "file": "b-source.pte"},
@@ -1240,13 +1274,25 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator, "operator_components", return_value=(["Portable add"], False)
             ), mock.patch.object(
                 generator, "validate_pte_target", return_value=self.inspection("forward", delegated=True)
-            ):
+            ), mock.patch.object(
+                generator, "zephyr_metadata", return_value={"operators.conf": "operators\n"}
+            ) as zephyr_metadata:
                 generator.main()
 
             self.assertEqual((layer_dir / "A.pte").read_bytes(), b"EXISTING-A")
             self.assertEqual((layer_dir / "A_REPORT.md").read_text(encoding="utf-8"), "keep A\n")
             self.assertEqual((layer_dir / "B.pte").read_bytes(), b"NEW-B")
             self.assertTrue((layer_dir / "B_REPORT.md").is_file())
+            layer = (layer_dir / "ai_layer.clayer.yml").read_text(encoding="utf-8")
+            self.assertIn("group: A", layer)
+            self.assertIn("group: B", layer)
+            if zephyr:
+                zephyr_metadata.assert_called_once_with(
+                    ["Portable add"], solution / "pack", True, mock.ANY
+                )
+                self.assertTrue((layer_dir / "operators.conf").is_file())
+            else:
+                zephyr_metadata.assert_not_called()
 
 
 if __name__ == "__main__":

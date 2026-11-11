@@ -59,7 +59,7 @@ Standalone MLOps/pack artifacts without a build index must have an unambiguous
 pack resolution. Missing, inconsistent, or ambiguous build metadata requires
 setup to be rerun before export.
 
-For CMSIS projects, an existing generated AI clayer can retain an old
+An existing generated AI clayer can retain an old
 ExecuTorch pack pin during an upgrade. Version mismatch and pack-resolution
 errors identify that clayer and suggest removing it, rerunning setup for the
 target, and rerunning `create_ai_layer.py` to regenerate it.
@@ -145,13 +145,26 @@ mlops:
 
 | `model:` | | Content |
 |---|---|---|
-| `clayer:` | CMSIS only | Path and filename of the `*.clayer.yml` file used to integrate the model into a CMSIS-style project. Its parent folder also receives the generated program artifacts. |
-| `zephyr:` | Zephyr only | Generates Zephyr integration files and program artifacts in `ai_layer/` relative to the solution directory. A plain empty node and `zephyr: {}` are equivalent. |
+| `clayer:` | Required | Path and filename of the `*.clayer.yml` file generated for both CMSIS and Zephyr, including use by other tools. Its parent folder receives all generated artifacts. |
+| `zephyr:` | Zephyr only | Also generates Zephyr integration files in the directory containing `clayer`. A plain empty node and `zephyr: {}` are equivalent. |
 | `input:` | Required | Generated sequence of input-artifact definitions. |
 
-Exactly one of `clayer:` or `zephyr:` is required. Configurations containing
-both keys or neither key are rejected. For Zephyr, replace the `clayer:` line
-in the example above with `zephyr:`; no `*.clayer.yml` is generated.
+`clayer:` is required in every configuration. For Zephyr, keep `clayer:` and
+add `zephyr:` alongside it:
+
+```yaml
+model:
+  clayer: ai_layer/ai_layer.clayer.yml
+  zephyr:
+  input:
+    - name: TinyCNN
+      file: ../model/TinyCNN/model.py
+```
+
+The Zephyr csolutions define `AI-Layer` as
+`$SolutionDir()$/ai_layer/ai_layer.clayer.yml` in each target's variables and
+use `clayer: $AI-Layer$` under `mlops.model`, matching the CMSIS templates.
+CMSIS-Toolbox resolves this to the file path in the generated MLOps metadata.
 
 The `input:` node contains a list of named input artifacts.
 
@@ -298,15 +311,14 @@ producer-owned accuracy validation.
 
 ## Output
 
-With `model.clayer`, the script writes generated files to the directory
-containing the specified `*.clayer.yml`. With `model.zephyr`, it writes to
-`ai_layer/` relative to the solution directory. For example, either
-`clayer: ai_layer/ai_layer.clayer.yml` or `zephyr:` writes program artifacts to
-`ai_layer/`.
+The script writes all generated files to the directory containing the required
+`model.clayer`, including when `model.zephyr` is present. For example,
+`clayer: ai_layer/ai_layer.clayer.yml` writes program artifacts and integration
+metadata to `ai_layer/`.
 
 ```text
 ai_layer/
-|-- ai_layer.clayer.yml              # CMSIS only: build description
+|-- ai_layer.clayer.yml              # layer description for CMSIS and other tools
 |-- <input-a>.pte                    # backend-lowered program validated for target
 |-- <input-a>_pte.c                  # embedded program data
 |-- <input-a>_pte.h                  # program data declarations
@@ -332,16 +344,16 @@ The generator replaces the files produced by the current run. It does not
 delete other files from the output directory; obsolete artifacts from removed
 inputs can be deleted by the user explicitly.
 
-For CMSIS, the script creates the `*.clayer.yml` file specified by
+For both CMSIS and Zephyr, the script creates the `*.clayer.yml` file specified by
 `model.clayer`. This file contains one group per input and selects the shared
 ExecuTorch runtime, required backends, and the union of CPU fallback-operator
 components extracted from all `.pte` program files. CPU-only layers omit `Backend
 EthosU`; CMSIS-NN is selected when any fallback operator requires it.
 
-For Zephyr, the script creates
+For Zephyr, the script additionally creates
 `CMakeLists.txt`, `components.conf`, and `operators.conf` for the Zephyr
-application. It does not create a `*.clayer.yml` file. Both integration formats
-use the same validated layer data.
+application. The clayer remains available to other tools. Both integration
+formats use the same validated layer data.
 
 Add the generated configuration fragments before Zephyr processes the
 configuration, then add the AI-layer directory after creating the application:
