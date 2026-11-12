@@ -51,13 +51,19 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
     endif()
   endif()
 
-  # Zephyr explicitly adds AC6's C resource headers as system includes.
-  # AC6 6.24's libc++ wrappers must precede them (notably stddef.h).
+  # Zephyr's armstdc wrappers use #include_next to chain into AC6's C headers,
+  # and AC6 6.24's libc++ wrappers must precede both (notably stddef.h).
+  # Explicitly add both system include paths in order: libcxx -> armstdc -> include.
   get_filename_component(_ac6_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
-  get_filename_component(_ac6_libcxx "${_ac6_bin}/../include/libcxx" ABSOLUTE)
+  get_filename_component(_ac6_include "${_ac6_bin}/../include" ABSOLUTE)
+  get_filename_component(_ac6_libcxx "${_ac6_include}/libcxx" ABSOLUTE)
   if(IS_DIRECTORY "${_ac6_libcxx}")
     target_include_directories(zephyr_interface SYSTEM BEFORE INTERFACE
       "$<$<COMPILE_LANGUAGE:CXX>:${_ac6_libcxx}>")
+  endif()
+  if(IS_DIRECTORY "${_ac6_include}")
+    target_include_directories(zephyr_interface SYSTEM INTERFACE
+      "${_ac6_include}")
   endif()
   zephyr_compile_options(
     "$<$<COMPILE_LANGUAGE:CXX>:-include${CMAKE_CURRENT_SOURCE_DIR}/src/zephyr_ac6_compat.hpp>")
