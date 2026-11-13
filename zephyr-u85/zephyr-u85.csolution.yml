@@ -100,5 +100,5 @@ solution:
         #    input-shape: 1x16x16x3
         #    calibration-samples: 2
 
-  compiler: AC6
+  compiler: GCC
   created-for: CMSIS-Toolbox@2.15.0

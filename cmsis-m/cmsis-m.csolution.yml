@@ -9,6 +9,10 @@ solution:
   cdefault:
   compiler: GCC
 
+  output-dirs:
+    # Keep GCC dependency-file paths below the Windows path-length limit.
+    tmpdir: ../tmp/m
+
   packs:
     - pack: PyTorch::ExecuTorch@1.6.0
     - pack: ARM::Cortex_DFP
