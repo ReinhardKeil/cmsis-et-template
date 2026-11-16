@@ -52,8 +52,8 @@ def check_host_python() -> None:
             f"error: ExecuTorch needs Python >={lo},<{hi}; this is {have}\n"
             f"  ({sys.executable})\n"
             "Re-run with a supported interpreter, e.g.\n"
-            "  PYTHON=python3.12 ./model_conversion/setup_venv.sh  (Linux/macOS)\n"
-            "  py -3.12 model_conversion/setup_venv.py             (Windows)"
+            "  PYTHON=python3.13 ./model_conversion/setup_venv.sh  (Linux/macOS)\n"
+            "  py -3.13 model_conversion/setup_venv.py             (Windows)"
         )
 
 
@@ -82,7 +82,7 @@ def venv_is_usable(venv_dir: Path) -> bool:
 def python_version(value: str) -> tuple[int, ...]:
     """Accept a supported major.minor version, optionally with a patch version."""
     if not re.fullmatch(r"[0-9]+\.[0-9]+(?:\.[0-9]+)?", value):
-        raise argparse.ArgumentTypeError("expected a Python version such as 3.12 or 3.12.10")
+        raise argparse.ArgumentTypeError("expected a Python version such as 3.13 or 3.13.10")
     version = tuple(int(n) for n in value.split("."))
     if not (MIN_PYTHON <= version[:2] < MAX_PYTHON_EXCLUSIVE):
         raise argparse.ArgumentTypeError("ExecuTorch needs Python >=3.10,<3.14")
@@ -154,8 +154,8 @@ def main() -> int:
         metavar="VERSION",
         type=python_version,
         help=(
-            "Python version for uv, e.g. 3.12 or 3.12.10 (needs --uv; default: the "
-            "interpreter running this script, or uv's own pick through the wrappers)"
+            "Python version for uv, e.g. 3.13 or 3.13.10 (needs --uv; the "
+            "wrappers default to 3.13)"
         ),
     )
     parser.add_argument(

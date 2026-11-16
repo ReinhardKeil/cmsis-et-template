@@ -4,13 +4,13 @@
 #
 # Linux/macOS wrapper. All the logic lives in setup_venv.py so the same setup
 # runs on Windows too; this only picks an interpreter. Override with e.g.
-#   PYTHON=python3.12 ./model_conversion/setup_venv.sh
+#   PYTHON=python3.13 ./model_conversion/setup_venv.sh
 # With --uv, uv supplies the interpreter too (and can download one), e.g.
-#   ./model_conversion/setup_venv.sh --uv --python 3.12
+#   ./model_conversion/setup_venv.sh --uv --python 3.13
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 use_uv=false
-uv_python='>=3.10,<3.14'
+uv_python='3.13'
 previous=''
 for arg in "$@"; do
     if [[ "$previous" == --python ]]; then

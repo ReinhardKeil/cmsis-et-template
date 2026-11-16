@@ -50,8 +50,8 @@
         {
             "id": "setupPythonVersion",
             "type": "promptString",
-            "description": "Python version for uv (>=3.10,<3.14), e.g. 3.12 or 3.12.10",
-            "default": "3.12"
+            "description": "Python version for uv (>=3.10,<3.14), e.g. 3.13 or 3.13.10",
+            "default": "3.13"
         }
     ]
 }

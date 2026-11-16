@@ -1,4 +1,4 @@
-# ExecuTorch on Cortex-M and Ethos-U
+# ExecuTorch Template for Cortex-M and Ethos-U
 
 [![Build and test CMSIS-M](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-m.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-m.yml)
 [![Build and test CMSIS-U85](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
@@ -9,30 +9,30 @@
 [![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
 [![ExecuTorch: 1.6.0](https://img.shields.io/badge/ExecuTorch-1.6.0-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
-This repository provides template applications for deploying ML models on
-Cortex-M targets using [ExecuTorch](https://github.com/pytorch/executorch).
-The templates support CMSIS and Zephyr applications on Cortex-M-only systems,
-where inference runs entirely on the CPU, and systems with an Arm Ethos-U NPU,
-where supported operations run on the NPU and the remaining operations run on
-the CPU.
+This repository provides ready-to-adapt templates for deploying
+[ExecuTorch](https://github.com/pytorch/executorch) models on Arm Cortex-M
+systems. Choose a CMSIS or Zephyr template for CPU-only inference or for
+hardware-accelerated inference with an Arm Ethos-U NPU.
+
+<img src="https://raw.githubusercontent.com/Arm-Examples/.github/main/profile/executorch-models.svg" alt="ExecuTorch model deployment flow" width="500">
 
 ## What you can do
 
-Use the templates to:
+Use these templates to:
 
-- Adapt a supplied template to the target hardware and verify the integration
-  by running the TinyCNN example.
-- Generate an AI layer from one or more model inputs while linking only the
-  required ExecuTorch runtime, backends, and operators.
-- Adapt model inputs, outputs, and application processing for a product use
-  case.
-- Add repeatable CI tests using the
-  [Synchronous Data Stream (SDS) Framework](https://github.com/ARM-software/SDS-Framework),
-  including comparisons between hardware and FVP execution where useful.
+- Start from a working Cortex-M and ExecuTorch integration and verify it with
+  the included [TinyCNN example](model/TinyCNN/README.md).
+- Build CMSIS applications using FreeRTOS or RTX5, or build Zephyr applications.
+- Deploy models on Cortex-M CPU-only targets or targets with an Arm Ethos-U NPU.
+- Convert one or more models into a reusable AI Layer.
+- Include only the ExecuTorch runtime, backends, and operators required by your
+  models.
+- Replace the example model processing with your product's input, output, and
+  application logic.
 
 ## Software components
 
-- The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
+- The [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/overview/)
   pack provides the ExecuTorch runtime, required operators, and Ethos-U backend.
 - In the CMSIS templates, the
   [`ARM::CMSIS-Ethos-U`](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
@@ -94,7 +94,7 @@ dependencies.
 
 ## Create the AI layer and build
 
-`create_ai_layer.py` supports three input workflows:
+[`create_ai_layer.py`](model_conversion/README.md) supports three input workflows:
 
 | Input | Role | Action |
 | --- | --- | --- |
@@ -111,7 +111,12 @@ and compatible with the selected target. The tool never runs Vela on `.pte`
 inputs and rejects portable-only NPU inputs, incompatible programs, and
 programs that cannot be verified.
 
-One AI layer targets exactly one CPU, optionally with Ethos-U acceleration.
+One AI Layer targets exactly one CPU, optionally with Ethos-U acceleration,
+but is independent of the application framework. The same layer can be used in
+CMSIS and Zephyr projects for that target. For example, use CMSIS and the
+[Synchronous Data Stream (SDS) Framework](https://github.com/ARM-software/SDS-Framework)
+to validate the layer on hardware or an FVP, then deploy the unchanged layer in
+either a CMSIS or Zephyr application.
 
 The `.py` convenience workflow performs the complete process for simple models
 and examples. Its Python workflow defines or loads the `torch.nn.Module` and
@@ -199,27 +204,29 @@ and optimization, see
 
 ## Generated AI layer
 
-`create_ai_layer.py` writes the following files to `ai_layer/`:
+The `mlops.model.clayer` setting selects the path and filename of the generated
+`*.clayer.yml` file. `create_ai_layer.py` writes the remaining artifacts to its
+parent directory:
 
 ```text
-ai_layer/
-|-- ai_layer.clayer.yml              # layer description for CMSIS and other tools
-|-- <input-a>.pte                    # backend-lowered program validated for target
-|-- <input-a>_pte.c                  # embedded program data
-|-- <input-a>_pte.h                  # program data declarations
-|-- <input-a>_REPORT.md              # processing, lowering, and validation summary
-|-- <input-b>.pte
-|-- <input-b>_pte.c
-|-- <input-b>_pte.h
-|-- <input-b>_REPORT.md
+<clayer-directory>/
+|-- <clayer-name>.clayer.yml         # layer description for CMSIS and other tools
+|-- <name-a>.pte                     # backend-lowered program validated for target
+|-- <name-a>_pte.c                   # embedded program data
+|-- <name-a>_pte.h                   # program data declarations
+|-- <name-a>_REPORT.md               # processing, lowering, and validation summary
+|-- <name-b>.pte
+|-- <name-b>_pte.c
+|-- <name-b>_pte.h
+|-- <name-b>_REPORT.md
 |-- CMakeLists.txt                   # Zephyr: model sources and include directory
 |-- components.conf                  # Zephyr: runtime and backend Kconfig settings
 `-- operators.conf                   # Zephyr: required CPU operator Kconfig settings
 ```
 
-`ai_layer.clayer.yml` records the shared ExecuTorch runtime, required backends,
-and combined CPU fallback operators for all programs. It is also generated for
-Zephyr so other tools can consume the layer. For Zephyr, the generator adds:
+The generated `*.clayer.yml` file records the shared ExecuTorch runtime,
+required backends, and combined CPU fallback operators for all programs. When
+`mlops.model.zephyr` is present, the generator also adds:
 
 - `CMakeLists.txt` to add the generated model C files and their header directory
   to the application build.
@@ -237,20 +244,6 @@ workflow generates the target-specific AI layer, builds the application, runs
 it on the matching FVP, checks `Test_result: PASS`, and uploads its artifacts.
 A separate workflow verifies the Python environment setup on Linux, macOS, and
 Windows.
-
-## Shared files and tools
-
-| Path | Purpose |
-| ------ | --------- |
-| `model/TinyCNN/model.py` | Starter TinyCNN ML model; add sibling directories for more models |
-| `model_conversion/create_ai_layer.py` | Exports the ML model for the target and writes the AI layer |
-| `model_conversion/README.md`, `model_conversion/model_conversion-specification.md` | Usage and specification for the model-conversion toolset |
-| `model_conversion/test/` | Unit tests for the AI-layer generator |
-| `model_conversion/setup_venv.py` (`.sh` / `.bat`) | Creates the Python environment for the export |
-| `.vscode.d/tasks.json` | The VS Code tasks (venv setup, Create AI layer) merged by the CMSIS Solution extension |
-| `.vscode/fvp.sh`, `.vscode/fvp.Dockerfile`, `.vscode/launch.json.mac` | macOS only: runs the FVP in Docker, and the debug configuration that waits for it |
-| `cmsis-u*/src/app_main.cpp` | Loads the ML model, runs inference, and prints the result; pool sizes overridable with `APP_METHOD_POOL_SIZE`, `APP_TEMP_POOL_SIZE`, `APP_POOL_SECTION` |
-| `cmsis-u*/src/arm_embedded_module.*` | `EmbeddedModule`: ExecuTorch's `Module` class without the POSIX file loading (BSD-3-Clause, `src/LICENSE-ExecuTorch`) |
 
 ## License
 
