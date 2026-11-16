@@ -24,6 +24,15 @@ target_compile_options(cmsis_executorch PRIVATE
   $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-Wno-psabi>
 )
 
+# GCC 15 diagnoses the int32_t*/long* difference in the MVE intrinsic
+# declarations used by Zephyr's current CMSIS-NN module as a C constraint
+# error. Both types are 32-bit for this target; retain the diagnostic as a
+# warning until the module declarations are updated.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND TARGET modules__cmsis-nn)
+  target_compile_options(modules__cmsis-nn PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:-Wno-incompatible-pointer-types>)
+endif()
+
 # Zephyr already provides sys/types.h for AC6; the bare-metal pack shim
 # must not shadow it. Only libc++ needs compatibility adjustments here.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
