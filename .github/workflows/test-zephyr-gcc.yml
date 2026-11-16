@@ -51,11 +51,11 @@ jobs:
         run: echo "$(dirname "${AVH_FVP_PLUGINS%/}")/arm_license_management_utilities" >> "${GITHUB_PATH}"
 
       # Temporary pin until the required CMSIS-Toolbox version is released.
-      # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700
+      # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/43844032963
       - name: Install nightly CMSIS-Toolbox
         env:
-          CMSIS_TOOLBOX_URL: https://nightly.link/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/42539739700/cmsis-toolbox-linux-amd64.zip
-          CMSIS_TOOLBOX_SHA256: 2d28b494bd25d76eff35c4a8903d73cabd835912c536e61dd5bbf38d3bef17b2
+          CMSIS_TOOLBOX_URL: https://nightly.link/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/43844032963/cmsis-toolbox-linux-amd64.zip
+          CMSIS_TOOLBOX_SHA256: cf38c983b757ee157aa10d687b5a732e2a14a408355b46a12b0d397a649cc075
         run: |
           curl --fail --location --retry 3 \
             --output "${RUNNER_TEMP}/cmsis-toolbox.zip" \
