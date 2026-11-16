@@ -79,13 +79,13 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-zephyr-${{ hashFiles('zephyr-*/*.csolution.yml', 'Pack/*.pack') }}
+          key: cmsis-packs-zephyr-${{ hashFiles('zephyr-*/*.csolution.yml', 'Pack/PyTorch.ExecuTorch.1.6.0.pack') }}
           path: ${{ env.CMSIS_PACK_ROOT }}
 
       - name: Install repository packs
         run: |
-          cpackget add --agree-embedded-license Pack/*.pack
-          test -f "${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0-zephyrpreview1/PyTorch.ExecuTorch.pdsc"
+          cpackget add --agree-embedded-license Pack/PyTorch.ExecuTorch.1.6.0.pack
+          test -f "${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0/PyTorch.ExecuTorch.pdsc"
 
       - name: Cache Zephyr workspace
         uses: actions/cache@v6

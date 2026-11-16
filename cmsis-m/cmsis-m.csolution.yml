@@ -10,7 +10,7 @@ solution:
   compiler: AC6
 
   packs:
-    - pack: PyTorch::ExecuTorch@1.6.0-zephyrpreview1
+    - pack: PyTorch::ExecuTorch@1.6.0
     - pack: ARM::Cortex_DFP
 
   target-types:

@@ -33,24 +33,6 @@ endif()
 # Zephyr already provides sys/types.h for AC6; the bare-metal pack shim
 # must not shadow it. Only libc++ needs compatibility adjustments here.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
-  # AC6 6.24's register coalescer crashes on this pack's quantization code
-  # with hard-float at -Og/-O1; -O2 avoids it and keeps the kernel optimized.
-  if(CONFIG_FP_HARDABI)
-    get_target_property(_et_sources cmsis_executorch SOURCES)
-    set(_et_quantize_workaround_applied FALSE)
-    foreach(_source IN LISTS _et_sources)
-      if(_source MATCHES "[/\\\\]op_quantize\\.cpp$")
-        set_property(SOURCE "${_source}" TARGET_DIRECTORY cmsis_executorch
-          APPEND PROPERTY COMPILE_OPTIONS -O2)
-        set(_et_quantize_workaround_applied TRUE)
-      endif()
-    endforeach()
-    if(NOT _et_quantize_workaround_applied)
-      message(FATAL_ERROR
-        "AC6 workaround could not find ExecuTorch op_quantize.cpp")
-    endif()
-  endif()
-
   # Zephyr's armstdc wrappers use #include_next to chain into AC6's C headers,
   # and AC6 6.24's libc++ wrappers must precede both (notably stddef.h).
   # Explicitly add both system include paths in order: libcxx -> armstdc -> include.

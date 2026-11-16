@@ -49,7 +49,7 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/Corstone-320/*.clayer.yml') }}
+          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/Corstone-320/*.clayer.yml', 'Pack/PyTorch.ExecuTorch.1.6.0.pack') }}
           path: /home/runner/.cache/arm/packs
 
       - name: Cache model-export environment
@@ -59,7 +59,7 @@ jobs:
           path: .venv
 
       - name: Install repository ExecuTorch pack
-        run: cpackget add --agree-embedded-license Pack/*.pack
+        run: cpackget add --agree-embedded-license Pack/PyTorch.ExecuTorch.1.6.0.pack
 
       - name: Create model-export environment
         run: ./model_conversion/setup_venv.sh
