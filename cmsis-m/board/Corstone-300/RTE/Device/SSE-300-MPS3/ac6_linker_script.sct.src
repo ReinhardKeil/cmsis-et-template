@@ -49,15 +49,8 @@ LR_ROM1 __ROM1_BASE __ROM1_SIZE  {
     *(+RO +XO)
   }
 
-  RW_NOINIT __RAM0_BASE UNINIT (__RAM0_SIZE - __HEAP_SIZE - __STACK_SIZE - __STACKSEAL_SIZE) {
-    *.o(.bss.noinit)
-    *.o(.bss.noinit.*)
-  }
-
-  RW_RAM0 AlignExpr(+0, 8) (__RAM0_SIZE - __HEAP_SIZE - __STACK_SIZE - __STACKSEAL_SIZE - AlignExpr(ImageLength(RW_NOINIT), 8)) {
-    ; Ethos-U arena (AXI1, DDR4_1; U65 only)
-    ; *.o (*ethos_arena)          ; Dedicated_Sram_384KB
-
+  ; CPU-only inference uses ordinary RW/ZI data; no retained-data region.
+  RW_RAM0 __RAM0_BASE (__RAM0_SIZE - __HEAP_SIZE - __STACK_SIZE - __STACKSEAL_SIZE) {
     *(+RW +ZI)
   }
 
@@ -76,15 +69,6 @@ LR_ROM1 __ROM1_BASE __ROM1_SIZE  {
 
 #if __RAM1_SIZE > 0
   RW_RAM1 __RAM1_BASE __RAM1_SIZE  {
-    ; Ethos-U model: command stream and constants (AXI0, SRAM_VM0)
-    ; *.o (ethos_model)           ; Sram_Only
-
-    ; Ethos-U arena cache (AXI0, SRAM_VM0; U65 only)
-    ; *.o (*ethos_cache)          ; Dedicated_Sram_384KB
-
-    ; Ethos-U arena (AXI0, SRAM_VM0)
-    *.o (*ethos_arena)            ; Sram_Only / Shared_Sram
-
    .ANY (+RW +ZI)
   }
 #endif
@@ -105,9 +89,6 @@ LR_ROM1 __ROM1_BASE __ROM1_SIZE  {
 #if __ROM2_SIZE > 0
 LR_ROM2 __ROM2_BASE __ROM2_SIZE  {
   ER_ROM2 +0 __ROM2_SIZE {
-    ; Ethos-U model: command stream and constants (AXI1, DDR4_3)
-    *.o (ethos_model)             ; Shared_Sram / Dedicated_Sram_384KB
-
    .ANY (+RO +XO)
   }
 }

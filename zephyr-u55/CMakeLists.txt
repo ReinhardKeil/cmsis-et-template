@@ -18,9 +18,33 @@ project(my_app)
 
 add_subdirectory(ai_layer)
 
+# Keep ExecuTorch warning suppressions local to its library.
+target_compile_options(cmsis_executorch PRIVATE
+  $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-declarations>
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-Wno-psabi>
+)
+
+# GCC 15 diagnoses the int32_t*/long* difference in the MVE intrinsic
+# declarations used by Zephyr's current CMSIS-NN module as a C constraint
+# error. Both types are 32-bit for this target; retain the diagnostic as a
+# warning until the module declarations are updated.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND TARGET modules__cmsis-nn)
+  target_compile_options(modules__cmsis-nn PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:-Wno-incompatible-pointer-types>)
+endif()
+
 # Zephyr already provides sys/types.h for AC6; the bare-metal pack shim
 # must not shadow it. Only libc++ needs compatibility adjustments here.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
+  zephyr_compile_options(-ffp-mode=full)
+  # AC6 ctype macros return shifted bit masks; Zephyr's fnmatch.c uses them
+  # as booleans. Put the suppression on the source so it follows -Wall;
+  # a target option precedes Zephyr's flags and gets overridden by AC6.
+  if(TARGET lib__posix__c_lib_ext)
+    set_property(SOURCE "${ZEPHYR_BASE}/lib/posix/c_lib_ext/fnmatch.c"
+      TARGET_DIRECTORY lib__posix__c_lib_ext
+      APPEND PROPERTY COMPILE_OPTIONS -Wno-int-in-bool-context)
+  endif()
   # Zephyr's armstdc wrappers use #include_next to chain into AC6's C headers,
   # and AC6 6.24's libc++ wrappers must precede both (notably stddef.h).
   # Explicitly add both system include paths in order: libcxx -> armstdc -> include.

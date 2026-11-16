@@ -1,0 +1,18 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+default:
+  misc:
+    - C-CPP:
+        # Free a register for CMSIS-NN MVE inline assembly even at -O0.
+        - -fomit-frame-pointer
+    - C:
+        - -std=c17
+    - CPP:
+        - -std=gnu++17
+        - -Wno-deprecated-declarations
+    - for-compiler: AC6
+      C-CPP:
+        - -ffp-mode=full
+    - for-compiler: GCC
+      C-CPP:
+        - -Wno-psabi

@@ -9,7 +9,12 @@ solution:
 
   created-for: CMSIS-Toolbox@2.15.0
   cdefault:
-  compiler: AC6
+  #compiler: GCC@14.3.1
+  compiler: GCC
+
+  output-dirs:
+    # Keep GCC dependency-file paths below the Windows path-length limit.
+    tmpdir: ../tmp/u85
 
   packs:
     # The PyTorch::ExecuTorch pack version must match the ExecuTorch Python
@@ -41,11 +46,7 @@ solution:
   build-types:
     - type: Debug
       debug: on
-      optimize: none
-      misc:
-        - for-compiler: AC6
-          C-CPP:
-            - -O0
+      optimize: debug
 
   projects:
     - project: ./cmsis-u85.cproject.yml

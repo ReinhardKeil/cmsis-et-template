@@ -13,11 +13,9 @@ project(zephyr_m)
 
 add_subdirectory(ai_layer)
 
-# Match the CMSIS project warning policy for third-party ExecuTorch sources
-# without suppressing diagnostics in the application or the rest of Zephyr.
+# Keep ExecuTorch warning suppressions local to its library.
 target_compile_options(cmsis_executorch PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-declarations>
-  $<$<COMPILE_LANG_AND_ID:CXX,ARMClang>:-Wno-nan-infinity-disabled>
   $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-Wno-psabi>
 )
 
@@ -25,7 +23,7 @@ target_compile_options(cmsis_executorch PRIVATE
 # declarations used by Zephyr's current CMSIS-NN module as a C constraint
 # error. Both types are 32-bit for this target; retain the diagnostic as a
 # warning until the module declarations are updated.
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND TARGET modules__cmsis-nn)
   target_compile_options(modules__cmsis-nn PRIVATE
     $<$<COMPILE_LANGUAGE:C>:-Wno-incompatible-pointer-types>)
 endif()
@@ -33,6 +31,15 @@ endif()
 # Zephyr already provides sys/types.h for AC6; the bare-metal pack shim
 # must not shadow it. Only libc++ needs compatibility adjustments here.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
+  zephyr_compile_options(-ffp-mode=full)
+  # AC6 ctype macros return shifted bit masks; Zephyr's fnmatch.c uses them
+  # as booleans. Put the suppression on the source so it follows -Wall;
+  # a target option precedes Zephyr's flags and gets overridden by AC6.
+  if(TARGET lib__posix__c_lib_ext)
+    set_property(SOURCE "${ZEPHYR_BASE}/lib/posix/c_lib_ext/fnmatch.c"
+      TARGET_DIRECTORY lib__posix__c_lib_ext
+      APPEND PROPERTY COMPILE_OPTIONS -Wno-int-in-bool-context)
+  endif()
   # Zephyr's armstdc wrappers use #include_next to chain into AC6's C headers,
   # and AC6 6.24's libc++ wrappers must precede both (notably stddef.h).
   # Explicitly add both system include paths in order: libcxx -> armstdc -> include.
@@ -62,7 +69,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "ARMClang")
   endif()
 
   # Zephyr hard-codes microlib for armlink. ExecuTorch's full libc++ needs
-  # the standard Arm C runtime required by libc++.
+  # the standard Arm C runtime (wide strings and AEABI assertions).
   foreach(_elf zephyr_pre0 zephyr_pre1 zephyr_final)
     if(TARGET ${_elf})
       get_target_property(_libs ${_elf} LINK_LIBRARIES)
