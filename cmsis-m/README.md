@@ -7,6 +7,13 @@ Vela compilation.
 The supplied configuration runs TinyCNN on the Cortex-M55 of the
 Corstone-300 FVP.
 
+The AC6 scatter template uses ordinary code and data sections. It has no
+Ethos-U section selectors or `RW_NOINIT` region: this application produces
+neither Ethos-U sections nor `.bss.noinit` sections. Selecting absent sections
+would cause armlink warning `L6314W`. If retained data is added later (for
+example, Event Recorder data), add an explicit `UNINIT` region for its
+`.bss.noinit` sections before the general RW/ZI selector.
+
 Application sources are in `src/`. The local `board/Corstone-300/` directory
 contains this solution's board layer, startup, linker, and UART configuration.
 

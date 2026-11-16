@@ -987,7 +987,7 @@ def check_executorch_version(expected: str, *, recovery_hint: str = "") -> None:
     """Require the Python exporter to match the runtime pack's base version.
 
     CMSIS pack versions may add a pack-specific prerelease suffix, for example
-    ``1.6.0-zephyrpreview2``.  The corresponding Python distribution remains
+    ``1.6.0``.  The corresponding Python distribution remains
     ``1.6.0``.
     """
     try:

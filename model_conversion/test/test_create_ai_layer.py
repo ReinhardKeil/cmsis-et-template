@@ -525,7 +525,7 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertEqual(generator.executorch_version(mlops), "1.5.1")
 
     def test_executorch_version_uses_generated_build_selection(self) -> None:
-        for active_version in ("1.5.1", "1.6.0-zephyrpreview2"):
+        for active_version in ("1.5.1", "1.6.0"):
             for reverse in (False, True):
                 with self.subTest(version=active_version, reverse=reverse), tempfile.TemporaryDirectory() as temporary:
                     root = Path(temporary)
@@ -536,7 +536,7 @@ class CreateAiLayerTests(unittest.TestCase):
                     entries = [
                         {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
                          "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
-                        for version in ("1.5.1", "1.6.0-zephyrpreview2")
+                        for version in ("1.5.1", "1.6.0")
                     ]
                     (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
                         "cbuild-pack": {"resolved-packs": entries[::-1] if reverse else entries},
@@ -600,7 +600,7 @@ class CreateAiLayerTests(unittest.TestCase):
         with mock.patch.object(
             generator.importlib.metadata, "version", return_value="1.6.0"
         ):
-            generator.check_executorch_version("1.6.0-zephyrpreview2")
+            generator.check_executorch_version("1.6.0")
 
     def test_components_select_known_operators(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
