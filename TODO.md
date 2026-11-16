@@ -34,11 +34,11 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 
 ## ExecuTorch 1.6.0 Release
 
-### Pack
+### DONE: Pack
 
-- Add Zephyr integration folder; use generation script to generate the files.
-- Apply fix for AC6 crash in `op_quantize.cpp`.
-- Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
+- DONE: Add Zephyr integration folder; use generation script to generate the files.
+- DONE: Apply fix for AC6 crash in `op_quantize.cpp`.
+- DONE: Apply fix `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 
 ### Zephyr Templates
 
