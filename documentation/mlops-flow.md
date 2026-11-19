@@ -51,7 +51,7 @@ resolves it for the active target and writes
 
 ```yaml
 cbuild-mlops:
-  generated-by: csolution version 2.15.1+p3-gf46d68bf
+  generated-by: csolution version 2.16.0
   description: TinyCNN int8 image classifier for Ethos-U85
   processor:
     type: Cortex-M85

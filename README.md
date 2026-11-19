@@ -6,7 +6,7 @@
 [![Build and test Zephyr (GCC)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-gcc.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-gcc.yml)
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
-[![CMSIS-Toolbox: 2.15](https://img.shields.io/badge/CMSIS--Toolbox-2.15-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
+[![CMSIS-Toolbox: 2.16](https://img.shields.io/badge/CMSIS--Toolbox-2.16-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
 [![ExecuTorch: 1.6.0](https://img.shields.io/badge/ExecuTorch-1.6.0-blue.svg)](https://www.keil.arm.com/packs/executorch-pytorch/)
 
 This repository provides ready-to-adapt templates for deploying
@@ -39,7 +39,7 @@ Use these templates to:
   pack provides the Ethos-U driver and reference-platform integration.
 - The Zephyr templates use the Ethos-U driver included in upstream Zephyr 4.5
   and Zephyr's `hal_ethos_u` module.
-- [CMSIS-Toolbox 2.15.0](https://open-cmsis-pack.github.io/cmsis-toolbox/) or
+- [CMSIS-Toolbox 2.16.0](https://open-cmsis-pack.github.io/cmsis-toolbox/) or
   higher manages the build and passes target settings to the model converter.
 
 ## Prerequisites
@@ -237,18 +237,19 @@ required backends, and combined CPU fallback operators for all programs. When
 
 ## Continuous integration
 
-Dedicated GitHub Actions workflows validate the three CMSIS templates and the
-Zephyr-U55 template on every push and pull request to `main`. The CMSIS
-workflows build with AC6, GCC, and Clang; the Zephyr workflow uses GCC. Each
-workflow generates the target-specific AI layer, builds the application, runs
-it on the matching FVP, checks `Test_result: PASS`, and uploads its artifacts.
-A separate workflow verifies the Python environment setup on Linux, macOS, and
-Windows.
+Dedicated GitHub Actions workflows validate all three CMSIS templates and all
+three Zephyr templates on every push and pull request to `main`. The CMSIS
+workflows build with AC6, GCC, and Clang; the Zephyr workflow uses GCC. The
+CMSIS workflows regenerate the target-specific AI layer, while the Zephyr
+workflow validates the committed AI layers. Each workflow builds the
+application, runs it on the matching FVP, checks `Test_result: PASS`, and
+uploads its artifacts. A separate workflow verifies the Python environment
+setup on Linux, macOS, and Windows.
 
 ## License
 
 The template code is licensed under Apache-2.0; see `LICENSE`. ExecuTorch and
-the `arm_embedded_module.*` files under `cmsis-u*/src/` and `zephyr-u*/src/`,
+the `arm_embedded_module.*` files under each template's `src/` directory,
 which are derived from it, use a BSD-3-Clause license; see the adjacent
 `LICENSE-ExecuTorch` file.
 

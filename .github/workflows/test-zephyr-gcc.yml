@@ -50,23 +50,6 @@ jobs:
       - name: Add FVP license tools to PATH
         run: echo "$(dirname "${AVH_FVP_PLUGINS%/}")/arm_license_management_utilities" >> "${GITHUB_PATH}"
 
-      # Temporary pin until the required CMSIS-Toolbox version is released.
-      # Source: https://github.com/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/43844032963
-      - name: Install nightly CMSIS-Toolbox
-        env:
-          CMSIS_TOOLBOX_URL: https://nightly.link/Open-CMSIS-Pack/cmsis-toolbox/actions/runs/43844032963/cmsis-toolbox-linux-amd64.zip
-          CMSIS_TOOLBOX_SHA256: cf38c983b757ee157aa10d687b5a732e2a14a408355b46a12b0d397a649cc075
-        run: |
-          curl --fail --location --retry 3 \
-            --output "${RUNNER_TEMP}/cmsis-toolbox.zip" \
-            "${CMSIS_TOOLBOX_URL}"
-          echo "${CMSIS_TOOLBOX_SHA256}  ${RUNNER_TEMP}/cmsis-toolbox.zip" | sha256sum --check -
-          mkdir -p "${RUNNER_TEMP}/cmsis-toolbox"
-          unzip -q "${RUNNER_TEMP}/cmsis-toolbox.zip" -d "${RUNNER_TEMP}/cmsis-toolbox"
-          echo "${RUNNER_TEMP}/cmsis-toolbox/bin" >> "${GITHUB_PATH}"
-          "${RUNNER_TEMP}/cmsis-toolbox/bin/cbuild" --version
-          "${RUNNER_TEMP}/cmsis-toolbox/bin/cpackget" --version
-
       # Arm Virtual Hardware requires an Arm tools license for every compiler.
       - name: Activate Arm tool license
         uses: ARM-software/cmsis-actions/armlm@v1
@@ -79,13 +62,8 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-zephyr-${{ hashFiles('zephyr-*/*.csolution.yml', 'Pack/PyTorch.ExecuTorch.1.6.0.pack') }}
+          key: cmsis-packs-zephyr-${{ hashFiles('zephyr-*/*.csolution.yml') }}
           path: ${{ env.CMSIS_PACK_ROOT }}
-
-      - name: Install repository packs
-        run: |
-          cpackget add --agree-embedded-license Pack/PyTorch.ExecuTorch.1.6.0.pack
-          test -f "${CMSIS_PACK_ROOT}/PyTorch/ExecuTorch/1.6.0/PyTorch.ExecuTorch.pdsc"
 
       - name: Cache Zephyr workspace
         uses: actions/cache@v6

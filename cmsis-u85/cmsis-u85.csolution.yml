@@ -7,7 +7,7 @@ solution:
 #
 # See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
 
-  created-for: CMSIS-Toolbox@2.15.0
+  created-for: CMSIS-Toolbox@2.16.0
   cdefault:
   #compiler: GCC@14.3.1
   compiler: GCC

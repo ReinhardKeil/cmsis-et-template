@@ -101,4 +101,4 @@ solution:
         #    calibration-samples: 2
 
   compiler: AC6
-  created-for: CMSIS-Toolbox@2.15.0
+  created-for: CMSIS-Toolbox@2.16.0
