@@ -1,12 +1,12 @@
 # TODO for Template Release
 
-- Update CMSIS-Toolbox to version 2.16 once available.
+- DONE: Update CMSIS-Toolbox to version 2.16 once available.
 
 - DONE: Expand support to both Zephyr-based and CMSIS-based workflows.
 
 - DONE: Add Cortex-M-only targets alongside the existing Cortex-M/Ethos-U targets.
 
-- Final directory structure should be:
+- DONE: Final directory structure should be:
 
   | Directory | Scope | Contents |
   | --- | --- | --- |

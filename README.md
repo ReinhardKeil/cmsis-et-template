@@ -20,15 +20,17 @@ hardware-accelerated inference with an Arm Ethos-U NPU.
 
 Use these templates to:
 
-- Start from a working Cortex-M and ExecuTorch integration and verify it with
-  the included [TinyCNN example](model/TinyCNN/README.md).
-- Build CMSIS applications using FreeRTOS or RTX5, or build Zephyr applications.
-- Deploy models on Cortex-M CPU-only targets or targets with an Arm Ethos-U NPU.
-- Convert one or more models into a reusable AI Layer.
-- Include only the ExecuTorch runtime, backends, and operators required by your
-  models.
-- Replace the example model processing with your product's input, output, and
-  application logic.
+- [Choose the CMSIS or Zephyr target](#choose-a-template) for Cortex-M CPU-only
+  execution or hardware acceleration with an Arm Ethos-U NPU, then
+  [start the template](#start-a-template).
+- Verify the working Cortex-M and ExecuTorch integration with the included
+  [TinyCNN example](model/TinyCNN/README.md).
+- [Create a reusable AI layer](#create-the-ai-layer) from one or more ML models.
+- [Adapt the template](#adapting-the-template) for the application-specific
+  models, input and output processing, target, and application logic.
+- [Validate the application](#validate-the-application) on an FVP and target
+  hardware with repeatable inputs.
+- [Use continuous integration](#continuous-integration) to test the CMSIS or Zephyr application with repeatable input data.
 
 ## Software components
 
@@ -92,7 +94,7 @@ dependencies.
 | [`zephyr-u85/`](zephyr-u85/README.md) | Cortex-M with Ethos-U85 |
 | [`zephyr-m/`](zephyr-m/README.md) | Cortex-M CPU only |
 
-## Create the AI layer and build
+## Create the AI layer
 
 [`create_ai_layer.py`](model_conversion/README.md) supports three input workflows:
 
@@ -194,13 +196,39 @@ Zephyr templates use Kconfig and devicetree. The
 covers both CMSIS and Zephyr integration. After changing the target or model
 list, rerun all three steps above.
 
-When updating ExecuTorch, update the pack and Python package versions
-together. More information is available in
-[`PyTorch::ExecuTorch` pack maintenance and versioning](documentation/executorch-pack-maintenance.md).
+When updating ExecuTorch, follow
+[Update the ExecuTorch version](model_conversion/README.md#update-the-executorch-version)
+to keep the [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
+pack and Python package versions aligned.
 
-For guidance on FVP validation, hardware deployment, real-world data tests,
-and optimization, see
-[Create ExecuTorch applications for real devices](documentation/executorch-on-real-devices.md).
+## Validate the application
+
+Before adapting a template, run the [TinyCNN](model/TinyCNN/README.md) test on
+the matching FVP and confirm `Test_result: PASS`. This known-good test separates
+environment and tool problems from changes to the model or application.
+
+When moving to hardware, first run the same generated `.pte` program, input,
+and output comparison without enabling live sensors. The results should satisfy
+the same comparison criteria on the FVP and hardware; fully integer execution
+is normally expected to match exactly.
+Follow the
+[CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
+when a difference points to Vela configuration, memory placement, cache
+maintenance, interrupt routing, or driver configuration.
+
+When adding an ML model, implement repeatable tests using captured or generated
+input data. Replay the same inputs on the FVP and target hardware. Keep model
+inputs, raw model outputs, and post-processed application results as separate
+artifacts so regressions can be isolated.
+The [Synchronous Data Stream Framework](https://arm-software.github.io/SDS-Framework/main/overview.html)
+can record and replay audio, video, sensor, and intermediate-result streams on
+hardware and FVPs.
+
+Preserve the console log, generated model and Vela reports, captured inputs,
+raw outputs, comparison tolerances, and any visual evidence as CI artifacts.
+Compare floating-point and quantized results using ML model-specific
+tolerances. Apply the same test criteria to the quantized program on the FVP
+and hardware.
 
 ## Generated AI layer
 
@@ -262,5 +290,6 @@ which are derived from it, use a BSD-3-Clause license; see the adjacent
 - [CMSIS-Ethos-U integration guide](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html)
 - [Configure 256 MACs for FVP simulation](https://arm-software.github.io/CMSIS-Ethos-U/latest/integration/index.html#configure-256-macs-for-fvp-simulation)
 - [CMSIS-Ethos-U pack](https://www.keil.arm.com/packs/cmsis-ethos-u-arm/overview/)
+- [`ARM::SDS` pack](https://www.keil.arm.com/packs/sds-arm/overview/)
 - [CMSIS-Toolbox MLOps information](https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-information)
 - [Arm CMSIS documentation](https://arm-software.github.io/CMSIS_6/latest/index.html)

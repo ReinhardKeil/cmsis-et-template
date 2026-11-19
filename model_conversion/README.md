@@ -176,8 +176,9 @@ Operator components are selected from the finished `.pte` after backend
 lowering. If the installed ExecuTorch package lacks an operator-registration
 library required by the archive, the converter reports the missing dependency.
 
-TinyCNN includes a standalone producer that uses the same Ethos-U symmetric
-INT8, per-channel-weight quantization as the Python conversion workflow:
+[TinyCNN](../model/TinyCNN/README.md) includes a standalone producer that uses
+the same Ethos-U symmetric INT8, per-channel-weight quantization as the Python
+conversion workflow:
 
 ```powershell
 .venv/Scripts/python.exe model/TinyCNN/quantize_model.py
@@ -319,6 +320,52 @@ PYTHONPATH= python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.y
 
 The global setting can remain available in other shells for documentation or
 repository-specific tooling.
+
+## Update the ExecuTorch version
+
+The `PyTorch::ExecuTorch` pack and the Python `executorch` package must use the
+same version. The pack supplies the target runtime that loads the `.pte` files
+produced by the Python package, so update them together.
+
+1. Pin the new published pack version in every affected `*.csolution.yml`:
+
+   ```yaml
+   packs:
+     - pack: PyTorch::ExecuTorch@<version>
+   ```
+
+   Use an exact version. A fresh `cbuild setup ... --packs` obtains the pack
+   from the public CMSIS-Pack service.
+
+2. Update the coordinated Python versions in `requirements.txt`. Use the
+   ExecuTorch release's `torch_pin.py` and `install_requirements.py` as the
+   source of truth for compatible `executorch`, `torch`, and `torchao`
+   versions. Update `requirements-arm-tosa.txt` only when the corresponding
+   ExecuTorch Arm backend requirements change.
+
+3. Recreate the repository environment:
+
+   ```console
+   ./model_conversion/setup_venv.sh --recreate
+   ```
+
+   On Windows, use `model_conversion\setup_venv.bat --recreate`.
+
+4. Regenerate the AI Layer with the new pack and Python package,
+   then build its application:
+
+   ```console
+   cbuild setup <solution>.csolution.yml --active <target-set> --packs
+   python model_conversion/create_ai_layer.py <solution>.cbuild-mlops.yml
+   cbuild <solution>.csolution.yml --active <target-set>
+   ```
+
+5. Review the regenerated `*.clayer.yml`, program data, operator selection,
+   and reports. Run the converter tests and the CMSIS and Zephyr FVP workflows
+   before accepting the update.
+
+[`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/overview/)
+shows the current pack version with release information.
 
 ## Development and tests
 
