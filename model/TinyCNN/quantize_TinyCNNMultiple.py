@@ -16,7 +16,6 @@ from torch import nn
 from executorch.backends.arm.ethosu import EthosUCompileSpec
 from executorch.backends.arm.quantizer import (
     EthosUQuantizer,
-    get_symmetric_a16w8_quantization_config,
     get_symmetric_quantization_config,
 )
 from torch.export.pt2_archive._package import package_pt2
@@ -91,7 +90,7 @@ def quantize_models() -> Path:
     image_filter = ImageFilter().eval()
     samples = [torch.full(INPUT_SHAPE, 0.5), torch.full(INPUT_SHAPE, -0.5)]
     filter_program = quantize_network(
-        image_filter, samples, get_symmetric_a16w8_quantization_config(is_per_channel=True)
+        image_filter, samples, get_symmetric_quantization_config(is_per_channel=True)
     )
     quantized_filter = filter_program.module(check_guards=False)
     with torch.no_grad():

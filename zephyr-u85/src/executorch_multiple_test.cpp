@@ -47,9 +47,9 @@ alignas(64) uint8_t g_temp_pool[kTempPoolSize] MULTIPLE_POOL_ATTRIBUTES;
 // quantize_TinyCNNMultiple.py, seed 0, uniform input 0.25. Allow a few INT8
 // rounding steps across CMSIS-NN and Ethos-U implementations.
 constexpr std::array<float, 10> kReference = {
-  -0.0255408380f, 0.0706129074f, 0.0540864803f, -0.0525840782f,
-   0.0390624590f, 0.0270432401f, -0.0360576548f, -0.0555888824f,
-  -0.1397234052f, 0.0015024022f,
+  -0.0271001998f, 0.0707616359f, 0.0542003997f, -0.0526948310f,
+   0.0391447321f, 0.0271001998f, -0.0376391672f, -0.0557059646f,
+  -0.1400177032f, 0.0f,
 };
 constexpr float kTolerance = 0.006f;
 

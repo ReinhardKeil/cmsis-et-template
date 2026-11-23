@@ -230,7 +230,7 @@ CMSIS workflow templates in this repository.
 ## Multiple-network example
 
 The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
-A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+INT8 `filter` and `classify` methods into one `.pt2`, including runtime shape
 constants. This solution includes a commented model input and an alternative
 test selection. Follow the linked steps to generate it, select the test, and
 compare the filter-then-classify output against a fixed reference.

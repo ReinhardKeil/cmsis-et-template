@@ -201,8 +201,9 @@ the network lowering passes. A missing metadata file shall mean an empty
 constant-method dictionary. Native runtime list results are flattened into
 individual primitive outputs.
 
-The TinyCNN multiple-model example shall export `filter` with A16W8
-quantization and `classify` with INT8 quantization, plus four positive integer
+The TinyCNN multiple-model example shall export `filter` and `classify` with
+INT8 quantization so the same archive runs on Cortex-M and Ethos-U targets,
+plus four positive integer
 constants: `IMAGE_WIDTH`, `IMAGE_HEIGHT`, `INPUT_CHANNELS`, and `NUM_CLASSES`.
 Batch shall always be 1 for inference. The firmware shall derive image shape
 `[1, IMAGE_HEIGHT, IMAGE_WIDTH, INPUT_CHANNELS]` and classifier output shape

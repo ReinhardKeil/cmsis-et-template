@@ -437,7 +437,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator.load_pt2_artifact(Path("unused.pt2"), "Model")
 
     @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
-    def test_multiple_example_preserves_mixed_precision_and_constant_methods(self) -> None:
+    def test_multiple_example_preserves_int8_and_constant_methods(self) -> None:
         import torch
         from executorch.backends.arm.ethosu import EthosUCompileSpec
         from executorch.backends.cortex_m.target_config import CortexMTargetConfig
@@ -455,7 +455,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 producer.quantize_models()
             programs, constants = generator.load_pt2_artifact(checkpoint, "Multiple")
             self.assertEqual(set(programs), {"filter", "classify"})
-            for name, dtype in (("filter", torch.int16), ("classify", torch.int8)):
+            for name, dtype in (("filter", torch.int8), ("classify", torch.int8)):
                 dtypes = {
                     arg for node in programs[name].graph.nodes
                     if str(node.target).startswith("quantized_decomposed.quantize_per_tensor")
@@ -475,9 +475,9 @@ class CreateAiLayerTests(unittest.TestCase):
                 filtered = programs["filter"].module(check_guards=False)(image)
                 logits = programs["classify"].module(check_guards=False)(filtered)
             reference = torch.tensor([[
-                -0.0255408380, 0.0706129074, 0.0540864803, -0.0525840782,
-                0.0390624590, 0.0270432401, -0.0360576548, -0.0555888824,
-                -0.1397234052, 0.0015024022,
+                -0.0271001998, 0.0707616359, 0.0542003997, -0.0526948310,
+                0.0391447321, 0.0271001998, -0.0376391672, -0.0557059646,
+                -0.1400177032, 0.0,
             ]])
             torch.testing.assert_close(logits, reference, atol=1e-6, rtol=0)
             for backend in ("ethos-u55-128", "ethos-u85-256", "cortex-m55"):

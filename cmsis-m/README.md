@@ -56,7 +56,7 @@ ExecuTorch pack version.
 ## Multiple-network example
 
 The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
-A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
+INT8 `filter` and `classify` methods into one `.pt2`, including runtime shape
 constants. Select `TinyCNNMultiple.pt2`, `cmsis-m-multiple.cproject.yml`, and
 the `cmsis-m-multiple.Debug` target image together. The test runs `filter`
 followed by `classify` and compares the result against fixed reference logits.
