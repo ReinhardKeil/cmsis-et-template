@@ -88,6 +88,5 @@ solution:
         - name: TinyCNNMultiple
           file: ../model/TinyCNN/TinyCNNMultiple.pt2
           cpu:
-          cpu:
   compiler: GCC
   created-for: CMSIS-Toolbox@2.16.0

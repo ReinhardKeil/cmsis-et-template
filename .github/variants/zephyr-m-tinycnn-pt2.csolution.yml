@@ -87,6 +87,5 @@ solution:
         - name: TinyCNN
           file: ../model/TinyCNN/TinyCNN.pt2
           cpu:
-          cpu:
   compiler: GCC
   created-for: CMSIS-Toolbox@2.16.0
