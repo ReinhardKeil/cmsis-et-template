@@ -14,7 +14,6 @@ solution:
     tmpdir: ../tmp/m
 
   packs:
-    - pack: PyTorch::ExecuTorch@1.6.0
     - pack: ARM::Cortex_DFP
 
   target-types:
@@ -28,7 +27,6 @@ solution:
         - set:
           images:
             - project-context: cmsis-m.Debug
-            # - project-context: cmsis-m-multiple.Debug
           debugger:
             name: Arm-FVP
             model: FVP_Corstone_SSE-300
@@ -42,9 +40,6 @@ solution:
 
   projects:
     - project: ./cmsis-m.cproject.yml
-    # Multiple-model alternative: comment the project above and uncomment this.
-    # Also use cmsis-m-multiple.Debug in target-set.images.project-context.
-    # - project: ./cmsis-m-multiple.cproject.yml
 
   # No npu: node: create_ai_layer.py selects the Cortex-M backend from the
   # processor information generated for this target.
@@ -53,12 +48,8 @@ solution:
     model:
       clayer: $AI-Layer$
       input:
-        # Alternative: comment the active input below and uncomment this entry.
-        # Generate it with model/TinyCNN/quantize_multiple_models.py first.
-        # - name: TinyCNNMultiple
-        #   file: ../model/TinyCNN/TinyCNNMultiple.pt2
         - name: TinyCNN
-          file: ../model/TinyCNN/model.py
+          file: ../model/TinyCNN/TinyCNN.py
           parameters:
             input-shape: 1x16x16x3
             calibration-samples: 2

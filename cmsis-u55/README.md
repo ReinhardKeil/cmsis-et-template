@@ -102,6 +102,6 @@ For more background, see the workspace documentation for the
 
 The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
 A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
-constants. This solution includes a commented model input and an alternative
-test selection. Follow the linked steps to generate it, select the test, and
-compare the filter-then-classify output against a fixed reference.
+constants. Select `TinyCNNMultiple.pt2`, `cmsis-u55-multiple.cproject.yml`, and
+the `cmsis-u55-multiple.Debug` target image together. The test runs `filter`
+followed by `classify` and compares the result against fixed reference logits.

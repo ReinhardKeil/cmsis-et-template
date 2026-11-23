@@ -13,6 +13,10 @@
 - `quantized_decomposed::dequantize_per_tensor.out`
 - `quantized_decomposed::quantize_per_tensor.out`
 
+## Required ExecuTorch version
+
+- pack: PyTorch::ExecuTorch@1.6.0
+
 ## Vela
 
 - accelerator: `ethos-u85-256`

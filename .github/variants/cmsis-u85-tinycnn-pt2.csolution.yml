@@ -1,0 +1,65 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+# CI-only variant; copy beside the corresponding user-facing solution before use.
+solution:
+  description: CMSIS ExecuTorch template for Cortex-M with Ethos-U85.
+# Usage:
+#   cbuild setup cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85 --packs      # create *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py cmsis-u85/cmsis-u85.cbuild-mlops.yml  # create ExecuTorch programs
+#   cbuild cmsis-u85/cmsis-u85.csolution.yml --active SSE-320-U85                    # build application
+#
+# See MLOps information: https://open-cmsis-pack.github.io/cmsis-toolbox/build-overview/#mlops-integration
+
+  created-for: CMSIS-Toolbox@2.16.0
+  cdefault:
+  #compiler: GCC@14.3.1
+  compiler: GCC
+
+  output-dirs:
+    # Keep GCC dependency-file paths below the Windows path-length limit.
+    tmpdir: ../tmp/u85
+
+  packs:
+    - pack: ARM::Cortex_DFP
+
+  target-types:
+    # Corstone-320 with an Ethos-U85 NPU, simulated on the Arm FVP.
+    - type: SSE-320-U85
+      board: SSE-320
+      device: SSE-320-FVP
+      variables:
+        - Board-Layer: $SolutionDir()$/board/Corstone-320/Board-U85.clayer.yml
+        - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
+      target-set:
+        - set:
+          images:
+            - project-context: cmsis-u85.Debug
+          debugger:
+            name: Arm-FVP
+            # On macOS use .vscode/fvp.sh and copy launch.json.mac to launch.json.
+            # See: https://github.com/Arm-Examples/FVPs-on-Mac/tree/main/skills/fvp-debug-setup
+            model: FVP_Corstone_SSE-320
+            config-file: board/Corstone-320/fvp_config.txt
+            args: "--simlimit 60"
+
+  build-types:
+    - type: Debug
+      debug: on
+      optimize: debug
+
+  projects:
+    - project: ./cmsis-u85.cproject.yml
+
+  # Target and model settings consumed by create_ai_layer.py.
+  mlops:
+    description: TinyCNN int8 image classifier for Ethos-U85
+    npu:
+      type: Ethos-U85                # explicit: the SSE-320 device pack declares no NPU
+    vela:
+      system: Ethos_U85_SYS_DRAM_Mid # system-config from the Vela config
+      memory: Shared_Sram            # memory-mode from the Vela config
+    model:
+      clayer: $AI-Layer$
+      input:
+        - name: TinyCNN
+          file: ../model/TinyCNN/TinyCNN.pt2

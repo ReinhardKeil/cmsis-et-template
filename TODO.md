@@ -216,7 +216,7 @@ mlops:
     clayer: $AI-Layer$
     input:
       - name: TinyCNN
-        file: ../model/TinyCNN/model.py
+        file: ../model/TinyCNN/TinyCNN.py
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
@@ -373,8 +373,9 @@ Review against the ExecuTorch 1.5.1 scripts installed by this template:
   the applicable upstream multi-program flow.
 
 After the upstream union is produced, `create_ai_layer.py` remains responsible
-for mapping selected operators to components supplied by the resolved
-`PyTorch::ExecuTorch` pack and for rendering the CMSIS layer. All intermediate
+for mapping selected operators deterministically to ExecuTorch component names
+and for rendering the CMSIS layer. The consuming build validates those names
+against its selected pack. All intermediate
 `selected_operators.yaml` files, including the combined file, shall live only
 in the generator's staging directory and shall not be installed in the AI
 layer. Their persistent equivalent is the operator component list in
@@ -430,7 +431,7 @@ with generation_stage(layer_dir) as stage:
     ])
 
     selected = read_selected_operators(union_dir / "selected_operators.yaml")
-    operators = map_operators_to_pack_components(selected, executorch_pack)
+    operators = map_operators_to_components(selected)
     components = union_runtime_backend_and_operator_components(
         generated_inputs, operators
     )
@@ -440,15 +441,15 @@ with generation_stage(layer_dir) as stage:
     write_outputs()
 ```
 
-Before importing these functions, the generator shall compare the installed
-Python package version with the resolved `PyTorch::ExecuTorch` pack version and
-fail clearly on a mismatch. Imports shall remain local to the post-`run_in_venv`
-generation path so the initial host-Python invocation can still restart itself.
+The generator shall obtain the installed ExecuTorch Python package version and
+write it to the generated AI layer and input reports. Imports shall remain
+local to the post-`run_in_venv` generation path so the initial host-Python
+invocation can still restart itself.
 
 Component mapping consumes the combined YAML `operators` keys, normalizes
-namespaces/overloads, and resolves each operator against the pack PDSC. An
-operator with no matching pack component is a generation error rather than a
-warning.
+namespaces/overloads, and generates component names deterministically. It does
+not inspect an installed pack PDSC or Zephyr Kconfig; the consuming embedded
+build validates the generated selections.
 
 The upstream YAML files remain inside `generation_stage`. Only the input
 artifacts, reports, `*.clayer.yml`, and optional Zephyr projection are committed
@@ -462,16 +463,17 @@ the model-conversion documentation to explain:
 
 - that this file is the source of truth for the mutually compatible
   ExecuTorch, PyTorch, TorchAO, and Vela versions used by AI-layer generation;
-- that the ExecuTorch Python version must match the resolved
-  `PyTorch::ExecuTorch` pack version because the pack runtime consumes the
-  generated `.pte` program files;
+- that the installed ExecuTorch Python version is recorded as the required
+  `PyTorch::ExecuTorch` pack version in the generated layer and reports;
+- that Zephyr csolutions select the external-module pack independently and the
+  user or CI system must keep that selection compatible;
 - that `gen_oplist` and `gen_all_oplist` are supplied by the pinned ExecuTorch
   package and require no additional entry in either requirements file;
 - that TorchGen is supplied by the pinned PyTorch package;
 - why `requirements-arm-tosa.txt` is installed separately with `--no-deps` and
   is not the general version-selection file; and
-- the update procedure: change the coordinated pins, the csolution pack pins,
-  and compatibility documentation together, then run environment validation,
+- the update procedure: change the coordinated pins, regenerate the AI layers,
+  update Zephyr csolution pack pins, then run environment validation,
   model-conversion tests, and CMSIS/Zephyr build tests.
 
 Add a short compatibility table to `model_conversion/README.md` and link to the
@@ -493,7 +495,7 @@ mlops:
     clayer: $AI-Layer$
     input:
       - name: TinyCNN
-        file: ../model/TinyCNN/model.py
+        file: ../model/TinyCNN/TinyCNN.py
         optimize: size    # specific vela parameter for this model
         parameters:
           input-shape: 1x16x16x3

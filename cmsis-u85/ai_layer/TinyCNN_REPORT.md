@@ -1,6 +1,6 @@
 # Input report: TinyCNN
 
-- input: `model/TinyCNN/model.py`
+- input: `model/TinyCNN/TinyCNN.py`
 - input type: `.py`
 - execution: `CPU with Ethos-U acceleration`
 - parameters: `{"calibration_samples": 2, "input_shape": [1, 16, 16, 3]}`
@@ -12,6 +12,10 @@
 
 - `quantized_decomposed::dequantize_per_tensor.out`
 - `quantized_decomposed::quantize_per_tensor.out`
+
+## Required ExecuTorch version
+
+- pack: PyTorch::ExecuTorch@1.6.0
 
 ## Vela
 

@@ -4,6 +4,8 @@
 [![Build and test CMSIS-U85](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u85.yml)
 [![Build and test CMSIS-U55](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-cmsis-u55.yml)
 [![Build and test Zephyr (GCC)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-gcc.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-zephyr-gcc.yml)
+[![Test CMSIS model variants](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/cmsis-variants.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/cmsis-variants.yml)
+[![Test Zephyr model variants](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/zephyr-variants.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/zephyr-variants.yml)
 [![Test Python environment](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml/badge.svg)](https://github.com/reinhardkeil/cmsis-et-template/actions/workflows/test-python-environment.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-green.svg)](LICENSE)
 [![CMSIS-Toolbox: 2.16](https://img.shields.io/badge/CMSIS--Toolbox-2.16-blue.svg)](https://open-cmsis-pack.github.io/cmsis-toolbox/)
@@ -60,20 +62,6 @@ can be used for evaluation.
 > [!NOTE]
 > On Windows, enable [long-path support](https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
 
-## Start a template
-
-1. Create a repository from this GitHub template, clone it, and open its root
-   directory in VS Code. For a Zephyr template, first prepare its Zephyr
-   workspace as described in the template README, then open VS Code from a
-   shell where the Zephyr Python environment is active.
-2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
-   then select the `*.csolution.yml` file in one of the template directories
-   below.
-3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
-   variant can be used when a compatible Python `>=3.10,<3.14` is installed.
-4. Follow the selected directory's README to choose a target-set, generate the
-   AI layer when needed, and build, run, or debug the application.
-
 ## Choose a template
 
 Choose a template for your software stack and processor/NPU combination.
@@ -93,6 +81,20 @@ dependencies.
 | [`zephyr-u55/`](zephyr-u55/README.md) | Cortex-M with Ethos-U55/U65 |
 | [`zephyr-u85/`](zephyr-u85/README.md) | Cortex-M with Ethos-U85 |
 | [`zephyr-m/`](zephyr-m/README.md) | Cortex-M CPU only |
+
+## Start a template
+
+1. Create a repository from this GitHub template, clone it, and open its root
+   directory in VS Code. For a Zephyr template, first prepare its Zephyr
+   workspace as described in the template README, then open VS Code from a
+   shell where the Zephyr Python environment is active.
+2. In the CMSIS view, select **... > Select Active Solution from Workspace**,
+   then select the `*.csolution.yml` file in one of the template directories
+   below.
+3. Select **Terminal > Run Task > Create Python environment (uv)**. The pip
+   variant can be used when a compatible Python `>=3.10,<3.14` is installed.
+4. Follow the selected directory's README to choose a target-set, generate the
+   AI layer when needed, and build, run, or debug the application.
 
 ## Create the AI layer
 
@@ -140,7 +142,7 @@ mlops:
     clayer: $AI-Layer$
     input:
       - name: TinyCNN
-        file: ../model/TinyCNN/model.py
+        file: ../model/TinyCNN/TinyCNN.py
         parameters:
           input-shape: 1x16x16x3
           calibration-samples: 2
@@ -198,8 +200,8 @@ list, rerun all three steps above.
 
 When updating ExecuTorch, follow
 [Update the ExecuTorch version](model_conversion/README.md#update-the-executorch-version)
-to keep the [`PyTorch::ExecuTorch`](https://www.keil.arm.com/packs/executorch-pytorch/)
-pack and Python package versions aligned.
+to update the Python environment, regenerate the AI layers, and update the
+separately selected Zephyr external-module pack.
 
 ## Validate the application
 

@@ -1,0 +1,145 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test CMSIS model variants
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.variant }} (GCC)
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: cmsis-m-tinycnn-pt2
+            example: cmsis-m
+            target: SSE-300-M55
+            fvp: FVP_Corstone_SSE-300
+            config: board/Corstone-300/fvp_config.txt
+            image: out/*/SSE-300-M55/*/*.hex
+            quantizer: quantize_TinyCNN.py
+          - variant: cmsis-m-tinycnn-multiple
+            example: cmsis-m
+            target: SSE-300-M55
+            fvp: FVP_Corstone_SSE-300
+            config: board/Corstone-300/fvp_config.txt
+            image: out/*/SSE-300-M55/*/*.hex
+            quantizer: quantize_TinyCNNMultiple.py
+          - variant: cmsis-u55-tinycnn-pt2
+            example: cmsis-u55
+            target: SSE-300-U55
+            fvp: FVP_Corstone_SSE-300_Ethos-U55
+            config: board/Corstone-300/fvp_config_u55.txt
+            image: out/*/SSE-300-U55/*/*.hex
+            quantizer: quantize_TinyCNN.py
+          - variant: cmsis-u55-tinycnn-multiple
+            example: cmsis-u55
+            target: SSE-300-U55
+            fvp: FVP_Corstone_SSE-300_Ethos-U55
+            config: board/Corstone-300/fvp_config_u55.txt
+            image: out/*/SSE-300-U55/*/*.hex
+            quantizer: quantize_TinyCNNMultiple.py
+          - variant: cmsis-u85-tinycnn-pt2
+            example: cmsis-u85
+            target: SSE-320-U85
+            fvp: FVP_Corstone_SSE-320
+            config: board/Corstone-320/fvp_config.txt
+            image: out/*/SSE-320-U85/*/*.hex
+            quantizer: quantize_TinyCNN.py
+          - variant: cmsis-u85-tinycnn-multiple
+            example: cmsis-u85
+            target: SSE-320-U85
+            fvp: FVP_Corstone_SSE-320
+            config: board/Corstone-320/fvp_config.txt
+            image: out/*/SSE-320-U85/*/*.hex
+            quantizer: quantize_TinyCNNMultiple.py
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Copy variant beside user-facing solution
+        run: cp ".github/variants/${{ matrix.variant }}.csolution.yml" "${{ matrix.example }}/"
+
+      - name: Activate vcpkg environment
+        uses: ARM-software/cmsis-actions/vcpkg@v1.3.1
+        with:
+          config: vcpkg-configuration.json
+          cache: cmsis-executorch
+
+      - name: Activate Arm tool license
+        uses: ARM-software/cmsis-actions/armlm@v1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache CMSIS packs
+        uses: actions/cache@v6
+        with:
+          key: cmsis-packs-variants-${{ matrix.example }}-${{ hashFiles('.github/variants/cmsis-*.csolution.yml', 'model_conversion/requirements.txt') }}
+          path: /home/runner/.cache/arm/packs
+
+      - name: Cache model-export environment
+        uses: actions/cache@v6
+        with:
+          key: model-export-${{ runner.os }}-${{ hashFiles('model_conversion/requirements*.txt', 'model_conversion/setup_venv.py') }}
+          path: .venv
+
+      - name: Create model-export environment
+        run: ./model_conversion/setup_venv.sh
+
+      - name: Export model archive
+        run: .venv/bin/python "model/TinyCNN/${{ matrix.quantizer }}"
+
+      - name: Generate MLOps information
+        run: cbuild setup "${{ matrix.example }}/${{ matrix.variant }}.csolution.yml" --active "${{ matrix.target }}" --packs --toolchain GCC
+
+      - name: Create AI layer
+        env:
+          PYTHONPATH: ""
+        run: .venv/bin/python model_conversion/create_ai_layer.py "${{ matrix.example }}/${{ matrix.variant }}.cbuild-mlops.yml"
+
+      - name: Build application
+        run: cbuild "${{ matrix.example }}/${{ matrix.variant }}.csolution.yml" --active "${{ matrix.target }}" --packs --toolchain GCC
+
+      - name: Run on FVP simulation
+        env:
+          PYTHONHOME: ${{ env.pythonLocation }}
+        run: |
+          set -o pipefail
+          cd "${{ matrix.example }}"
+          "${{ matrix.fvp }}" \
+            -f "${{ matrix.config }}" \
+            -a ${{ matrix.image }} \
+            --simlimit 120 2>&1 | tee "../${{ matrix.variant }}-fvp.log"
+
+      - name: Check application result
+        run: |
+          grep -Fq "Test_result: PASS" "${{ matrix.variant }}-fvp.log"
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.variant }}-GCC
+          path: |
+            ${{ matrix.example }}/out
+            ${{ matrix.example }}/ai_layer
+            ${{ matrix.variant }}-fvp.log
+          if-no-files-found: warn

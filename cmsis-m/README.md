@@ -49,13 +49,14 @@ Test_result: PASS
 ```
 
 The generated AI layer is committed so the example can be built immediately.
-Re-run setup and model conversion after changing the model, target, or pack
-version.
+Re-run setup and model conversion after changing the model, target, or Python
+environment version pins. The generated AI layer selects the required
+ExecuTorch pack version.
 
 ## Multiple-network example
 
 The [TinyCNN multiple-network example](../model/TinyCNN/README.md) exports an
 A16W8 `filter` and an INT8 `classify` into one `.pt2`, including runtime shape
-constants. This solution includes a commented model input and an alternative
-test selection. Follow the linked steps to generate it, select the test, and
-compare the filter-then-classify output against a fixed reference.
+constants. Select `TinyCNNMultiple.pt2`, `cmsis-m-multiple.cproject.yml`, and
+the `cmsis-m-multiple.Debug` target image together. The test runs `filter`
+followed by `classify` and compares the result against fixed reference logits.

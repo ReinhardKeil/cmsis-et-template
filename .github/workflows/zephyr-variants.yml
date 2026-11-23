@@ -1,0 +1,176 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test Zephyr model variants
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.variant }} (GCC)
+    runs-on: ubuntu-latest
+    env:
+      CMSIS_PACK_ROOT: /home/runner/.cache/arm/packs
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: zephyr-m-tinycnn-pt2
+            example: zephyr-m
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300
+            quantizer: quantize_TinyCNN.py
+            multiple: false
+          - variant: zephyr-m-tinycnn-multiple
+            example: zephyr-m
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300
+            quantizer: quantize_TinyCNNMultiple.py
+            multiple: true
+          - variant: zephyr-u55-tinycnn-pt2
+            example: zephyr-u55
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300_Ethos-U55
+            quantizer: quantize_TinyCNN.py
+            multiple: false
+          - variant: zephyr-u55-tinycnn-multiple
+            example: zephyr-u55
+            target: Corstone-300-FVP
+            fvp: FVP_Corstone_SSE-300_Ethos-U55
+            quantizer: quantize_TinyCNNMultiple.py
+            multiple: true
+          - variant: zephyr-u85-tinycnn-pt2
+            example: zephyr-u85
+            target: Corstone-320-FVP
+            fvp: FVP_Corstone_SSE-320
+            quantizer: quantize_TinyCNN.py
+            multiple: false
+          - variant: zephyr-u85-tinycnn-multiple
+            example: zephyr-u85
+            target: Corstone-320-FVP
+            fvp: FVP_Corstone_SSE-320
+            quantizer: quantize_TinyCNNMultiple.py
+            multiple: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Copy variant beside user-facing solution
+        run: cp ".github/variants/${{ matrix.variant }}.csolution.yml" "${{ matrix.example }}/"
+
+      - name: Activate vcpkg environment
+        uses: ARM-software/cmsis-actions/vcpkg@v1.3.1
+        with:
+          config: .github/vcpkg-zephyr.json
+          cache: cmsis-executorch-zephyr
+
+      - name: Add FVP license tools to PATH
+        run: echo "$(dirname "${AVH_FVP_PLUGINS%/}")/arm_license_management_utilities" >> "${GITHUB_PATH}"
+
+      - name: Activate Arm tool license
+        uses: ARM-software/cmsis-actions/armlm@v1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache CMSIS packs
+        uses: actions/cache@v6
+        with:
+          key: cmsis-packs-zephyr-variants-${{ hashFiles('.github/variants/zephyr-*.csolution.yml') }}
+          path: ${{ env.CMSIS_PACK_ROOT }}
+
+      - name: Cache model-export environment
+        uses: actions/cache@v6
+        with:
+          key: model-export-${{ runner.os }}-${{ hashFiles('model_conversion/requirements*.txt', 'model_conversion/setup_venv.py') }}
+          path: .venv
+
+      - name: Create model-export environment
+        run: ./model_conversion/setup_venv.sh
+
+      - name: Cache Zephyr workspace
+        uses: actions/cache@v6
+        with:
+          key: zephyr-4.5-executorch-modules-v2-${{ runner.os }}
+          path: ../zephyr-workspace
+
+      - name: Prepare Zephyr 4.5
+        run: |
+          python -m pip install west
+          if [ ! -d ../zephyr-workspace/.west ]; then
+            mkdir -p ../zephyr-workspace
+            git clone --depth 1 --branch v4.5.0 \
+              https://github.com/zephyrproject-rtos/zephyr \
+              ../zephyr-workspace/zephyr
+            west init -l ../zephyr-workspace/zephyr
+          fi
+          cd ../zephyr-workspace
+          python -m pip install -r zephyr/scripts/requirements.txt
+          west update --narrow -o=--depth=1 cmsis cmsis_6 cmsis-dsp cmsis-nn hal_ethos_u
+          west zephyr-export
+
+      - name: Export model archive
+        run: .venv/bin/python "model/TinyCNN/${{ matrix.quantizer }}"
+
+      - name: Generate MLOps information
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
+        run: cbuild setup "${{ matrix.example }}/${{ matrix.variant }}.csolution.yml" --active "${{ matrix.target }}" --packs --toolchain GCC
+
+      - name: Create AI layer
+        env:
+          PYTHONPATH: ""
+        run: .venv/bin/python model_conversion/create_ai_layer.py "${{ matrix.example }}/${{ matrix.variant }}.cbuild-mlops.yml"
+
+      - name: Build application
+        env:
+          ZEPHYR_BASE: ${{ github.workspace }}/../zephyr-workspace/zephyr
+        run: cbuild "${{ matrix.example }}/${{ matrix.variant }}.csolution.yml" --active "${{ matrix.target }}" --packs --toolchain GCC
+
+      - name: Check selected test application
+        run: |
+          config="${{ matrix.example }}/out/Zephyr_app/${{ matrix.target }}/Debug/zephyr/.config"
+          if [ "${{ matrix.multiple }}" = true ]; then
+            grep -Fq "CONFIG_EXECUTORCH_MULTIPLE_TEST=y" "${config}"
+          else
+            ! grep -Fq "CONFIG_EXECUTORCH_MULTIPLE_TEST=y" "${config}"
+          fi
+
+      - name: Run on FVP simulation
+        run: |
+          set -o pipefail
+          cd "${{ matrix.example }}"
+          "${{ matrix.fvp }}" \
+            -f fvp_config.txt \
+            -a "out/Zephyr_app/${{ matrix.target }}/Debug/zephyr/zephyr.elf" \
+            --simlimit 60 2>&1 | tee "../${{ matrix.variant }}-fvp.log"
+
+      - name: Check application result
+        run: |
+          grep -Fq "Test_result: PASS" "${{ matrix.variant }}-fvp.log"
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.variant }}-GCC
+          path: |
+            ${{ matrix.example }}/out
+            ${{ matrix.example }}/ai_layer
+            ${{ matrix.variant }}-fvp.log
+          if-no-files-found: warn

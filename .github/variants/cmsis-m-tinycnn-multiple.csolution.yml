@@ -1,0 +1,55 @@
+# Copyright 2026 Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+# CI-only variant; copy beside the corresponding user-facing solution before use.
+solution:
+  description: CMSIS ExecuTorch template for Cortex-M CPU-only inference.
+# Usage:
+#   cbuild setup cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55 --packs      # create *.cbuild-mlops.yml
+#   python model_conversion/create_ai_layer.py cmsis-m/cmsis-m.cbuild-mlops.yml # create ExecuTorch programs
+#   cbuild cmsis-m/cmsis-m.csolution.yml --active SSE-300-M55                   # build application
+
+  created-for: CMSIS-Toolbox@2.16.0
+  cdefault:
+  compiler: GCC
+
+  output-dirs:
+    # Keep GCC dependency-file paths below the Windows path-length limit.
+    tmpdir: ../tmp/m
+
+  packs:
+    - pack: ARM::Cortex_DFP
+
+  target-types:
+    - type: SSE-300-M55
+      board: V2M-MPS3-SSE-300-FVP
+      device: SSE-300-MPS3
+      variables:
+        - Board-Layer: $SolutionDir()$/board/Corstone-300/Board.clayer.yml
+        - AI-Layer: $SolutionDir()$/ai_layer/ai_layer.clayer.yml
+      target-set:
+        - set:
+          images:
+            - project-context: cmsis-m-multiple.Debug
+          debugger:
+            name: Arm-FVP
+            model: FVP_Corstone_SSE-300
+            config-file: board/Corstone-300/fvp_config.txt
+            args: "--simlimit 60"
+
+  build-types:
+    - type: Debug
+      debug: on
+      optimize: debug
+
+  projects:
+    - project: ./cmsis-m-multiple.cproject.yml
+
+  # No npu: node: create_ai_layer.py selects the Cortex-M backend from the
+  # processor information generated for this target.
+  mlops:
+    description: TinyCNN int8 image classifier for Cortex-M55
+    model:
+      clayer: $AI-Layer$
+      input:
+        - name: TinyCNNMultiple
+          file: ../model/TinyCNN/TinyCNNMultiple.pt2

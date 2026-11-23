@@ -44,7 +44,6 @@ import shutil
 import subprocess
 import sys
 import uuid
-import xml.etree.ElementTree as ET
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,75 +105,12 @@ def run_in_venv(workspace_dir: Path) -> None:
     sys.exit(subprocess.run([str(python), str(script), *sys.argv[1:]]).returncode)
 
 
-def pack_root() -> Path:
-    """The CMSIS pack root: $CMSIS_PACK_ROOT, else cpackget's default."""
-    if env := os.environ.get("CMSIS_PACK_ROOT"):
-        return Path(env)
-    if os.name == "nt":
-        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "Arm/Packs"
-    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "arm/packs"
-
-
-def executorch_version(mlops_file: Path) -> str:
-    """Read ExecuTorch's version from CMSIS-Toolbox's generated build metadata.
-
-    The pack lock file can retain versions from an old generated AI layer.
-    The active .cbuild.yml files record the packs actually used by the build;
-    the .cbuild-idx.yml locates them. No source solution or layer is parsed.
-    """
-    import yaml
-
-    pack_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-pack.yml"))
-    resolved: dict[str, set[str]] = {}
-    for entry in yaml.safe_load(pack_file.read_text())["cbuild-pack"]["resolved-packs"]:
-        name, _, version = entry["resolved-pack"].partition("@")
-        selectors = entry.get("selected-by-pack", [])
-        if name != PACK or not selectors:
-            continue
-        resolved.setdefault(version, set()).update(selectors)
-    if not resolved:
-        sys.exit(f"{pack_file}: {PACK} is not among the resolved packs")
-
-    index_file = mlops_file.with_name(mlops_file.name.replace(".cbuild-mlops.yml", ".cbuild-idx.yml"))
-    if index_file.is_file():
-        index = yaml.safe_load(index_file.read_text())["build-idx"]
-        versions: set[str] = set()
-        for context in index.get("cbuilds", []):
-            build_file = index_file.parent / context["cbuild"]
-            if not build_file.is_file():
-                sys.exit(f"{build_file}: missing generated build file. Re-run cbuild setup.")
-            build = yaml.safe_load(build_file.read_text())["build"]
-            for entry in build.get("packs", []):
-                name, _, version = entry["pack"].partition("@")
-                if name == PACK:
-                    versions.add(version)
-        if not versions:
-            sys.exit(
-                f"{index_file}: no active build uses {PACK}. Re-run cbuild setup."
-            )
-        if not versions.issubset(resolved):
-            sys.exit(
-                f"{index_file}: active {PACK} version is not resolved in {pack_file}. "
-                "Re-run cbuild setup."
-            )
-    else:
-        # Support standalone MLOps/pack artifacts with an unambiguous resolution.
-        versions = {
-            version for version, selectors in resolved.items()
-            if f"{PACK}@{version}" in selectors
-        } or set(resolved)
-    if len(versions) != 1:
-        sys.exit(
-            f"{pack_file}: ambiguous {PACK} versions: {', '.join(sorted(versions))}. "
-            "Re-run cbuild setup to generate an unambiguous active build selection."
-        )
-    return next(iter(versions))
-
-
-def executorch_pack(version: str) -> Path:
-    """Directory of the installed PyTorch::ExecuTorch pack of that version."""
-    vendor, _, pack = PACK.partition("::")
-    return pack_root() / vendor / pack / version
+def executorch_version() -> str:
+    """Return the version installed by the model-conversion environment."""
+    try:
+        return importlib.metadata.version("executorch")
+    except importlib.metadata.PackageNotFoundError:
+        sys.exit("the executorch Python package is not installed")
 
 
 # Vela options that are arguments of EthosUCompileSpec, and the ones the export
@@ -300,11 +236,11 @@ def model_inputs(mlops: dict, solution_dir: Path) -> list[ModelInput]:
     legacy = entries is None
     if legacy:
         legacy_name = model.get("name", "Model")
-        legacy_source = WORKSPACE_DIR / "model" / legacy_name / "model.py"
+        legacy_source = WORKSPACE_DIR / "model" / legacy_name / f"{legacy_name}.py"
         if not legacy_source.is_file():
-            legacy_source = WORKSPACE_DIR / "model" / "model.py"
+            legacy_source = WORKSPACE_DIR / "model" / "TinyCNN" / "TinyCNN.py"
         if not legacy_source.is_file():
-            candidates = sorted((WORKSPACE_DIR / "model").glob("*/model.py"))
+            candidates = sorted((WORKSPACE_DIR / "model").glob("*/*.py"))
             if len(candidates) == 1:
                 legacy_source = candidates[0]
         entries = [{
@@ -645,6 +581,7 @@ def input_report(
     model: ModelInput,
     operators: list[str],
     cmsis_nn: bool,
+    version: str,
     spec=None,
     vela_report: str = "",
     inspection: PteInspection | None = None,
@@ -665,6 +602,8 @@ def input_report(
         f"- methods: `{', '.join(inspection.methods) if inspection else 'unavailable'}`", "",
         "## CPU fallback operators", "",
         *([f"- `{operator}`" for operator in operators] or ["None."]), "",
+        "## Required ExecuTorch version", "",
+        f"- pack: {PACK}@{version}", "",
     ]
     if spec is not None:
         report = vela_report.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -746,39 +685,20 @@ ALIASES = {
     "quantized_depthwise_conv2d": "quantized_dw_conv2d",
     "quantized_transpose_conv2d": "quantized_tr_conv2d",
 }
+# Cortex-M components whose implementation uses CMSIS-NN. This conversion
+# contract is deliberately local: the embedded build validates the generated
+# component selection against its actual ExecuTorch pack.
+CMSIS_NN_COMPONENTS = {
+    "maximum", "minimum", "pad", "quantized_activation", "quantized_add",
+    "quantized_avg_pool2d", "quantized_batch_matmul", "quantized_conv2d",
+    "quantized_div", "quantized_dw_conv2d", "quantized_linear",
+    "quantized_max_pool2d", "quantized_mul", "quantized_tr_conv2d", "softmax",
+    "transpose",
+}
 
 
-def pack_components(pack: Path) -> tuple[set[str], set[str]]:
-    """Return operator components and the subset whose conditions require CMSIS-NN."""
-    root = ET.parse(next(pack.glob("*.pdsc"))).getroot()
-    requires = {
-        condition.get("id"): [
-            requirement.get("condition")
-            for requirement in condition
-            if requirement.tag == "require" and requirement.get("condition")
-        ]
-        for condition in root.iter("condition")
-    }
-
-    def needs_cmsis_nn(condition: str | None) -> bool:
-        return condition == "CMSIS-NN" or any(
-            needs_cmsis_nn(requirement) for requirement in requires.get(condition, [])
-        )
-
-    operators = {
-        name: component.get("condition")
-        for component in root.iter("component")
-        if component.get("Cgroup") == "ExecuTorch Operators"
-        and (name := component.get("Csub")) is not None
-    }
-    return set(operators), {
-        name for name, condition in operators.items() if needs_cmsis_nn(condition)
-    }
-
-
-def operator_components(operator_names: list[str], pack: Path) -> tuple[list[str], bool]:
-    """Map ExecuTorch operator names to pack components."""
-    available, cmsis_nn = pack_components(pack)
+def operator_components(operator_names: list[str]) -> tuple[list[str], bool]:
+    """Map ExecuTorch operator names deterministically to component names."""
     selected, unknown = set(), []
     for operator in sorted(set(operator_names)):
         ns, separator, op = operator.partition("::")
@@ -786,31 +706,29 @@ def operator_components(operator_names: list[str], pack: Path) -> tuple[list[str
             unknown.append(operator)
             continue
         op = op.split(".", 1)[0]
-        exact = f"{FAMILY[ns]} {op}"
-        op = ALIASES.get(op, op)
-        candidates = [
-            exact,
-            f"{FAMILY[ns]} {op}",
-            f"{FAMILY[ns]} {op.lstrip('_')}",
-            f"{FAMILY[ns]} {re.sub(r'_(per_tensor|per_channel|byte|copy|nhwc)$', '', op)}",
-        ]
-        if match := next((c for c in candidates if c in available), None):
-            selected.add(match)
-        else:
-            unknown.append(operator)
+        op = ALIASES.get(op, op).lstrip("_")
+        if ns == "quantized_decomposed":
+            op = re.sub(r"_(per_tensor|per_channel|byte|copy)$", "", op)
+        elif ns == "cortex_m":
+            op = re.sub(r"_nhwc$", "", op)
+        selected.add(f"{FAMILY[ns]} {op}")
     if unknown:
-        raise ValueError(f"no component in {pack.name} for operators {unknown}")
-    return sorted(selected), bool(selected & cmsis_nn)
+        raise ValueError(f"cannot map operators to ExecuTorch components: {unknown}")
+    needs_nn = any(
+        component.removeprefix("Cortex-M ") in CMSIS_NN_COMPONENTS
+        for component in selected if component.startswith("Cortex-M ")
+    )
+    return sorted(selected), needs_nn
 
 
-def components(pte: bytes, pack: Path, *, delegated: bool) -> tuple[list[str], list[str], bool]:
+def components(pte: bytes, *, delegated: bool) -> tuple[list[str], list[str], bool]:
     """Legacy helper retained for callers; generation uses operator YAML."""
     namespaces = "|".join(FAMILY)
     names = [
         f"{ns.decode()}::{op.decode()}"
         for ns, op in sorted(set(re.findall(rf"({namespaces})::(\w+)".encode(), pte)))
     ]
-    selected, needs_nn = operator_components(names, pack)
+    selected, needs_nn = operator_components(names)
 
     runtime = ["Runtime", "Kernel Utils", "Kernel Registration"]
     if delegated:
@@ -926,16 +844,11 @@ CONFIG_CMSIS_EXECUTORCH_KERNEL_REGISTRATION=y
 
 
 def zephyr_metadata(
-    operators: list[str], pack: Path, delegated: bool, models: list[ModelInput] | None = None,
+    operators: list[str], delegated: bool, models: list[ModelInput] | None = None,
     cmsis_nn: bool = False,
 ) -> dict[str, str]:
     """Generate the Zephyr module files for the selected operator components."""
     symbols = [re.sub(r"[^A-Z0-9]+", "_", operator.upper()).strip("_") for operator in operators]
-    kconfig = (pack / "zephyr" / "Kconfig").read_text()
-    available = set(re.findall(r"(?m)^config CMSIS_EXECUTORCH_OP_([A-Z0-9_]+)\s*$", kconfig))
-    missing = sorted(set(symbols) - available)
-    if missing:
-        raise ValueError(f"pack Kconfig options missing for {missing}")
     operator_config = "# Generated by create_ai_layer.py -- do not edit.\n" + "".join(
         f"CONFIG_CMSIS_EXECUTORCH_OP_{symbol}=y\n" for symbol in sorted(set(symbols))
     )
@@ -981,25 +894,6 @@ def generate_operator_lists(pte_paths: dict[str, Path], stage: Path) -> tuple[di
         "--output_dir", str(combined_dir),
     ])
     return per_input, _operator_names(combined_dir / "selected_operators.yaml")
-
-
-def check_executorch_version(expected: str, *, recovery_hint: str = "") -> None:
-    """Require the Python exporter to match the runtime pack's base version.
-
-    CMSIS pack versions may add a pack-specific prerelease suffix, for example
-    ``1.6.0``.  The corresponding Python distribution remains
-    ``1.6.0``.
-    """
-    try:
-        installed = importlib.metadata.version("executorch")
-    except importlib.metadata.PackageNotFoundError:
-        sys.exit("the executorch Python package is not installed")
-    python_version = expected.split("-", 1)[0]
-    if installed != python_version:
-        sys.exit(
-            f"ExecuTorch Python package {installed} does not match "
-            f"{PACK}@{expected}{recovery_hint}"
-        )
 
 
 def expected_accelerator(mlops: dict) -> str | None:
@@ -1146,22 +1040,7 @@ examples:
             model["zephyr"] = {}
         elif not isinstance(model["zephyr"], dict):
             sys.exit("model.zephyr must be empty or a mapping, for example: zephyr:")
-    recovery_hint = ""
-    if layer_file.is_file():
-        recovery_hint = (
-            "\n\nAn old generated AI clayer may still pin the previous ExecuTorch pack. "
-            f"Removing the generated clayer '{layer_file}' may resolve this issue. "
-            "Then rerun cbuild setup for your target and rerun create_ai_layer.py "
-            "to regenerate the AI layer."
-        )
-    try:
-        version = executorch_version(mlops_file)
-    except SystemExit as error:
-        if recovery_hint:
-            sys.exit(f"{error}{recovery_hint}")
-        raise
-    check_executorch_version(version, recovery_hint=recovery_hint)
-    pack = executorch_pack(version)
+    version = executorch_version()
     models = model_inputs(mlops, solution_dir)
     accelerator = expected_accelerator(mlops)
     expected_options = expected_ethosu_options(mlops)
@@ -1228,22 +1107,22 @@ examples:
     finally:
         shutil.rmtree(operator_stage, ignore_errors=True)
 
-    operators, cmsis_nn = operator_components(combined_ops, pack)
+    operators, cmsis_nn = operator_components(combined_ops)
     delegated = any(not entry.cpu_only for entry in models)
     runtime = ["Runtime", "Kernel Utils", "Kernel Registration"]
     if delegated:
         runtime.append("Backend EthosU")
     for entry in selected:
-        _, input_cmsis_nn = operator_components(per_input_ops[entry.name], pack)
+        _, input_cmsis_nn = operator_components(per_input_ops[entry.name])
         outputs[f"{entry.stem}_REPORT.md"] = input_report(
-            entry, per_input_ops[entry.name], input_cmsis_nn,
+            entry, per_input_ops[entry.name], input_cmsis_nn, version,
             specs[entry.name], vela_reports[entry.name], inspections[entry.name]
         )
     outputs[layer_file.name] = clayer(
         mlops, runtime, operators, cmsis_nn, mlops_file, version, models
     )
     if "zephyr" in model:
-        outputs.update(zephyr_metadata(operators, pack, delegated, models, cmsis_nn=cmsis_nn))
+        outputs.update(zephyr_metadata(operators, delegated, models, cmsis_nn=cmsis_nn))
     replace_outputs(layer_dir, outputs)
 
     print(f"[ai_layer] inputs: {[entry.name for entry in selected]}, operators: {operators}")

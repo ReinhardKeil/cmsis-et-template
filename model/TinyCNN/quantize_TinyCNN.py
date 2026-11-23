@@ -5,7 +5,7 @@
 
 Run using the repository's Python environment:
 
-    .venv/Scripts/python.exe model/TinyCNN/quantize_model.py
+    .venv/Scripts/python.exe model/TinyCNN/quantize_TinyCNN.py
 
 This standalone example defines its own network and calibration data. It uses
 the same symmetric INT8, per-channel-weight PT2E quantization as create_ai_layer.py

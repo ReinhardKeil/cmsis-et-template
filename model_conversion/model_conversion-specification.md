@@ -17,8 +17,8 @@ needed to execute all programs on that CPU.
 The directory above `model_conversion/` is the **workspace directory**. It
 owns the shared `.venv`. The directory containing a selected
 `*.cbuild-mlops.yml` is the **solution directory**. It owns the input artifacts,
-solution-specific configuration, pack metadata, and generated AI layer. A
-workspace may contain multiple solution directories.
+solution-specific configuration, and generated AI layer. A workspace may
+contain multiple solution directories.
 
 ## Deliverables
 
@@ -100,7 +100,7 @@ cbuild-mlops:
     clayer: ai_layer/ai_layer.clayer.yml
     input:
       - name: TinyCNN
-        file: ../model/TinyCNN/model.py
+        file: ../model/TinyCNN/TinyCNN.py
         optimize: size
         parameters:
           input-shape: 1x16x16x3
@@ -137,6 +137,43 @@ cbuild-mlops:
 
 Unsupported extensions and properties that do not apply to the selected input
 type are errors.
+
+#### ExecuTorch version authority
+
+`model_conversion/requirements.txt` is the version authority for model
+conversion. The converter shall obtain the installed `executorch` distribution
+version from the active Python environment and write that version to the
+generated AI layer, for example:
+
+```yaml
+packs:
+  - pack: PyTorch::ExecuTorch@1.6.0
+```
+
+For CMSIS projects, the generated `*.clayer.yml` shall be the only source that
+selects the `PyTorch::ExecuTorch` pack. A CMSIS `*.csolution.yml` shall not
+select that pack separately.
+
+For Zephyr projects, the `*.csolution.yml` shall continue to select the
+`PyTorch::ExecuTorch` pack because it supplies the external Zephyr module. The
+converter shall not compare that independently selected pack version with the
+installed Python package version. The user or CI system is responsible for
+keeping them compatible.
+
+##### MLOps and build boundary
+
+```text
+MLOps environment
+  requirements.txt
+  + *.cbuild-mlops.yml
+  + model inputs
+        |
+        v
+  generated AI layer (contains pack/version selection)
+        |
+        +-- CMSIS build: AI layer selects the ExecuTorch pack
+        +-- Zephyr build: csolution selects the external ExecuTorch module
+```
 
 #### `.pt2` input
 
@@ -252,25 +289,12 @@ still showing it in the terminal. Its content shall be included in that input's
 shall be rejected. Duplicate compile-spec options and unexpected positional
 tokens shall also be rejected.
 
-The matching `<solution>.cbuild-pack.yml` shall be read from the solution
-directory. Its selected `PyTorch::ExecuTorch` version determines the pack used
-to map the serialized program's CPU operators to CMSIS components.
-The generated `<solution>.cbuild-idx.yml` shall locate the active `.cbuild.yml`
-files. Their `build.packs` entries shall determine the ExecuTorch version used,
-which must also be present in the pack lock file. Older versions retained in
-the lock file shall not override the active build selection. The converter
-shall not parse source `.csolution.yml` or existing `.clayer.yml` files for
-version selection. Missing build files, absent active ExecuTorch packs, or
-inconsistent lock-file resolutions shall require setup to be rerun. Without a
-build index, prefer a unique exact lock-file resolution, otherwise a unique
-remaining resolution. Multiple remaining versions shall fail with an ambiguity
-diagnostic.
-For output with an existing generated clayer, pack-resolution errors and
-Python/runtime version mismatches shall explain that the old clayer may pin a
-previous ExecuTorch pack. The diagnostic shall identify the generated clayer
-and suggest removing it, rerunning setup for the target, and rerunning the
-converter. The converter shall not remove the clayer automatically. A missing
-Python package shall not receive this clayer-specific hint.
+The converter shall use only the selected `*.cbuild-mlops.yml`, its referenced
+model inputs, and the active Python environment. It shall not read generated
+`*.cbuild-pack.yml`, `*.cbuild-idx.yml`, or `*.cbuild.yml` files, source
+`*.csolution.yml` files, existing `*.clayer.yml` files, or an installed pack to
+select or validate the ExecuTorch version. A missing installed `executorch`
+distribution is an error.
 
 `model.zephyr` is a custom property under `mlops.model`; it shall be preserved
 by CMSIS-Toolbox in the generated `*.cbuild-mlops.yml`. It shall not be placed
@@ -296,8 +320,16 @@ processed and validated for the target CPU/MCU and, when applicable, NPU. It
 shall identify the input type and provenance, distinguish generated and
 prebuilt `.pte` programs, record applicable parameters and effective
 optimization settings, list every method and its CPU fallback operators, and
-state whether CMSIS-NN is required. An
-Ethos-U report shall additionally contain the shared accelerator, system
+state whether CMSIS-NN is required. It shall contain this section using the
+installed ExecuTorch distribution version:
+
+```markdown
+## Required ExecuTorch version
+
+- pack: PyTorch::ExecuTorch@1.6.0
+```
+
+An Ethos-U report shall additionally contain the shared accelerator, system
 configuration, and memory mode; the effective per-input Vela options; and the
 complete Vela textual report in a fenced code block. A CPU-only report shall
 have no Vela section. Reports shall use UTF-8 and LF line endings.
@@ -310,6 +342,8 @@ the union of CPU fallback-operator components across all output `.pte` files.
 Repeated components shall be de-duplicated and sorted. Select Backend EthosU
 once if any output program is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib` when any selected CPU fallback operator requires CMSIS-NN.
+The operator mapping and CMSIS-NN decision shall be deterministic and owned by
+the converter; they shall not be derived from an installed pack PDSC.
 Emit both `ARM_NN_ENABLE_F16: 1` and `ARM_NN_ENABLE_F32: 1` whenever CMSIS-NN
 is required, including integer-only operators. This works around missing
 preprocessor guards in the current CMSIS-NN pack. Emit neither define when
@@ -343,17 +377,17 @@ staging to produce a temporary, per-input `selected_operators.yaml`. The
 per-input list shall supply the fallback operators recorded in that input's
 report. The converter shall pass all per-input lists to `gen_all_oplist`, which
 produces a temporary combined `selected_operators.yaml`. It shall map the
-combined YAML operator keys to components in the resolved pack PDSC and write
-the resulting union to the selected CMSIS or Zephyr integration metadata.
+combined YAML operator keys to component names using its deterministic family,
+alias, and normalization rules and write the resulting union to the selected
+CMSIS or Zephyr integration metadata.
 
 The converter shall not search raw `.pte` program bytes or use kernel-definition
-`merge_yaml` as a multi-program union. An operator with no matching pack
-component and a selected Zephyr operator without a matching Kconfig option are
-errors. Temporary operator YAML files shall not be installed in the AI layer.
-
-The installed ExecuTorch Python package version shall match the resolved
-`PyTorch::ExecuTorch` pack version. A mismatch shall fail before model export or
-input processing or program inspection.
+`merge_yaml` as a multi-program union. An operator that cannot be mapped by the
+converter's rules is an error. The converter shall not read an installed pack
+PDSC or Zephyr Kconfig to validate generated component names or configuration
+symbols. The consuming CMSIS or Zephyr build validates those selections against
+the actual pack. Temporary operator YAML files shall not be installed in the
+AI layer.
 
 Without `--input`, the generator shall process every declared input and rebuild
 all layer-wide metadata. With `--input <name>`, it shall process only the named
@@ -427,8 +461,10 @@ otherwise, and use an isolated uv launcher when `--uv` is requested.
 This is the primary dependency manifest for model conversion. Versions shall
 remain compatible with the ExecuTorch Arm backend and the supported Python
 range. It is the source of truth for the coordinated ExecuTorch, PyTorch,
-TorchAO, and Vela versions. The ExecuTorch version shall match the version of
-the `PyTorch::ExecuTorch` pack that consumes the generated `.pte` program files.
+TorchAO, and Vela versions. The installed ExecuTorch version shall be written
+as the required `PyTorch::ExecuTorch` pack version in the generated AI layer and
+every generated report. Zephyr solutions select their external-module pack
+independently and are responsible for keeping that selection compatible.
 `gen_oplist` and `gen_all_oplist` come from ExecuTorch, and TorchGen comes from
 PyTorch; they require no separate dependency entries.
 
@@ -459,9 +495,9 @@ extension-based dispatch, and property applicability. It shall cover:
   rejection of portable or unverifiable programs, and proof that Vela is never
   invoked for this input type;
 - `cpu` and `optimize` applicability and effective Vela options;
-- package/pack version matching, per-input and combined operator-list
-  generation, component selection, reports, partial updates, and CMSIS and
-  Zephyr artifacts.
+- installed-package version selection, per-input and combined operator-list
+  generation, deterministic component and CMSIS-NN selection, report version
+  output, partial updates, and CMSIS and Zephyr artifacts.
 
 Unit tests shall mock export, PT2 loading, backend lowering, Vela, structured
 PTE inspection, `gen_oplist`, and `gen_all_oplist.main` so they do not require
@@ -514,10 +550,13 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
-- The resolved pack version follows the generated build's pack selection even
-  when the lock file retains an older version. Source solution/layer files are
-  not parsed. Missing, inconsistent or ambiguous generated metadata and
-  mismatches with the installed ExecuTorch package are rejected.
+- The installed ExecuTorch distribution version is written to the generated AI
+  layer and every input report. No other CMSIS-Toolbox output, source
+  solution/layer file, installed pack PDSC, or Zephyr Kconfig is read during
+  conversion.
+- CMSIS and Zephyr builds validate generated component and Kconfig selections
+  against the pack used by the embedded build. Zephyr pack-version consistency
+  is the responsibility of the user or CI system.
 - `.py` parameters are converted to the types expected by each accepting
   workflow function; parameters on `.pt2` or `.pte` are rejected.
 - Generated C, header, report, layer, and Zephyr text are deterministic for

@@ -49,7 +49,7 @@ jobs:
       - name: Cache CMSIS packs
         uses: actions/cache@v6
         with:
-          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/Corstone-320/*.clayer.yml') }}
+          key: cmsis-packs-u85-${{ hashFiles('cmsis-u85/*.csolution.yml', 'cmsis-u85/board/Corstone-320/*.clayer.yml', 'model_conversion/requirements.txt') }}
           path: /home/runner/.cache/arm/packs
 
       - name: Cache model-export environment

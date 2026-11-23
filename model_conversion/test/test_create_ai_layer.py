@@ -281,7 +281,7 @@ class CreateAiLayerTests(unittest.TestCase):
             spec = generator.compile_spec(mlops, ROOT)
             ethos_pte = generator.export_model(
                 spec,
-                ROOT / "model" / "TinyCNN" / "model.py",
+                ROOT / "model" / "TinyCNN" / "TinyCNN.py",
                 {"calibration_samples": 1},
                 "TinyCNN",
             )
@@ -313,7 +313,7 @@ class CreateAiLayerTests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("executorch"), "requires project ExecuTorch environment")
     def test_pt2_lowering_registers_quantized_kernels_in_fresh_process(self) -> None:
         producer_spec = importlib.util.spec_from_file_location(
-            "tinycnn_quantizer", ROOT / "model" / "TinyCNN" / "quantize_model.py"
+            "tinycnn_quantizer", ROOT / "model" / "TinyCNN" / "quantize_TinyCNN.py"
         )
         assert producer_spec is not None and producer_spec.loader is not None
         producer = importlib.util.module_from_spec(producer_spec)
@@ -444,7 +444,7 @@ class CreateAiLayerTests(unittest.TestCase):
         from executorch.runtime import Runtime
 
         producer_spec = importlib.util.spec_from_file_location(
-            "multiple_quantizer", ROOT / "model" / "TinyCNN" / "quantize_multiple_models.py"
+            "multiple_quantizer", ROOT / "model" / "TinyCNN" / "quantize_TinyCNNMultiple.py"
         )
         assert producer_spec is not None and producer_spec.loader is not None
         producer = importlib.util.module_from_spec(producer_spec)
@@ -498,132 +498,33 @@ class CreateAiLayerTests(unittest.TestCase):
                         self.assertIsNotNone(getter)
                         self.assertEqual(getter.execute(()), [value])
 
-    def test_executorch_version_prefers_exact_selected_version(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            mlops = root / "demo.cbuild-mlops.yml"
-            pack = root / "demo.cbuild-pack.yml"
-            pack.write_text(
-                yaml.safe_dump(
-                    {
-                        "cbuild-pack": {
-                            "resolved-packs": [
-                                {
-                                    "resolved-pack": "PyTorch::ExecuTorch@1.4.0",
-                                    "selected-by-pack": ["PyTorch::ExecuTorch"],
-                                },
-                                {
-                                    "resolved-pack": "PyTorch::ExecuTorch@1.5.1",
-                                    "selected-by-pack": ["PyTorch::ExecuTorch@1.5.1"],
-                                },
-                            ]
-                        }
-                    }
-                ),
-                encoding="utf-8",
-            )
-            self.assertEqual(generator.executorch_version(mlops), "1.5.1")
-
-    def test_executorch_version_uses_generated_build_selection(self) -> None:
-        for active_version in ("1.5.1", "1.6.0"):
-            for reverse in (False, True):
-                with self.subTest(version=active_version, reverse=reverse), tempfile.TemporaryDirectory() as temporary:
-                    root = Path(temporary)
-                    # These source files deliberately cannot be parsed. Only
-                    # CMSIS-Toolbox's generated build selection is authoritative.
-                    (root / "demo.csolution.yml").write_text("invalid: [yaml")
-                    (root / "ai_layer.clayer.yml").write_text("invalid: [yaml")
-                    entries = [
-                        {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
-                         "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
-                        for version in ("1.5.1", "1.6.0")
-                    ]
-                    (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
-                        "cbuild-pack": {"resolved-packs": entries[::-1] if reverse else entries},
-                    }))
-                    (root / "out").mkdir()
-                    (root / "out/demo.cbuild.yml").write_text(yaml.safe_dump({
-                        "build": {"packs": [{"pack": f"PyTorch::ExecuTorch@{active_version}"}]},
-                    }))
-                    (root / "demo.cbuild-idx.yml").write_text(yaml.safe_dump({
-                        "build-idx": {"cbuilds": [{"cbuild": "out/demo.cbuild.yml"}]},
-                    }))
-                    self.assertEqual(generator.executorch_version(root / "demo.cbuild-mlops.yml"),
-                                     active_version)
-
-    def test_executorch_version_rejects_inconsistent_generated_builds(self) -> None:
-        cases = (
-            (None, "missing generated build file"),
-            (["1.7.0"], "not resolved"),
-            (["1.5.1", "1.6.0"], "ambiguous PyTorch::ExecuTorch versions"),
-            ([], "no active build uses"),
-        )
-        for active_versions, message in cases:
-            with self.subTest(versions=active_versions), tempfile.TemporaryDirectory() as temporary:
-                root = Path(temporary)
-                (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
-                    "cbuild-pack": {"resolved-packs": [
-                        {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
-                         "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
-                        for version in ("1.5.1", "1.6.0")
-                    ]},
-                }))
-                builds = [{"cbuild": "missing.cbuild.yml"}]
-                if active_versions is not None:
-                    builds = []
-                    for index, version in enumerate(active_versions):
-                        name = f"demo{index}.cbuild.yml"
-                        builds.append({"cbuild": name})
-                        (root / name).write_text(yaml.safe_dump({
-                            "build": {"packs": [{"pack": f"PyTorch::ExecuTorch@{version}"}]},
-                        }))
-                (root / "demo.cbuild-idx.yml").write_text(yaml.safe_dump({
-                    "build-idx": {"cbuilds": builds},
-                }))
-                with self.assertRaisesRegex(SystemExit, message):
-                    generator.executorch_version(root / "demo.cbuild-mlops.yml")
-
-    def test_executorch_version_rejects_ambiguous_pins_without_build_index(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "demo.cbuild-pack.yml").write_text(yaml.safe_dump({
-                "cbuild-pack": {"resolved-packs": [
-                    {"resolved-pack": f"PyTorch::ExecuTorch@{version}",
-                     "selected-by-pack": [f"PyTorch::ExecuTorch@{version}"]}
-                    for version in ("1.5.1", "1.6.0")
-                ]},
-            }))
-            with self.assertRaisesRegex(SystemExit, "ambiguous PyTorch::ExecuTorch versions"):
-                generator.executorch_version(root / "demo.cbuild-mlops.yml")
-
-    def test_pack_prerelease_suffix_uses_base_python_version(self) -> None:
+    def test_executorch_version_uses_installed_distribution(self) -> None:
         with mock.patch.object(
             generator.importlib.metadata, "version", return_value="1.6.0"
-        ):
-            generator.check_executorch_version("1.6.0")
+        ) as distribution_version:
+            self.assertEqual(generator.executorch_version(), "1.6.0")
+        distribution_version.assert_called_once_with("executorch")
+
+    def test_executorch_version_requires_installed_distribution(self) -> None:
+        with mock.patch.object(
+            generator.importlib.metadata,
+            "version",
+            side_effect=generator.importlib.metadata.PackageNotFoundError,
+        ), self.assertRaisesRegex(SystemExit, "executorch Python package is not installed"):
+            generator.executorch_version()
 
     def test_components_select_known_operators(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            pack = Path(temporary)
-            (pack / "ExecuTorch.pdsc").write_text(
-                '<package><components>'
-                '<component Cgroup="ExecuTorch Operators" Csub="Portable add"/>'
-                '<component Cgroup="ExecuTorch Operators" Csub="Quantized dequantize"/>'
-                '</components></package>',
-                encoding="utf-8",
-            )
-            runtime, operators, cmsis_nn = generator.components(
-                b"aten::add quantized_decomposed::dequantize_per_tensor",
-                pack,
-                delegated=True,
-            )
+        runtime, operators, cmsis_nn = generator.components(
+            b"aten::add quantized_decomposed::dequantize_per_tensor",
+            delegated=True,
+        )
         self.assertEqual(
             runtime, ["Runtime", "Kernel Utils", "Kernel Registration", "Backend EthosU"]
         )
         self.assertEqual(operators, ["Portable add", "Quantized dequantize"])
         self.assertFalse(cmsis_nn)
 
-    def test_pack_component_mapping_covers_operator_aliases(self) -> None:
+    def test_component_mapping_covers_operator_aliases(self) -> None:
         cases = {
             "aten::_native_batch_norm_legit.no_stats_out": "Portable native_batch_norm",
             "aten::_native_batch_norm_legit_no_training.out": "Portable native_batch_norm",
@@ -636,41 +537,17 @@ class CreateAiLayerTests(unittest.TestCase):
             "quantized_decomposed::dequantize_per_token.out": "Quantized dequantize",
             "quantized_decomposed::embedding_2bit.out": "Quantized embedding2b",
             "quantized_decomposed::embedding_4bit.dtype_out": "Quantized embedding4b",
-            "cortex_m::quantized_depthwise_conv2d.out": "Cortex-M quantized_depthwise_conv2d",
-            "cortex_m::quantized_transpose_conv2d.out": "Cortex-M quantized_transpose_conv2d",
+            "cortex_m::quantized_depthwise_conv2d.out": "Cortex-M quantized_dw_conv2d",
+            "cortex_m::quantized_transpose_conv2d.out": "Cortex-M quantized_tr_conv2d",
         }
-        with tempfile.TemporaryDirectory() as temporary:
-            pack = Path(temporary)
-            declarations = "".join(
-                f'<component Cgroup="ExecuTorch Operators" Csub="{name}"/>'
-                for name in sorted(set(cases.values()))
-            )
-            (pack / "ExecuTorch.pdsc").write_text(
-                f"<package><components>{declarations}</components></package>",
-                encoding="utf-8",
-            )
-            components, _ = generator.operator_components(list(cases), pack)
+        components, _ = generator.operator_components(list(cases))
         self.assertEqual(components, sorted(set(cases.values())))
 
     def test_cpu_components_select_cmsis_nn_without_ethosu_backend(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            pack = Path(temporary)
-            (pack / "ExecuTorch.pdsc").write_text(
-                '<package><conditions>'
-                '<condition id="CMSIS-NN"/>'
-                '<condition id="cortex-conv"><require condition="CMSIS-NN"/></condition>'
-                '</conditions><components>'
-                '<component Cgroup="ExecuTorch Operators" '
-                'Csub="Cortex-M quantized_conv2d" condition="cortex-conv"/>'
-                '<component Cgroup="ExecuTorch Operators" Csub="Portable view_copy"/>'
-                '</components></package>',
-                encoding="utf-8",
-            )
-            runtime, operators, cmsis_nn = generator.components(
-                b"cortex_m::quantized_conv2d_nhwc dim_order_ops::view_copy",
-                pack,
-                delegated=False,
-            )
+        runtime, operators, cmsis_nn = generator.components(
+            b"cortex_m::quantized_conv2d_nhwc dim_order_ops::view_copy",
+            delegated=False,
+        )
 
         self.assertEqual(runtime, ["Runtime", "Kernel Utils", "Kernel Registration"])
         self.assertEqual(operators, ["Cortex-M quantized_conv2d", "Portable view_copy"])
@@ -746,15 +623,9 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertFalse((layer / ".ai_layer_manifest.json").exists())
 
     def test_zephyr_metadata_owns_model_once(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            pack = Path(temporary)
-            (pack / "zephyr").mkdir()
-            (pack / "zephyr" / "Kconfig").write_text(
-                "config CMSIS_EXECUTORCH_OP_QUANTIZED_DEQUANTIZE\n", encoding="utf-8"
-            )
-            metadata = generator.zephyr_metadata(
-                ["Quantized dequantize"], pack, delegated=True
-            )
+        metadata = generator.zephyr_metadata(
+            ["Quantized dequantize"], delegated=True
+        )
 
         self.assertIn("target_sources(app PRIVATE", metadata["CMakeLists.txt"])
         self.assertIn("target_include_directories(app PRIVATE", metadata["CMakeLists.txt"])
@@ -770,16 +641,9 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertNotIn("ARM_NN_ENABLE_F", metadata["CMakeLists.txt"])
 
     def test_cpu_zephyr_metadata_omits_ethosu_backend(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            pack = Path(temporary)
-            (pack / "zephyr").mkdir()
-            (pack / "zephyr" / "Kconfig").write_text(
-                "config CMSIS_EXECUTORCH_OP_CORTEX_M_QUANTIZED_CONV2D\n",
-                encoding="utf-8",
-            )
-            metadata = generator.zephyr_metadata(
-                ["Cortex-M quantized_conv2d"], pack, delegated=False, cmsis_nn=True
-            )
+        metadata = generator.zephyr_metadata(
+            ["Cortex-M quantized_conv2d"], delegated=False, cmsis_nn=True
+        )
 
         self.assertNotIn("BACKEND_ETHOS_U", metadata["components.conf"])
         self.assertIn(
@@ -845,10 +709,6 @@ class CreateAiLayerTests(unittest.TestCase):
             ) as export_model, mock.patch.object(
                 generator, "executorch_version", return_value="1.5.1"
             ), mock.patch.object(
-                generator, "executorch_pack", return_value=solution_dir / "pack"
-            ), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(
                 generator, "generate_operator_lists",
                 return_value=({"Network": ["aten::add.out"]}, ["aten::add.out"]),
             ), mock.patch.object(
@@ -860,7 +720,7 @@ class CreateAiLayerTests(unittest.TestCase):
 
             run_in_venv.assert_called_once_with(ROOT)
             export_model.assert_called_once_with(
-                mock.ANY, (ROOT / "model" / "TinyCNN" / "model.py").resolve(), {}, "Network"
+                mock.ANY, (ROOT / "model" / "TinyCNN" / "TinyCNN.py").resolve(), {}, "Network"
             )
 
             output = solution_dir / "generated"
@@ -869,6 +729,10 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertTrue((output / "model_pte.h").is_file())
             self.assertTrue((output / "ai_layer.clayer.yml").is_file())
             self.assertTrue((output / "model_REPORT.md").is_file())
+            self.assertIn(
+                "## Required ExecuTorch version\n\n- pack: PyTorch::ExecuTorch@1.5.1",
+                (output / "model_REPORT.md").read_text(encoding="utf-8"),
+            )
             self.assertFalse((output / "CMakeLists.txt").exists())
             self.assertFalse((output / "components.conf").exists())
             self.assertFalse((output / "operators.conf").exists())
@@ -900,10 +764,6 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(generator, "compile_spec", return_value=self.compile_spec()), mock.patch.object(
                 generator, "export_model", return_value=b"PTE"
             ), mock.patch.object(generator, "executorch_version", return_value="1.6.0"), mock.patch.object(
-                generator, "executorch_pack", return_value=solution_dir / "pack"
-            ), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(
                 generator, "generate_operator_lists",
                 return_value=({"Model": ["quantized_decomposed::dequantize_per_tensor"]}, ["quantized_decomposed::dequantize_per_tensor"]),
             ), mock.patch.object(
@@ -973,10 +833,6 @@ class CreateAiLayerTests(unittest.TestCase):
             ) as export_cpu, mock.patch.object(
                 generator, "executorch_version", return_value="1.5.1"
             ), mock.patch.object(
-                generator, "executorch_pack", return_value=solution_dir / "pack"
-            ), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(
                 generator, "generate_operator_lists",
                 return_value=({"Model": ["cortex_m::quantized_conv2d_nhwc"]}, ["cortex_m::quantized_conv2d_nhwc"]),
             ), mock.patch.object(
@@ -989,7 +845,7 @@ class CreateAiLayerTests(unittest.TestCase):
                 generator.main()
 
             export_cpu.assert_called_once_with(
-                target, (ROOT / "model" / "TinyCNN" / "model.py").resolve(), {}, "Model"
+                target, (ROOT / "model" / "TinyCNN" / "TinyCNN.py").resolve(), {}, "Model"
             )
             output = solution_dir / "ai_layer"
             self.assertEqual((output / "model.pte").read_bytes(), b"CPU")
@@ -1000,7 +856,7 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertNotIn("Backend EthosU", layer)
             if zephyr:
                 zephyr_metadata.assert_called_once_with(
-                    ["Cortex-M quantized_conv2d"], solution_dir / "pack", False, mock.ANY, cmsis_nn=True
+                    ["Cortex-M quantized_conv2d"], False, mock.ANY, cmsis_nn=True
                 )
                 self.assertTrue((output / "components.conf").is_file())
             else:
@@ -1038,11 +894,10 @@ class CreateAiLayerTests(unittest.TestCase):
                 )
                 with mock.patch.object(sys, "argv", [str(SCRIPT), str(mlops_file)]), mock.patch.object(
                     generator, "run_in_venv"
-                ), mock.patch.object(generator, "check_executorch_version") as check_version, self.assertRaisesRegex(
+                ), self.assertRaisesRegex(
                     SystemExit, "model.clayer must be a non-empty file path"
                 ):
                     generator.main()
-                check_version.assert_not_called()
                 self.assertEqual(list(Path(temporary).iterdir()), [mlops_file])
 
     def test_main_rejects_invalid_clayer_path(self) -> None:
@@ -1090,7 +945,7 @@ class CreateAiLayerTests(unittest.TestCase):
             def compile_for_model(_mlops, _directory, *, cpu_only=False, optimize=None):
                 return None if cpu_only else npu_spec
 
-            def map_components(names, _pack):
+            def map_components(names):
                 if len(names) > 1:
                     return ["Cortex-M quantized_conv2d", "Portable add"], True
                 if any(name.startswith("cortex_m::") for name in names):
@@ -1101,8 +956,6 @@ class CreateAiLayerTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
                 generator, "compile_spec", side_effect=compile_for_model
             ), mock.patch.object(generator, "cpu_target", return_value=mock.Mock()), mock.patch.object(
                 generator, "export_model", return_value=b"NPU"
@@ -1119,7 +972,7 @@ class CreateAiLayerTests(unittest.TestCase):
             ), mock.patch.object(generator, "operator_components", side_effect=map_components), mock.patch.object(
                 generator,
                 "zephyr_metadata",
-                side_effect=lambda operators, pack, delegated, models, cmsis_nn: {
+                side_effect=lambda operators, delegated, models, cmsis_nn: {
                     "CMakeLists.txt": generator.zephyr_cmake(models, cmsis_nn=cmsis_nn),
                     "components.conf": "components\n",
                     "operators.conf": "operators\n",
@@ -1175,8 +1028,6 @@ class CreateAiLayerTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
                 generator, "compile_spec", return_value=None
             ), mock.patch.object(generator, "cpu_target", return_value=mock.sentinel.target), mock.patch.object(
                 generator, "lower_pt2", return_value=(b"MULTI-PTE", ("detector", "classifier"))
@@ -1216,8 +1067,6 @@ class CreateAiLayerTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(generator, "executorch_pack", return_value=root / "pack"), mock.patch.object(
                 generator, "compile_spec"
             ) as compile_spec, mock.patch.object(
                 generator, "lower_pt2"
@@ -1278,8 +1127,6 @@ class CreateAiLayerTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(
                 generator, "run_in_venv"
             ), mock.patch.object(generator, "executorch_version", return_value="1.5.1"), mock.patch.object(
-                generator, "check_executorch_version"
-            ), mock.patch.object(generator, "executorch_pack", return_value=solution / "pack"), mock.patch.object(
                 generator, "compile_spec", return_value=self.compile_spec()
             ), mock.patch.object(generator, "generate_operator_lists", side_effect=operator_lists), mock.patch.object(
                 generator, "operator_components", return_value=(["Portable add"], False)
@@ -1299,7 +1146,7 @@ class CreateAiLayerTests(unittest.TestCase):
             self.assertIn("group: B", layer)
             if zephyr:
                 zephyr_metadata.assert_called_once_with(
-                    ["Portable add"], solution / "pack", True, mock.ANY, cmsis_nn=False
+                    ["Portable add"], True, mock.ANY, cmsis_nn=False
                 )
                 self.assertTrue((layer_dir / "operators.conf").is_file())
             else:
