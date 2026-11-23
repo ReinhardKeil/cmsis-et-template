@@ -706,11 +706,11 @@ def operator_components(operator_names: list[str]) -> tuple[list[str], bool]:
             unknown.append(operator)
             continue
         op = op.split(".", 1)[0]
-        op = ALIASES.get(op, op).lstrip("_")
         if ns == "quantized_decomposed":
             op = re.sub(r"_(per_tensor|per_channel|byte|copy)$", "", op)
         elif ns == "cortex_m":
             op = re.sub(r"_nhwc$", "", op)
+        op = ALIASES.get(op, op).lstrip("_")
         selected.add(f"{FAMILY[ns]} {op}")
     if unknown:
         raise ValueError(f"cannot map operators to ExecuTorch components: {unknown}")

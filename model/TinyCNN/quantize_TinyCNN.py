@@ -8,9 +8,10 @@ Run using the repository's Python environment:
     .venv/Scripts/python.exe model/TinyCNN/quantize_TinyCNN.py
 
 This standalone example defines its own network and calibration data. It uses
-the same symmetric INT8, per-channel-weight PT2E quantization as create_ai_layer.py
-and saves the quantized ``forward`` program before backend lowering. Vela runs
-later, when create_ai_layer.py consumes the .pt2 archive.
+the same symmetric INT8 PT2E quantization as create_ai_layer.py, with
+per-channel convolution weights and Cortex-M-compatible per-tensor Linear
+weights. It saves the quantized ``forward`` program before backend lowering;
+Vela runs later, when create_ai_layer.py consumes the .pt2 archive.
 """
 
 from pathlib import Path
@@ -74,6 +75,12 @@ def quantize_model() -> Path:
     # This specification selects quantization rules without invoking Vela.
     quantizer = EthosUQuantizer(EthosUCompileSpec(target="ethos-u55-256"))
     quantizer.set_global(get_symmetric_quantization_config(is_per_channel=True))
+    # Cortex-M's quantized_linear requires a single symmetric weight zero
+    # point. Keep convolution weights per-channel, but make Linear weights
+    # per-tensor so this archive can also be lowered for CPU-only projects.
+    quantizer.set_module_type(
+        nn.Linear, get_symmetric_quantization_config(is_per_channel=False)
+    )
     prepared = prepare_pt2e(graph, quantizer)
     with torch.no_grad():
         for sample in samples:

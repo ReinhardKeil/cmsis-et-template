@@ -23,7 +23,7 @@ layer:
     - component: Machine Learning:ExecuTorch Operators:Quantized quantize
 
   groups:
-    - group: TinyCNNMultiple
+    - group: TinyCNN
       files:
-        - file: ./TinyCNNMultiple_pte.c
-        - file: ./TinyCNNMultiple_pte.h
+        - file: ./TinyCNN_pte.c
+        - file: ./TinyCNN_pte.h

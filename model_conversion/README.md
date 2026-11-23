@@ -162,43 +162,23 @@ Separate input entries are not implicitly combined.
 
 ### `.pt2` input
 
-This is the recommended boundary for model-specific preparation. The archive
-contains one or more named, already-quantized PyTorch programs together with
-their input signatures, but no target-specific lowering. `create_ai_layer.py`
-validates every named program, lowers all of them for the selected CPU or
-Ethos-U configuration, and serializes them into one `.pte`. It never quantizes
-or requantizes `.pt2`.
+Use a `.pt2` file when the model has already been exported and quantized.
+`create_ai_layer.py` lowers it for the target selected by the solution and
+generates the deployable `.pte` program. It does not quantize the model again.
 
-Operator components are selected from the finished `.pte` after backend
-lowering. If the installed ExecuTorch package lacks an operator-registration
-library required by the archive, the converter reports the missing dependency.
+A `.pt2` archive may contain one or more named programs. These become methods
+in the generated `.pte`.
 
-[TinyCNN](../model/TinyCNN/README.md) includes a standalone producer that uses
-the same Ethos-U symmetric INT8, per-channel-weight quantization as the Python
-conversion workflow:
+The [TinyCNN example](../model/TinyCNN/README.md) shows how to generate and use
+a `.pt2` input:
 
 ```powershell
 .venv/Scripts/python.exe model/TinyCNN/quantize_TinyCNN.py
 ```
 
-It writes `model/TinyCNN/TinyCNN.pt2` with a quantized `forward` program. The
-script defines the TinyCNN network, its fixed NHWC input shape `(1, 16, 16, 3)`,
-two calibration samples, and the `ethos-u55-256` quantization target itself.
-It has no command-line options and does not read MLOps configuration or invoke
-Vela. Supply the archive as a `.pt2` input to `create_ai_layer.py` for subsequent
-Ethos-U55 lowering and Vela compilation. Different networks or preparation
-requirements belong in their own scripts.
-
-#### Constant metadata convention for `.pt2` producers
-
-Producers may store a `constant_methods.json` file in the archive to expose
-runtime metadata as zero-input methods in the generated `.pte`. Method names
-must be unique C identifiers; values must be JSON scalars or non-empty,
-homogeneous lists of scalars. See the
-[formal `.pt2` contract](model_conversion-specification.md#pt2-input) for the
-complete validation rules and the
-[multi-network TinyCNN example](../model/TinyCNN/README.md) for a working
-producer and runtime consumer.
+Producers that need to expose runtime constants can include
+`constant_methods.json`; see the
+[formal `.pt2` contract](model_conversion-specification.md#pt2-input).
 
 ### `.pte` input
 

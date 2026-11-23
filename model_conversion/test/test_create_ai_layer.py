@@ -538,6 +538,7 @@ class CreateAiLayerTests(unittest.TestCase):
             "quantized_decomposed::embedding_2bit.out": "Quantized embedding2b",
             "quantized_decomposed::embedding_4bit.dtype_out": "Quantized embedding4b",
             "cortex_m::quantized_depthwise_conv2d.out": "Cortex-M quantized_dw_conv2d",
+            "cortex_m::quantized_depthwise_conv2d_nhwc.out": "Cortex-M quantized_dw_conv2d",
             "cortex_m::quantized_transpose_conv2d.out": "Cortex-M quantized_tr_conv2d",
         }
         components, _ = generator.operator_components(list(cases))
