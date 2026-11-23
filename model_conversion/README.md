@@ -115,9 +115,9 @@ mlops:
 ### `mlops.model`
 
 | Key | Requirement | Description |
-|---|---|---|
+|:---|:---|:---|
 | `clayer:` | Required | Path and filename of the `*.clayer.yml` file generated for both CMSIS and Zephyr. Its parent directory receives all generated artifacts. |
-| `zephyr:` | Zephyr only | Generates additional Zephyr integration files in the directory containing `clayer`. A plain empty node and `zephyr: {}` are equivalent. |
+| `zephyr:` | Zephyr only | Generates additional Zephyr integration files in the directory containing `clayer`. |
 | `input:` | Required | Sequence of input-artifact definitions. |
 
 `clayer:` is required in every configuration. For Zephyr, keep `clayer:` and
@@ -126,7 +126,7 @@ add `zephyr:` alongside it:
 ```yaml
 model:
   clayer: ai_layer/ai_layer.clayer.yml
-  zephyr:
+  zephyr:               # generate Zephyr integration files
   input:
     - name: TinyCNN
       file: ../model/TinyCNN/TinyCNN.py
@@ -139,8 +139,8 @@ CMSIS-Toolbox resolves this to the file path in the generated MLOps metadata.
 
 The `mlops.model.input` node contains a list of named input artifacts.
 
-| Key | Requirement | Description |
-|---|---|---|
+| `input:` | Requirement | Description |
+|:---|:---|:---|
 | `- name:` | Required | Unique C identifier used for the layer group, filenames, and embedded-array symbol. |
 | &nbsp;&nbsp;&nbsp;`file:` | Required | `.py`, `.pt2`, or `.pte` file relative to the directory containing `*.cbuild-mlops.yml`. The file extension selects the workflow. |
 | &nbsp;&nbsp;&nbsp;`cpu:` | Optional | Presence selects CPU lowering for `.py` and `.pt2`, or asserts CPU-only execution for `.pte`. The CPU type comes from `processor.type`. |
@@ -150,7 +150,7 @@ The `mlops.model.input` node contains a list of named input artifacts.
 The file extension selects the processing workflow:
 
 | Input | Role | `create_ai_layer.py` action |
-|---|---|---|
+|:---|:---|:---|
 | `.pt2` | Recommended: lowering input | Validate, backend-lower, serialize as `.pte`, and integrate. |
 | `.pte` | Optional: prebuilt deployment artifact | Inspect, validate, and integrate unchanged. |
 | `.py` | Convenience: model-production input | Export, quantize, backend-lower, serialize, and integrate. |
