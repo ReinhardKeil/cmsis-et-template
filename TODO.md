@@ -29,6 +29,13 @@ Reference: [Compiler diagnostics](../cmsis-et-issues/et-warnings.md)
 - Verify GCC C++ ABI compatibility; retain scoped `-Wno-psabi` only when the informational note cannot be eliminated.
 - Include `<stddef.h>`/`<cstddef>` in `tag.h`; remove the `-include stddef.h` workaround.
 
+## ExecuTorch pack component mapping
+
+- Verify the operator-to-PDSC-component and component-to-Zephyr-Kconfig mapping
+  against ExecuTorch pack generation. Align the local `create_ai_layer.py`
+  exception table with the generator's authoritative naming rules and prevent
+  component-name or define-symbol drift when operators are added or renamed.
+
 ## CMSIS-NN compatibility
 
 - Review the Zephyr GCC 15 workaround for the CMSIS-NN MVE intrinsic

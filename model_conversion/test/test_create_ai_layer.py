@@ -537,6 +537,8 @@ class CreateAiLayerTests(unittest.TestCase):
             "quantized_decomposed::dequantize_per_token.out": "Quantized dequantize",
             "quantized_decomposed::embedding_2bit.out": "Quantized embedding2b",
             "quantized_decomposed::embedding_4bit.dtype_out": "Quantized embedding4b",
+            "aten::max_pool2d_with_indices_backward.out":
+                "Portable max_pool2d_indices_bwd",
             "cortex_m::quantized_depthwise_conv2d.out": "Cortex-M quantized_dw_conv2d",
             "cortex_m::quantized_depthwise_conv2d_nhwc.out": "Cortex-M quantized_dw_conv2d",
             "cortex_m::quantized_transpose_conv2d.out": "Cortex-M quantized_tr_conv2d",
@@ -655,6 +657,29 @@ class CreateAiLayerTests(unittest.TestCase):
             "CONFIG_CMSIS_EXECUTORCH_OP_CORTEX_M_QUANTIZED_CONV2D=y",
             metadata["operators.conf"],
         )
+
+    def test_component_define_symbols_follow_pdsc_names(self) -> None:
+        cases = {
+            "Portable max_pool2d_indices_bwd":
+                "PORTABLE_MAX_POOL2D_WITH_INDICES_BACKWARD",
+            "Cortex-M quantized_dw_conv2d":
+                "CORTEX_M_QUANTIZED_DEPTHWISE_CONV2D",
+            "Cortex-M quantized_tr_conv2d":
+                "CORTEX_M_QUANTIZED_TRANSPOSE_CONV2D",
+            "Cortex-M quantized_conv2d":
+                "CORTEX_M_QUANTIZED_CONV2D",
+        }
+
+        for component, expected in cases.items():
+            with self.subTest(component=component):
+                self.assertEqual(generator.component_define_symbol(component), expected)
+
+        metadata = generator.zephyr_metadata(list(cases), delegated=False)
+        for expected in cases.values():
+            self.assertIn(
+                f"CONFIG_CMSIS_EXECUTORCH_OP_{expected}=y",
+                metadata["operators.conf"],
+            )
 
     def test_zephyr_templates_configure_layer_before_adding_sources(self) -> None:
         for template in ("zephyr-m", "zephyr-u55", "zephyr-u85"):

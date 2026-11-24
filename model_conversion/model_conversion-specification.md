@@ -344,7 +344,8 @@ Repeated components shall be de-duplicated and sorted. Select Backend EthosU
 once if any output program is delegated. Add `ARM::CMSIS-NN` without a version,
 `CMSIS:NN Lib` when any selected CPU fallback operator requires CMSIS-NN.
 The operator mapping and CMSIS-NN decision shall be deterministic and owned by
-the converter; they shall not be derived from an installed pack PDSC.
+the converter; they shall not be read from an installed pack PDSC at conversion
+time.
 Emit both `ARM_NN_ENABLE_F16: 1` and `ARM_NN_ENABLE_F32: 1` whenever CMSIS-NN
 is required, including integer-only operators. This works around missing
 preprocessor guards in the current CMSIS-NN pack. Emit neither define when
@@ -360,6 +361,25 @@ shall add every embedded-program C file directly and exactly once to Zephyr's
 same runtime, backends, and fallback-operator components as the CMSIS layer.
 The generated CMake file shall apply the same floating-point CMSIS-NN defines
 with `zephyr_compile_definitions`, so they reach both ExecuTorch and CMSIS-NN.
+
+The ExecuTorch operator name, PDSC component `Csub`, and its
+`<RTE_Components_h>` define form one naming contract. A Zephyr symbol shall
+replace the PDSC define prefix `RTE_ML_` with `CONFIG_CMSIS_`. Normally, the
+component and define suffix follow by deterministic normalization. The
+converter shall contain this single PDSC-derived exception table where that is
+not possible:
+
+| ExecuTorch operator | Component (`Csub`) | PDSC define suffix / Zephyr Kconfig suffix |
+|---|---|---|
+| `aten::max_pool2d_with_indices_backward` | `Portable max_pool2d_indices_bwd` | `PORTABLE_MAX_POOL2D_WITH_INDICES_BACKWARD` |
+| `cortex_m::quantized_depthwise_conv2d` | `Cortex-M quantized_dw_conv2d` | `CORTEX_M_QUANTIZED_DEPTHWISE_CONV2D` |
+| `cortex_m::quantized_transpose_conv2d` | `Cortex-M quantized_tr_conv2d` | `CORTEX_M_QUANTIZED_TRANSPOSE_CONV2D` |
+
+All other component names shall use deterministic normalization. Keeping this
+single table in the converter avoids requiring an installed pack in the MLOps
+environment while preserving the PDSC-defined symbol names. The consuming
+Zephyr build remains responsible for validating the symbols against its selected
+external-module pack.
 
 The consuming Zephyr application's root CMake file shall append the generated
 configuration fragments to `EXTRA_CONF_FILE` before `find_package(Zephyr)` and
@@ -380,7 +400,8 @@ report. The converter shall pass all per-input lists to `gen_all_oplist`, which
 produces a temporary combined `selected_operators.yaml`. It shall map the
 combined YAML operator keys to component names using its deterministic family,
 alias, and normalization rules and write the resulting union to the selected
-CMSIS or Zephyr integration metadata.
+CMSIS or Zephyr integration metadata. Zephyr Kconfig generation shall apply the
+PDSC-derived component-define exception table after component selection.
 
 The converter shall not search raw `.pte` program bytes or use kernel-definition
 `merge_yaml` as a multi-program union. An operator that cannot be mapped by the
@@ -498,7 +519,8 @@ extension-based dispatch, and property applicability. It shall cover:
 - `cpu` and `optimize` applicability and effective Vela options;
 - installed-package version selection, per-input and combined operator-list
   generation, deterministic component and CMSIS-NN selection, report version
-  output, partial updates, and CMSIS and Zephyr artifacts.
+  output, PDSC-derived component-to-Kconfig symbol exceptions, partial updates,
+  and CMSIS and Zephyr artifacts.
 
 Unit tests shall mock export, PT2 loading, backend lowering, Vela, structured
 PTE inspection, `gen_oplist`, and `gen_all_oplist.main` so they do not require
