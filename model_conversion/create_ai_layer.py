@@ -127,7 +127,10 @@ def executorch_version(requirements_file: Path | None = None) -> str:
             f"executorch {required} is required by {requirements_file}, "
             "but it is not installed"
         )
-    if installed != required:
+    # CPU-only wheels use a PEP 440 local version such as ``1.6.0+cpu``.
+    # The requirements pin defines the required public ExecuTorch version;
+    # a local build label identifies the wheel variant, not another release.
+    if installed.partition("+")[0] != required.partition("+")[0]:
         sys.exit(
             f"executorch {required} is required by {requirements_file}, "
             f"but the active Python environment has {installed}"

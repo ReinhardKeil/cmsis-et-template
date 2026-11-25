@@ -508,6 +508,15 @@ class CreateAiLayerTests(unittest.TestCase):
                 self.assertEqual(generator.executorch_version(requirements), "1.6.0")
         distribution_version.assert_called_once_with("executorch")
 
+    def test_executorch_version_accepts_local_build_label(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text("executorch==1.6.0\n", encoding="utf-8")
+            with mock.patch.object(
+                generator.importlib.metadata, "version", return_value="1.6.0+cpu"
+            ):
+                self.assertEqual(generator.executorch_version(requirements), "1.6.0")
+
     def test_executorch_version_requires_installed_distribution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             requirements = Path(temporary) / "requirements.txt"
