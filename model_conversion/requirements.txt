@@ -1,5 +1,8 @@
-# Python packages for the model export, all from PyPI. setup_venv.py installs
-# this file first and then requirements-arm-tosa.txt (which needs --no-deps).
+# Python packages for the model export. setup_venv.py installs this file first
+# and then requirements-arm-tosa.txt (which needs --no-deps). Prefer the
+# official CPU-only PyTorch wheels: model export does not need CUDA, and the
+# CUDA dependencies can exceed the disk available on clean CI runners.
+--extra-index-url https://download.pytorch.org/whl/cpu
 #
 # executorch, torch and torchao must be mutually compatible. The exact
 # executorch pin is written to generated AI layers and reports as the required
