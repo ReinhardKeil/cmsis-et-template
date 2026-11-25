@@ -230,8 +230,10 @@ For each input `<name>`, the script creates:
 - `<name>_pte.c` and `<name>_pte.h`, exporting unique embedded-array symbols;
   and
 - `<name>_REPORT.md`, recording the input, conversion parameters, optimization,
-  CPU fallback operators, CMSIS-NN requirement, required ExecuTorch pack
-  version, and applicable Vela output.
+  CMSIS-NN requirement, required ExecuTorch pack version, CPU fallback
+  operators, and applicable Vela output. Its sections appear in this order:
+  Input report, Required ExecuTorch version, CPU fallback operators, and Vela
+  report when applicable.
 
 The generator replaces the files produced by the current run. It does not
 delete other files from the output directory; obsolete artifacts from removed
@@ -301,10 +303,12 @@ repository-specific tooling.
 
 ## Update the ExecuTorch version
 
-The Python environment is the version authority. The converter records its
-installed `executorch` version in every generated AI layer and report. CMSIS
-projects obtain the matching runtime pack from the generated layer; they do
-not select it separately in the csolution.
+The exact `executorch==<version>` pin in `requirements.txt` is the version
+authority. The converter records that version in every generated AI layer and
+report, and fails if the active Python environment does not contain the same
+`executorch` distribution version. CMSIS projects obtain the matching runtime
+pack from the generated layer; they do not select it separately in the
+csolution.
 
 1. Update the coordinated Python versions in `requirements.txt`. Use the
    ExecuTorch release's `torch_pin.py` and `install_requirements.py` as the

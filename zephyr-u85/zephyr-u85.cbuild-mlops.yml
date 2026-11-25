@@ -1,0 +1,34 @@
+cbuild-mlops:
+  generated-by: csolution version 2.16.0
+  description: TinyCNN for an Ethos-U85-256 target
+  processor:
+    type: Cortex-M55
+  npu:
+    type: Ethos-U85
+    macs: 256
+  vela:
+    ini: .cmsis/ensemble_vela.ini
+    options: --accelerator-config ethos-u85-256 --system-config RTSS_HP_SRAM_MRAM --memory-mode Shared_Sram
+  model:
+    clayer: ai_layer/ai_layer.clayer.yml
+    zephyr:
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/TinyCNN.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+  hardware:
+    active: AppKit-E8
+    cbuild-run: out/zephyr-u85+AppKit-E8.cbuild-run.yml
+    output:
+      - file: out/Zephyr_app/AppKit-E8/Debug/zephyr/zephyr.elf
+        type: elf
+  simulator:
+    active: Corstone-320-FVP
+    cbuild-run: out/zephyr-u85+Corstone-320-FVP.cbuild-run.yml
+    output:
+      - file: out/Zephyr_app/Corstone-320-FVP/Debug/zephyr/zephyr.elf
+        type: elf
+    model: FVP_Corstone_SSE-320
+    config-file: fvp_config.txt

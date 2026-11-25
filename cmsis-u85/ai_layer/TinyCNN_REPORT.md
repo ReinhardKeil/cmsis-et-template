@@ -8,16 +8,16 @@
 - CMSIS-NN required: `no`
 - methods: `forward`
 
+## Required ExecuTorch version
+
+- pack: PyTorch::ExecuTorch@1.6.0
+
 ## CPU fallback operators
 
 - `quantized_decomposed::dequantize_per_tensor.out`
 - `quantized_decomposed::quantize_per_tensor.out`
 
-## Required ExecuTorch version
-
-- pack: PyTorch::ExecuTorch@1.6.0
-
-## Vela
+## Vela report
 
 - accelerator: `ethos-u85-256`
 - system config: `Ethos_U85_SYS_DRAM_Mid`

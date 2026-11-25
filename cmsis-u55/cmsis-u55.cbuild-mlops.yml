@@ -1,0 +1,26 @@
+cbuild-mlops:
+  generated-by: csolution version 2.16.0
+  description: TinyCNN int8 image classifier for Ethos-U55-128
+  processor:
+    type: Cortex-M55
+  npu:
+    type: Ethos-U55
+    macs: 128
+  vela:
+    options: --accelerator-config ethos-u55-128 --system-config Ethos_U55_High_End_Embedded --memory-mode Shared_Sram
+  model:
+    clayer: ai_layer/ai_layer.clayer.yml
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/TinyCNN.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+  simulator:
+    active: SSE-300-U55
+    cbuild-run: out/cmsis-u55+SSE-300-U55.cbuild-run.yml
+    output:
+      - file: out/cmsis-u55/SSE-300-U55/Debug/cmsis-u55.axf
+        type: elf
+    model: FVP_Corstone_SSE-300_Ethos-U55
+    config-file: board/Corstone-300/fvp_config_u55.txt

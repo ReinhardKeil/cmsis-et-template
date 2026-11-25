@@ -1,9 +1,10 @@
 # Python packages for the model export, all from PyPI. setup_venv.py installs
 # this file first and then requirements-arm-tosa.txt (which needs --no-deps).
 #
-# executorch, torch and torchao must be mutually compatible. The installed
-# executorch version is written to generated AI layers and reports as the
-# required PyTorch::ExecuTorch pack version. Zephyr solutions select their
+# executorch, torch and torchao must be mutually compatible. The exact
+# executorch pin is written to generated AI layers and reports as the required
+# PyTorch::ExecuTorch pack version. The converter verifies that the active
+# Python environment contains the same version. Zephyr solutions select their
 # external-module pack separately and must keep that selection compatible.
 # The export environment supports Python 3.10 to 3.13 (see setup_venv.py).
 executorch==1.6.0

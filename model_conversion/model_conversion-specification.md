@@ -141,9 +141,11 @@ type are errors.
 #### ExecuTorch version authority
 
 `model_conversion/requirements.txt` is the version authority for model
-conversion. The converter shall obtain the installed `executorch` distribution
-version from the active Python environment and write that version to the
-generated AI layer, for example:
+conversion. The converter shall obtain the required ExecuTorch version from the
+exact `executorch==<version>` pin in that file and write that version to the
+generated AI layer. It shall verify that the `executorch` distribution in the
+active Python environment has the same version and fail conversion if it is
+missing or different. For example, `executorch==1.6.0` produces:
 
 ```yaml
 packs:
@@ -321,8 +323,18 @@ processed and validated for the target CPU/MCU and, when applicable, NPU. It
 shall identify the input type and provenance, distinguish generated and
 prebuilt `.pte` programs, record applicable parameters and effective
 optimization settings, list every method and its CPU fallback operators, and
-state whether CMSIS-NN is required. It shall contain this section using the
-installed ExecuTorch distribution version:
+state whether CMSIS-NN is required. Its report sections shall appear in this
+order:
+
+1. Input report
+2. Required ExecuTorch version
+3. CPU fallback operators
+4. Vela report, when applicable
+
+The Input report shall contain the input provenance, processing details,
+methods, target validation, and CMSIS-NN requirement. The Required ExecuTorch
+version section shall use the version pinned by the `executorch==<version>`
+entry in `model_conversion/requirements.txt`:
 
 ```markdown
 ## Required ExecuTorch version
@@ -330,10 +342,13 @@ installed ExecuTorch distribution version:
 - pack: PyTorch::ExecuTorch@1.6.0
 ```
 
-An Ethos-U report shall additionally contain the shared accelerator, system
-configuration, and memory mode; the effective per-input Vela options; and the
-complete Vela textual report in a fenced code block. A CPU-only report shall
-have no Vela section. Reports shall use UTF-8 and LF line endings.
+The CPU fallback operators section shall list the portable operators required
+by the output program. An Ethos-U report's final Vela report section shall
+contain the shared accelerator, system configuration, and memory mode; the
+effective per-input Vela options; and the complete Vela textual report in a
+fenced code block. A CPU-only report shall omit the Vela report section without
+changing the order of the preceding sections. Reports shall use UTF-8 and LF
+line endings.
 
 The directory shall always receive the named `*.clayer.yml` file, including
 for Zephyr so other tools can consume the layer. It shall contain one
@@ -483,10 +498,12 @@ otherwise, and use an isolated uv launcher when `--uv` is requested.
 This is the primary dependency manifest for model conversion. Versions shall
 remain compatible with the ExecuTorch Arm backend and the supported Python
 range. It is the source of truth for the coordinated ExecuTorch, PyTorch,
-TorchAO, and Vela versions. The installed ExecuTorch version shall be written
-as the required `PyTorch::ExecuTorch` pack version in the generated AI layer and
-every generated report. Zephyr solutions select their external-module pack
-independently and are responsible for keeping that selection compatible.
+TorchAO, and Vela versions. The version from its exact
+`executorch==<version>` pin shall be written as the required
+`PyTorch::ExecuTorch` pack version in the generated AI layer and every generated
+report. The installed Python distribution shall be validated against this pin.
+Zephyr solutions select their external-module pack independently and are
+responsible for keeping that selection compatible.
 `gen_oplist` and `gen_all_oplist` come from ExecuTorch, and TorchGen comes from
 PyTorch; they require no separate dependency entries.
 
@@ -573,10 +590,12 @@ python -m unittest discover -s model_conversion/test -p "test_*.py" -v
   before replacing the complete layer.
 - Both `--name value` and `--name=value` Vela option forms work.
 - Invalid and duplicate options terminate with a clear error.
-- The installed ExecuTorch distribution version is written to the generated AI
-  layer and every input report. No other CMSIS-Toolbox output, source
-  solution/layer file, installed pack PDSC, or Zephyr Kconfig is read during
-  conversion.
+- The ExecuTorch version pinned by `executorch==<version>` in
+  `model_conversion/requirements.txt` is written to the generated AI layer and
+  every input report. Conversion fails if the active Python environment does
+  not contain that same distribution version. No other CMSIS-Toolbox output,
+  source solution/layer file, installed pack PDSC, or Zephyr Kconfig is read
+  during conversion.
 - CMSIS and Zephyr builds validate generated component and Kconfig selections
   against the pack used by the embedded build. Zephyr pack-version consistency
   is the responsibility of the user or CI system.

@@ -1,0 +1,21 @@
+cbuild-mlops:
+  generated-by: csolution version 2.16.0
+  description: TinyCNN int8 image classifier for Cortex-M55
+  processor:
+    type: Cortex-M55
+  model:
+    clayer: ai_layer/ai_layer.clayer.yml
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/TinyCNN.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+  simulator:
+    active: SSE-300-M55
+    cbuild-run: out/cmsis-m+SSE-300-M55.cbuild-run.yml
+    output:
+      - file: out/cmsis-m/SSE-300-M55/Debug/cmsis-m.axf
+        type: elf
+    model: FVP_Corstone_SSE-300
+    config-file: board/Corstone-300/fvp_config.txt

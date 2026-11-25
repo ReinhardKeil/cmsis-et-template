@@ -1,0 +1,25 @@
+cbuild-mlops:
+  generated-by: csolution version 2.16.0
+  description: TinyCNN int8 image classifier for Ethos-U85
+  processor:
+    type: Cortex-M85
+  npu:
+    type: Ethos-U85
+  vela:
+    options: --system-config Ethos_U85_SYS_DRAM_Mid --memory-mode Shared_Sram
+  model:
+    clayer: ai_layer/ai_layer.clayer.yml
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/TinyCNN.py
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+  simulator:
+    active: SSE-320-U85
+    cbuild-run: out/cmsis-u85+SSE-320-U85.cbuild-run.yml
+    output:
+      - file: out/cmsis-u85/SSE-320-U85/Debug/cmsis-u85.elf
+        type: elf
+    model: FVP_Corstone_SSE-320
+    config-file: board/Corstone-320/fvp_config.txt

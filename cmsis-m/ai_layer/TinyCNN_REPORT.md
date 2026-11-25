@@ -8,6 +8,10 @@
 - CMSIS-NN required: `yes`
 - methods: `forward`
 
+## Required ExecuTorch version
+
+- pack: PyTorch::ExecuTorch@1.6.0
+
 ## CPU fallback operators
 
 - `cortex_m::dequantize_per_tensor.out`
@@ -17,7 +21,3 @@
 - `cortex_m::quantized_max_pool2d_nhwc.out`
 - `cortex_m::transpose.out`
 - `dim_order_ops::_clone_dim_order.out`
-
-## Required ExecuTorch version
-
-- pack: PyTorch::ExecuTorch@1.6.0

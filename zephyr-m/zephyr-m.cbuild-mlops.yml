@@ -1,0 +1,35 @@
+cbuild-mlops:
+  generated-by: csolution version 2.16.0
+  description: TinyCNN int8 image classifier for Cortex-M55
+  processor:
+    type: Cortex-M55
+  npu:
+    type: Ethos-U55
+    macs: 256
+  vela:
+    ini: .cmsis/ensemble_vela.ini
+    options: --accelerator-config ethos-u55-256
+  model:
+    clayer: ai_layer/ai_layer.clayer.yml
+    zephyr:
+    input:
+      - name: TinyCNN
+        file: ../model/TinyCNN/TinyCNN.py
+        cpu:
+        parameters:
+          input-shape: 1x16x16x3
+          calibration-samples: 2
+  hardware:
+    active: AppKit-E8
+    cbuild-run: out/zephyr-m+AppKit-E8.cbuild-run.yml
+    output:
+      - file: out/Zephyr_app/AppKit-E8/Debug/zephyr/zephyr.elf
+        type: elf
+  simulator:
+    active: Corstone-300-FVP
+    cbuild-run: out/zephyr-m+Corstone-300-FVP.cbuild-run.yml
+    output:
+      - file: out/Zephyr_app/Corstone-300-FVP/Debug/zephyr/zephyr.elf
+        type: elf
+    model: FVP_Corstone_SSE-300_Ethos-U55
+    config-file: fvp_config.txt

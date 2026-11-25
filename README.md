@@ -276,6 +276,38 @@ application, runs it on the matching FVP, checks `Test_result: PASS`, and
 uploads its artifacts. A separate workflow verifies the Python environment
 setup on Linux, macOS, and Windows.
 
+## Run MLOps separately from the embedded build
+
+Model conversion may run on a separate host or CI system, independent of the
+embedded application build. Generate the `*.cbuild-mlops.yml` of the solution with:
+
+```console
+cbuild setup <solution-dir>/<solution>.csolution.yml --active <target> --packs
+```
+
+### MLOps input
+
+These are all files the embedded project needs to provide for the ML model conversion
+step:
+
+- The generated `*.cbuild-mlops.yml` file.
+- The Vela INI files in the `.cmsis` folder referenced by that file.
+
+Run the ML model conversion with:
+
+```console
+python model_conversion/create_ai_layer.py <solution-dir>/<solution>.cbuild-mlops.yml
+```
+
+This script may be adapted to the requirements of the MLOps system. For
+details, see the [`model_conversion` README](model_conversion/README.md).
+
+### MLOps output
+
+The output is the content of the `ai_layer` folder referenced by `model.clayer`
+in the `*.cbuild-mlops.yml` file. Transfer the complete folder to the embedded
+build system.
+
 ## License
 
 The template code is licensed under Apache-2.0; see `LICENSE`. ExecuTorch and

@@ -498,20 +498,48 @@ class CreateAiLayerTests(unittest.TestCase):
                         self.assertIsNotNone(getter)
                         self.assertEqual(getter.execute(()), [value])
 
-    def test_executorch_version_uses_installed_distribution(self) -> None:
-        with mock.patch.object(
-            generator.importlib.metadata, "version", return_value="1.6.0"
-        ) as distribution_version:
-            self.assertEqual(generator.executorch_version(), "1.6.0")
+    def test_executorch_version_uses_requirements_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text("executorch==1.6.0\n", encoding="utf-8")
+            with mock.patch.object(
+                generator.importlib.metadata, "version", return_value="1.6.0"
+            ) as distribution_version:
+                self.assertEqual(generator.executorch_version(requirements), "1.6.0")
         distribution_version.assert_called_once_with("executorch")
 
     def test_executorch_version_requires_installed_distribution(self) -> None:
-        with mock.patch.object(
-            generator.importlib.metadata,
-            "version",
-            side_effect=generator.importlib.metadata.PackageNotFoundError,
-        ), self.assertRaisesRegex(SystemExit, "executorch Python package is not installed"):
-            generator.executorch_version()
+        with tempfile.TemporaryDirectory() as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text("executorch==1.6.0\n", encoding="utf-8")
+            with mock.patch.object(
+                generator.importlib.metadata,
+                "version",
+                side_effect=generator.importlib.metadata.PackageNotFoundError,
+            ), self.assertRaisesRegex(
+                SystemExit, "executorch 1.6.0 is required.*not installed"
+            ):
+                generator.executorch_version(requirements)
+
+    def test_executorch_version_rejects_environment_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text("executorch==1.6.0\n", encoding="utf-8")
+            with mock.patch.object(
+                generator.importlib.metadata, "version", return_value="1.5.1"
+            ), self.assertRaisesRegex(
+                SystemExit, "required.*active Python environment has 1.5.1"
+            ):
+                generator.executorch_version(requirements)
+
+    def test_executorch_version_requires_one_exact_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text("executorch>=1.6.0\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                SystemExit, "exactly one executorch==<version> pin"
+            ):
+                generator.executorch_version(requirements)
 
     def test_components_select_known_operators(self) -> None:
         runtime, operators, cmsis_nn = generator.components(
@@ -600,6 +628,27 @@ class CreateAiLayerTests(unittest.TestCase):
         self.assertIn("memory mode: `Shared_Sram`", summary)
         self.assertIn("```text\nNetwork summary\nTotal SRAM used 6 KiB\n```", summary)
         self.assertNotIn("\r", summary)
+
+    def test_input_report_uses_required_section_order(self) -> None:
+        report = generator.input_report(
+            generator.ModelInput(
+                "TinyCNN", "TinyCNN", ROOT / "model.pt2", {}, False, None, False
+            ),
+            ["aten::add.out"],
+            False,
+            "1.6.0",
+            self.compile_spec(),
+            "Network summary\n",
+            self.inspection("forward", delegated=True),
+        )
+        headings = [
+            "# Input report: TinyCNN",
+            "## Required ExecuTorch version",
+            "## CPU fallback operators",
+            "## Vela report",
+        ]
+        positions = [report.index(heading) for heading in headings]
+        self.assertEqual(positions, sorted(positions))
 
     def test_replace_outputs_preserves_destinations_when_staging_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

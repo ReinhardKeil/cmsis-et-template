@@ -105,12 +105,34 @@ def run_in_venv(workspace_dir: Path) -> None:
     sys.exit(subprocess.run([str(python), str(script), *sys.argv[1:]]).returncode)
 
 
-def executorch_version() -> str:
-    """Return the version installed by the model-conversion environment."""
+def executorch_version(requirements_file: Path | None = None) -> str:
+    """Return the requirements pin after validating the active environment."""
+    requirements_file = (
+        requirements_file or WORKSPACE_DIR / "model_conversion" / "requirements.txt"
+    )
+    pins = []
+    for line in requirements_file.read_text(encoding="utf-8").splitlines():
+        match = re.fullmatch(r"\s*executorch\s*==\s*([^\s#]+)\s*(?:#.*)?", line)
+        if match:
+            pins.append(match.group(1))
+    if len(pins) != 1:
+        sys.exit(
+            f"{requirements_file} must contain exactly one executorch==<version> pin"
+        )
+    required = pins[0]
     try:
-        return importlib.metadata.version("executorch")
+        installed = importlib.metadata.version("executorch")
     except importlib.metadata.PackageNotFoundError:
-        sys.exit("the executorch Python package is not installed")
+        sys.exit(
+            f"executorch {required} is required by {requirements_file}, "
+            "but it is not installed"
+        )
+    if installed != required:
+        sys.exit(
+            f"executorch {required} is required by {requirements_file}, "
+            f"but the active Python environment has {installed}"
+        )
+    return required
 
 
 # Vela options that are arguments of EthosUCompileSpec, and the ones the export
@@ -600,15 +622,15 @@ def input_report(
         f"- optimization: `{model.optimize or 'default'}`",
         f"- CMSIS-NN required: `{'yes' if cmsis_nn else 'no'}`",
         f"- methods: `{', '.join(inspection.methods) if inspection else 'unavailable'}`", "",
-        "## CPU fallback operators", "",
-        *([f"- `{operator}`" for operator in operators] or ["None."]), "",
         "## Required ExecuTorch version", "",
         f"- pack: {PACK}@{version}", "",
+        "## CPU fallback operators", "",
+        *([f"- `{operator}`" for operator in operators] or ["None."]), "",
     ]
     if spec is not None:
         report = vela_report.replace("\r\n", "\n").replace("\r", "\n").strip()
         lines.extend([
-            "## Vela", "",
+            "## Vela report", "",
             f"- accelerator: `{spec.target}`",
             f"- system config: `{compiler_flag_value(spec.compiler_flags, 'system-config')}`",
             f"- memory mode: `{compiler_flag_value(spec.compiler_flags, 'memory-mode')}`", "",
